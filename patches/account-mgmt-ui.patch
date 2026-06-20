@@ -1,0 +1,305 @@
+diff --git a/packages/app/src/components/dialog-connect-provider.tsx b/packages/app/src/components/dialog-connect-provider.tsx
+index a0ccc16..6a73a81 100644
+--- a/packages/app/src/components/dialog-connect-provider.tsx
++++ b/packages/app/src/components/dialog-connect-provider.tsx
+@@ -9,7 +9,7 @@ import { ProviderIcon } from "@opencode-ai/ui/provider-icon"
+ import { Spinner } from "@opencode-ai/ui/spinner"
+ import { TextField } from "@opencode-ai/ui/text-field"
+ import { showToast } from "@opencode-ai/ui/toast"
+-import { createEffect, createMemo, createResource, Match, onCleanup, onMount, Switch } from "solid-js"
++import { createEffect, createMemo, createResource, createSignal, Match, onCleanup, onMount, Switch } from "solid-js"
+ import { createStore, produce } from "solid-js/store"
+ import { Link } from "@/components/link"
+ import { useServerSDK } from "@/context/server-sdk"
+@@ -17,6 +17,11 @@ import { useServerSync } from "@/context/server-sync"
+ import { useLanguage } from "@/context/language"
+ import { useProviders } from "@/hooks/use-providers"
+ 
++interface PoolEntry {
++  key: string
++  label?: string
++}
++
+ export function DialogConnectProvider(props: { provider: string }) {
+   const dialog = useDialog()
+   const serverSync = useServerSync()
+@@ -65,7 +70,7 @@ export function DialogConnectProvider(props: { provider: string }) {
+   const [store, setStore] = createStore({
+     methodIndex: undefined as undefined | number,
+     authorization: undefined as undefined | ProviderAuthAuthorization,
+-    state: "pending" as undefined | "pending" | "complete" | "error" | "prompt",
++    state: "pending" as undefined | "pending" | "complete" | "error" | "prompt" | "manage",
+     error: undefined as string | undefined,
+   })
+ 
+@@ -76,6 +81,7 @@ export function DialogConnectProvider(props: { provider: string }) {
+     | { type: "auth.pending" }
+     | { type: "auth.complete"; authorization: ProviderAuthAuthorization }
+     | { type: "auth.error"; error: string }
++    | { type: "manage.show" }
+ 
+   function dispatch(action: Action) {
+     setStore(
+@@ -110,6 +116,11 @@ export function DialogConnectProvider(props: { provider: string }) {
+           draft.error = undefined
+           return
+         }
++        if (action.type === "manage.show") {
++          draft.state = "manage"
++          draft.error = undefined
++          return
++        }
+         draft.state = "error"
+         draft.error = action.error
+       }),
+@@ -329,6 +340,52 @@ export function DialogConnectProvider(props: { provider: string }) {
+     }
+   })
+ 
++  const [poolEntries, setPoolEntries] = createSignal<PoolEntry[]>([])
++  const [poolLoading, setPoolLoading] = createSignal(false)
++  const [manageView, setManageView] = createSignal<"idle" | "loading" | "list" | "add">("idle")
++
++  const loadPool = createMemo(() => {
++    if (manageView() === "list" || manageView() === "loading") {
++      setPoolLoading(true)
++      fetch(`/auth/${encodeURIComponent(props.provider)}/pool`)
++        .then((r) => r.json())
++        .then((data) => {
++          if (alive.value) {
++            setPoolEntries(Array.isArray(data) ? data : [])
++            setManageView("list")
++          }
++        })
++        .catch(() => {
++          if (alive.value) {
++            setPoolEntries([])
++            setManageView("list")
++          }
++        })
++        .finally(() => {
++          if (alive.value) setPoolLoading(false)
++        })
++    }
++  })
++
++  async function addPoolKey(key: string, label?: string) {
++    await fetch(`/auth/${encodeURIComponent(props.provider)}/pool`, {
++      method: "POST",
++      headers: { "Content-Type": "application/json" },
++      body: JSON.stringify({ key, label }),
++    })
++    setManageView("loading")
++  }
++
++  async function removePoolKey(index: number) {
++    await fetch(`/auth/${encodeURIComponent(props.provider)}/pool/${index}`, { method: "DELETE" })
++    setManageView("loading")
++  }
++
++  async function switchPoolKey(index: number) {
++    await fetch(`/auth/${encodeURIComponent(props.provider)}/pool/switch/${index}`, { method: "POST" })
++    setManageView("loading")
++  }
++
+   async function complete() {
+     await serverSDK.client.global.dispose()
+     dialog.close()
+@@ -356,6 +413,166 @@ export function DialogConnectProvider(props: { provider: string }) {
+     all()
+   }
+ 
++  function ManageAccountsView() {
++    const hasMain = providers.connected().some((p) => p.id === props.provider)
++
++    createEffect(() => {
++      if (manageView() === "idle") {
++        setManageView("loading")
++      }
++    })
++
++    createEffect(() => {
++      if (manageView() === "loading") {
++        loadPool()
++      }
++    })
++
++    const [addStore, setAddStore] = createStore({
++      value: "",
++      error: undefined as string | undefined,
++    })
++
++    async function handleAddSubmit(e: SubmitEvent) {
++      e.preventDefault()
++      const form = e.currentTarget as HTMLFormElement
++      const formData = new FormData(form)
++      const apiKey = formData.get("apiKey") as string
++
++      if (!apiKey?.trim()) {
++        setAddStore("error", language.t("provider.connect.apiKey.required"))
++        return
++      }
++
++      setAddStore("error", undefined)
++      await addPoolKey(apiKey)
++      setAddStore("value", "")
++      setManageView("loading")
++    }
++
++    return (
++      <div class="flex flex-col gap-4">
++        <Switch>
++          <Match when={poolLoading()}>
++            <div class="flex items-center gap-x-2 text-14-regular text-text-base">
++              <Spinner />
++              <span>{language.t("provider.connect.status.inProgress")}</span>
++            </div>
++          </Match>
++          <Match when={manageView() === "add"}>
++            <div class="text-14-regular text-text-base">
++              {language.t("provider.connect.apiKey.description", { provider: provider().name })}
++            </div>
++            <form onSubmit={handleAddSubmit} class="flex flex-col items-start gap-4">
++              <TextField
++                autofocus
++                type="text"
++                label={language.t("provider.connect.apiKey.label", { provider: provider().name })}
++                placeholder={language.t("provider.connect.apiKey.placeholder")}
++                name="apiKey"
++                value={addStore.value}
++                onChange={(v) => setAddStore("value", v)}
++                validationState={addStore.error ? "invalid" : undefined}
++                error={addStore.error}
++              />
++              <div class="flex gap-2">
++                <Button class="w-auto" type="submit" size="large" variant="primary">
++                  {language.t("common.continue")}
++                </Button>
++                <Button
++                  class="w-auto"
++                  size="large"
++                  variant="secondary"
++                  onClick={() => setManageView("list")}
++                >
++                  {language.t("common.cancel")}
++                </Button>
++              </div>
++            </form>
++          </Match>
++          <Match when={manageView() === "list"}>
++            <div class="flex flex-col gap-3">
++              <div class="flex items-center justify-between">
++                <div class="text-14-regular text-text-base">
++                  {language.t("provider.connect.accounts", { provider: provider().name })}
++                </div>
++                <Button
++                  size="small"
++                  variant="secondary"
++                  icon="plus-small"
++                  onClick={() => setManageView("add")}
++                >
++                  {language.t("common.add")}
++                </Button>
++              </div>
++
++              <div class="flex flex-col gap-2">
++                {hasMain ? (
++                  <div class="flex items-center justify-between gap-2 p-2 rounded-md bg-surface-stronger-base border border-border-weak-base">
++                    <div class="flex items-center gap-2 min-w-0">
++                      <Icon name="circle-check" class="text-icon-success-base size-4 shrink-0" />
++                      <span class="text-14-medium text-text-strong truncate">
++                        {provider().name}
++                      </span>
++                      <span class="text-12-regular text-text-weak">({language.t("provider.connect.mainAccount")})</span>
++                    </div>
++                  </div>
++                ) : null}
++
++                {poolEntries().length === 0 && !hasMain ? (
++                  <div class="text-14-regular text-text-weak py-2">
++                    {language.t("provider.connect.noAccounts")}
++                  </div>
++                ) : null}
++
++                {poolEntries().map((entry, i) => (
++                  <div class="flex items-center justify-between gap-2 p-2 rounded-md bg-surface-stronger-base border border-border-weak-base">
++                    <div class="flex items-center gap-2 min-w-0">
++                      <Icon name="key" class="text-icon-base size-4 shrink-0" />
++                      <span class="text-14-regular text-text-strong truncate font-mono text-xs">
++                        {entry.key.slice(0, 8)}...{entry.key.slice(-4)}
++                      </span>
++                      {entry.label ? (
++                        <span class="text-12-regular text-text-weak">{entry.label}</span>
++                      ) : null}
++                    </div>
++                    <div class="flex items-center gap-1 shrink-0">
++                      <Button
++                        size="small"
++                        variant="ghost"
++                        icon="arrow-swap"
++                        onClick={() => void switchPoolKey(i)}
++                        title={language.t("provider.connect.setMainAccount")}
++                      />
++                      <Button
++                        size="small"
++                        variant="ghost"
++                        icon="trash"
++                        onClick={() => void removePoolKey(i)}
++                        title={language.t("common.delete")}
++                      />
++                    </div>
++                  </div>
++                ))}
++              </div>
++
++              <div class="flex gap-2 pt-2">
++                <Button
++                  class="w-auto"
++                  size="large"
++                  variant="primary"
++                  onClick={() => void complete()}
++                >
++                  {language.t("common.done")}
++                </Button>
++              </div>
++            </div>
++          </Match>
++        </Switch>
++      </div>
++    )
++  }
++
+   function MethodSelection() {
+     return (
+       <>
+@@ -414,7 +631,7 @@ export function DialogConnectProvider(props: { provider: string }) {
+           key: apiKey,
+         },
+       })
+-      await complete()
++      dispatch({ type: "manage.show" })
+     }
+ 
+     return (
+@@ -573,6 +790,11 @@ export function DialogConnectProvider(props: { provider: string }) {
+     )
+   }
+ 
++  const showManage = createMemo(() => {
++    const hasAuth = providers.connected().some((p) => p.id === props.provider)
++    return hasAuth || store.state === "manage"
++  })
++
+   return (
+     <Dialog
+       title={
+@@ -608,6 +830,9 @@ export function DialogConnectProvider(props: { provider: string }) {
+                   </div>
+                 </div>
+               </Match>
++              <Match when={showManage()}>
++                <ManageAccountsView />
++              </Match>
+               <Match when={store.methodIndex === undefined}>
+                 <MethodSelection />
+               </Match>

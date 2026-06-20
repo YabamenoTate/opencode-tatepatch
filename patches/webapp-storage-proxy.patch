@@ -1,0 +1,54 @@
+diff --git a/packages/app/src/entry.tsx b/packages/app/src/entry.tsx
+index 5115f03..8151c1a 100644
+--- a/packages/app/src/entry.tsx
++++ b/packages/app/src/entry.tsx
+@@ -11,6 +11,40 @@ import { authFromToken } from "@/utils/server"
+ import pkg from "../package.json"
+ import { ServerConnection } from "./context/server"
+ 
++// Intercept ALL localStorage — server-only XHR layer.
++// Every browser sees the same state since all data lives on the server.
++if (typeof localStorage !== "undefined") {
++  const orig = localStorage
++  Storage.prototype.getItem = function (key: string): string | null {
++    if (key == null) return null
++    try {
++      const xhr = new XMLHttpRequest()
++      xhr.open("GET", "/persist/" + encodeURIComponent(key), false)
++      xhr.send()
++      if (xhr.status === 200) return xhr.responseText
++    } catch { /* server down */ }
++    return null
++  }
++  Storage.prototype.setItem = function (key: string, value: string): void {
++    try {
++      const xhr = new XMLHttpRequest()
++      xhr.open("PUT", "/persist/" + encodeURIComponent(key), false)
++      xhr.setRequestHeader("Content-Type", "application/json")
++      xhr.send(JSON.stringify(value))
++    } catch { /* server down */ }
++  }
++  Storage.prototype.removeItem = function (key: string): void {
++    try {
++      const xhr = new XMLHttpRequest()
++      xhr.open("DELETE", "/persist/" + encodeURIComponent(key), false)
++      xhr.send()
++    } catch { /* server down */ }
++  }
++  Storage.prototype.clear = function (): void {
++    /* no-op */
++  }
++}
++
+ const DEFAULT_SERVER_URL_KEY = "opencode.settings.dat:defaultServerUrl"
+ 
+ const getLocale = () => {
+@@ -121,7 +155,7 @@ const clearAuthToken = () => {
+ 
+ const platform: Platform = {
+   platform: "web",
+-  version: pkg.version,
++  version: pkg.version + " (Tate Patched)",
+   openLink,
+   back,
+   forward,

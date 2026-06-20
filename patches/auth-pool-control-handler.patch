@@ -1,0 +1,68 @@
+diff --git a/packages/opencode/src/server/routes/instance/httpapi/handlers/control.ts b/packages/opencode/src/server/routes/instance/httpapi/handlers/control.ts
+index e1ede22..6a75b9e 100644
+--- a/packages/opencode/src/server/routes/instance/httpapi/handlers/control.ts
++++ b/packages/opencode/src/server/routes/instance/httpapi/handlers/control.ts
+@@ -1,4 +1,5 @@
+ import { Auth } from "@/auth"
++import * as AuthPool from "@/auth/pool"
+ import { ProviderID } from "@/provider/schema"
+ import * as Log from "@opencode-ai/core/util/log"
+ import { Effect } from "effect"
+@@ -9,6 +10,7 @@ import { LogInput } from "../groups/control"
+ export const controlHandlers = HttpApiBuilder.group(RootHttpApi, "control", (handlers) =>
+   Effect.gen(function* () {
+     const auth = yield* Auth.Service
++    const pool = yield* AuthPool.Service
+ 
+     const authSet = Effect.fn("ControlHttpApi.authSet")(function* (ctx: {
+       params: { providerID: ProviderID }
+@@ -23,12 +25,48 @@ export const controlHandlers = HttpApiBuilder.group(RootHttpApi, "control", (han
+       return true
+     })
+ 
++    const poolList = Effect.fn("ControlHttpApi.poolList")(function* (ctx: {
++      params: { providerID: ProviderID }
++    }) {
++      const entries = yield* pool.list(ctx.params.providerID)
++      return entries
++    })
++
++    const poolAdd = Effect.fn("ControlHttpApi.poolAdd")(function* (ctx: {
++      params: { providerID: ProviderID }
++      payload: { key: string; label?: string }
++    }) {
++      yield* pool.add(ctx.params.providerID, { key: ctx.payload.key, label: ctx.payload.label })
++      return true
++    })
++
++    const poolRemove = Effect.fn("ControlHttpApi.poolRemove")(function* (ctx: {
++      params: { providerID: ProviderID; index: number }
++    }) {
++      yield* pool.remove(ctx.params.providerID, ctx.params.index)
++      return true
++    })
++
++    const poolSwitch = Effect.fn("ControlHttpApi.poolSwitch")(function* (ctx: {
++      params: { providerID: ProviderID; index: number }
++    }) {
++      yield* pool.switch(ctx.params.providerID, ctx.params.index)
++      return true
++    })
++
+     const log = Effect.fn("ControlHttpApi.log")(function* (ctx: { payload: typeof LogInput.Type }) {
+       const logger = Log.create({ service: ctx.payload.service })
+       logger[ctx.payload.level](ctx.payload.message, ctx.payload.extra)
+       return true
+     })
+ 
+-    return handlers.handle("authSet", authSet).handle("authRemove", authRemove).handle("log", log)
++    return handlers
++      .handle("authSet", authSet)
++      .handle("authRemove", authRemove)
++      .handle("poolList", poolList)
++      .handle("poolAdd", poolAdd)
++      .handle("poolRemove", poolRemove)
++      .handle("poolSwitch", poolSwitch)
++      .handle("log", log)
+   }),
+ )

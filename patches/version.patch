@@ -1,0 +1,13 @@
+diff --git a/packages/opencode/src/index.ts b/packages/opencode/src/index.ts
+index d20f29d..5fa3780 100644
+--- a/packages/opencode/src/index.ts
++++ b/packages/opencode/src/index.ts
+@@ -73,7 +73,7 @@ const cli = yargs(args)
+   .wrap(100)
+   .help("help", "show help")
+   .alias("help", "h")
+-  .version("version", "show version number", InstallationVersion)
++  .version("version", "show version number", InstallationVersion + " (Tate Patched)")
+   .alias("version", "v")
+   .option("print-logs", {
+     describe: "print logs to stderr",

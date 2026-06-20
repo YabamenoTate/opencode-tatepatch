@@ -1,0 +1,145 @@
+diff --git a/packages/opencode/src/cli/cmd/providers.ts b/packages/opencode/src/cli/cmd/providers.ts
+index 560781e..ef070b8 100644
+--- a/packages/opencode/src/cli/cmd/providers.ts
++++ b/packages/opencode/src/cli/cmd/providers.ts
+@@ -1,4 +1,5 @@
+ import { Auth } from "../../auth"
++import { AppFileSystem } from "@opencode-ai/core/filesystem"
+ import { cmd } from "./cmd"
+ import { CliError, effectCmd, fail } from "../effect-cmd"
+ import { UI } from "../ui"
+@@ -474,12 +475,128 @@ export const ProvidersLoginCommand = effectCmd({
+       )
+     }
+ 
+-    const key = yield* Prompt.password({
+-      message: "Enter your API key",
+-      validate: (x) => (x && x.length > 0 ? undefined : "Required"),
+-    })
+-    const apiKey = yield* promptValue(key)
+-    yield* Effect.orDie(authSvc.set(provider, { type: "api", key: apiKey }))
++    const POOL_FILE = path.join(Global.Path.data, "auth-pool.json")
++
++    const maskKey = (key: string) => (key.length <= 8 ? "****" : key.slice(0, 3) + "..." + key.slice(-4))
++
++    const fsys = yield* AppFileSystem.Service
++
++    const readPool = () =>
++      fsys.readJson(POOL_FILE).pipe(Effect.orElseSucceed(() => ({}) as Record<string, Array<{ key: string; label?: string }>>))
++
++    const writePool = (data: Record<string, Array<{ key: string; label?: string }>>) =>
++      fsys.writeJsonString(POOL_FILE, data)
++
++    const getPool = (maybeProvider?: string) =>
++      Effect.gen(function* () {
++        const data = yield* readPool()
++        const targetProvider = maybeProvider ?? provider
++        return { data, list: data[targetProvider] ?? [] }
++      })
++
++    const addToPool = (maybeProvider: string, entry: { key: string; label?: string }) =>
++      Effect.gen(function* () {
++        const { data, list } = yield* getPool(maybeProvider)
++        yield* writePool({ ...data, [maybeProvider]: [...list, entry] })
++      })
++
++    const removeFromPool = (maybeProvider: string, idx: number) =>
++      Effect.gen(function* () {
++        const { data, list } = yield* getPool(maybeProvider)
++        const updated = [...list.slice(0, idx), ...list.slice(idx + 1)]
++        if (updated.length > 0) {
++          yield* writePool({ ...data, [maybeProvider]: updated })
++        } else {
++          const { [maybeProvider]: _, ...rest } = data
++          yield* writePool(rest)
++        }
++      })
++
++    const switchFromPool = (maybeProvider: string, idx: number) =>
++      Effect.gen(function* () {
++        const { data, list } = yield* getPool(maybeProvider)
++        const toPromote = list[idx]
++        if (!toPromote) return
++        const updated = [...list.slice(0, idx), ...list.slice(idx + 1)]
++        if (updated.length > 0) {
++          yield* writePool({ ...data, [maybeProvider]: updated })
++        } else {
++          const { [maybeProvider]: _, ...rest } = data
++          yield* writePool(rest)
++        }
++        yield* Effect.orDie(authSvc.set(maybeProvider, { type: "api", key: toPromote.key }))
++        yield* Prompt.log.info(`Switched main account to ${maskKey(toPromote.key)}`)
++      })
++
++    const database = yield* modelsDev.get()
++    accounts: while (true) {
++      const all = yield* Effect.orDie(authSvc.all())
++      const main = all[provider] as Auth.Info | undefined
++      const { list: pool } = yield* getPool()
++
++      const options: { label: string; value: string }[] = []
++      if (main) {
++        const keyStr = main.type === "api" ? maskKey(main.key) : main.type
++        options.push({ label: `Main: ${keyStr}`, value: "__main" })
++      } else {
++        options.push({ label: "No main account", value: "__no_main" })
++      }
++      for (let i = 0; i < pool.length; i++) {
++        options.push({ label: `  ${i + 2}: ${maskKey(pool[i].key)}`, value: `__pool_${i}` })
++      }
++      options.push({ label: "─".repeat(30), value: "__sep" })
++      options.push({ label: "Add new API key", value: "add" })
++      if (pool.length > 0) {
++        for (let i = 0; i < pool.length; i++) {
++          options.push({ label: `Promote account ${i + 2} to main`, value: `promote_${i}` })
++          options.push({ label: `Remove account ${i + 2}`, value: `remove_${i}` })
++        }
++      }
++      if (main) {
++        options.push({ label: "Remove main account", value: "remove_main" })
++      }
++      options.push({ label: "Done", value: "done" })
++
++      const providerName = database?.[provider]?.name ?? provider
++      const action = yield* promptValue(
++        yield* Prompt.select({ message: `Manage accounts for ${providerName}`, options }),
++      )
++
++      if (action === "done") break
++
++      if (action === "add") {
++        const key = yield* promptValue(
++          yield* Prompt.password({
++            message: "Enter your API key",
++            validate: (x) => (x && x.length > 0 ? undefined : "Required"),
++          }),
++        )
++        if (main) {
++          yield* addToPool(provider, { key })
++        } else {
++          yield* Effect.orDie(authSvc.set(provider, { type: "api", key }))
++        }
++        continue
++      }
++
++      if (action.startsWith("remove_")) {
++        if (action === "remove_main") {
++          if (pool.length > 0) {
++            yield* switchFromPool(provider, 0)
++          } else {
++            yield* Effect.orDie(authSvc.remove(provider))
++          }
++        } else {
++          yield* removeFromPool(provider, Number(action.split("_").pop()!))
++        }
++        continue
++      }
++
++      if (action.startsWith("promote_")) {
++        yield* switchFromPool(provider, Number(action.split("_").pop()!))
++        continue
++      }
++    }
+ 
+     yield* Prompt.outro("Done")
+   }),

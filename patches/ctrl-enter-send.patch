@@ -1,0 +1,85 @@
+diff --git a/packages/app/src/components/prompt-input.tsx b/packages/app/src/components/prompt-input.tsx
+index 84fe749..743affa 100644
+--- a/packages/app/src/components/prompt-input.tsx
++++ b/packages/app/src/components/prompt-input.tsx
+@@ -1206,16 +1206,38 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
+       }
+     }
+ 
+-    // Handle Shift+Enter BEFORE IME check - Shift+Enter is never used for IME input
+-    // and should always insert a newline regardless of composition state
+-    if (event.key === "Enter" && event.shiftKey) {
+-      addPart({ type: "text", content: "\n", start: 0, end: 0 })
++    // Ctrl/Cmd+Enter → send message
++    if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+       event.preventDefault()
++      if (event.repeat) return
++      if (
++        working() &&
++        prompt
++          .current()
++          .map((part) => ("content" in part ? part.content : ""))
++          .join("")
++          .trim().length === 0 &&
++        imageAttachments().length === 0 &&
++        commentCount() === 0
++      ) {
++        return
++      }
++      void handleSubmit(event)
+       return
+     }
+ 
+-    if (event.key === "Enter" && isImeComposing(event)) {
+-      return
++    // Enter without Ctrl/Cmd → insert newline
++    // If popover is open, let the popover handler navigate instead
++    if (event.key === "Enter" && !event.ctrlKey && !event.metaKey) {
++      if (store.popover) {
++        // fall through to popover handling
++      } else if (isImeComposing(event)) {
++        return
++      } else {
++        addPart({ type: "text", content: "\n", start: 0, end: 0 })
++        event.preventDefault()
++        return
++      }
+     }
+ 
+     const ctrl = event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey
+@@ -1273,24 +1295,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
+       return
+     }
+ 
+-    // Note: Shift+Enter is handled earlier, before IME check
+-    if (event.key === "Enter" && !event.shiftKey) {
+-      event.preventDefault()
+-      if (event.repeat) return
+-      if (
+-        working() &&
+-        prompt
+-          .current()
+-          .map((part) => ("content" in part ? part.content : ""))
+-          .join("")
+-          .trim().length === 0 &&
+-        imageAttachments().length === 0 &&
+-        commentCount() === 0
+-      ) {
+-        return
+-      }
+-      void handleSubmit(event)
+-    }
++
+   }
+ 
+   const [agentsQuery, globalProvidersQuery, providersQuery] = useQueries(() => ({
+@@ -1920,6 +1925,9 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
+                       </Show>
+                     </Show>
+                   </div>
++                  <div class="text-11-regular text-text-weak ml-auto shrink-0 whitespace-nowrap select-none pr-2">
++                    {language.t("prompt.action.enterNewline")}
++                  </div>
+                 </div>
+               </div>
+             </DockTray>

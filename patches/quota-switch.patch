@@ -1,0 +1,141 @@
+diff --git a/packages/app/src/pages/session/usage-exceeded-dialogs.tsx b/packages/app/src/pages/session/usage-exceeded-dialogs.tsx
+index 5354410..f2bcd40 100644
+--- a/packages/app/src/pages/session/usage-exceeded-dialogs.tsx
++++ b/packages/app/src/pages/session/usage-exceeded-dialogs.tsx
+@@ -5,7 +5,6 @@ import { onCleanup } from "solid-js"
+ import { createStore } from "solid-js/store"
+ import { useSessionLayout } from "./session-layout"
+ import { useDialog } from "@opencode-ai/ui/context"
+-import { DialogUsageExceeded } from "@/components/dialog-usage-exceeded"
+ import { useI18n } from "@opencode-ai/ui/context"
+ 
+ const GO_UPSELL_FREE_TIER_LAST_SEEN_AT = "go_upsell_last_seen_at"
+@@ -33,6 +32,47 @@ function goUpsellKeys(status: SessionStatus) {
+   }
+ }
+ 
++const triedPoolKeys = new Set<string>()
++
++function getServerBase(): string {
++  if (typeof window !== "undefined" && window.location) {
++    return window.location.origin
++  }
++  return "http://localhost:4096"
++}
++
++async function listPoolEntries(provider: string): Promise<Array<{ key: string; label?: string }>> {
++  try {
++    const base = getServerBase()
++    const res = await fetch(`${base}/auth/${encodeURIComponent(provider)}/pool`)
++    if (!res.ok) return []
++    return await res.json()
++  } catch {
++    return []
++  }
++}
++
++async function switchPoolKey(provider: string, index: number): Promise<boolean> {
++  try {
++    const base = getServerBase()
++    const res = await fetch(`${base}/auth/${encodeURIComponent(provider)}/pool/switch/${index}`, {
++      method: "POST",
++    })
++    return res.ok
++  } catch {
++    return false
++  }
++}
++
++function notifySystemMessage(title: string, description: string) {
++  try {
++    if (typeof Notification !== "undefined" && Notification.permission === "granted") {
++      new Notification(title, { body: description })
++    }
++  } catch {
++  }
++}
++
+ export function useUsageExceededDialogs() {
+   const sdk = useSDK()
+   const dialog = useDialog()
+@@ -58,45 +98,43 @@ export function useUsageExceededDialogs() {
+       if (!action) return
+       if (dialog.active) return
+ 
+-      const keys = goUpsellKeys(evt.properties.status)
+-      if (!keys) return
++      const provider = action.provider
++      void (async () => {
++        const pool = await listPoolEntries(provider)
++        const untried = pool.filter((entry) => !triedPoolKeys.has(entry.key))
++
++        if (untried.length > 0) {
++          const idx = pool.indexOf(untried[0])
++          triedPoolKeys.add(untried[0].key)
++          const ok = await switchPoolKey(provider, idx)
++          if (ok) {
++            notifySystemMessage(
++              isEnglish()
++                ? `Switched API key for ${provider}`
++                : `${provider} のAPIキーを切り替えました`,
++              isEnglish()
++                ? `Quota exceeded. Switched to another API key.`
++                : `上限に達したため、別のAPIキーに切り替えました。`,
++            )
++          }
++          return
++        }
++
++        triedPoolKeys.clear()
++        const keys = goUpsellKeys(evt.properties.status)
++        if (!keys) return
+ 
+-      const seen = goUpsellState[keys.lastSeenAt]
+-      if (seen && Date.now() - seen < GO_UPSELL_WINDOW) return
+-      if (goUpsellState[keys.dontShow]) return
++        const seen = goUpsellState[keys.lastSeenAt]
++        if (seen && Date.now() - seen < GO_UPSELL_WINDOW) return
++        if (goUpsellState[keys.dontShow]) return
+ 
+-      if (action.reason === "free_tier_limit") {
+-        dialog.show(() => (
+-          <DialogUsageExceeded
+-            title={isEnglish() ? action.title : t("dialog.usageExceeded.freeTier.title")}
+-            description={isEnglish() ? action.message : t("dialog.usageExceeded.freeTier.description")}
+-            actionLabel={isEnglish() ? action.label : t("dialog.usageExceeded.freeTier.actionLabel")}
+-            link={action.link}
+-            onClose={(dontShowAgain) => {
+-              setGoUpsellState(keys.lastSeenAt, Date.now())
+-              if (dontShowAgain) setGoUpsellState(keys.dontShow, Date.now())
+-              else {
+-                void import("../../components/dialog-connect-provider").then((x) =>
+-                  dialog.show(() => <x.DialogConnectProvider provider="opencode-go" />),
+-                )
+-              }
+-            }}
+-          />
+-        ))
+-      } else if (action.reason === "account_rate_limit") {
+-        dialog.show(() => (
+-          <DialogUsageExceeded
+-            title={isEnglish() ? action.title : t("dialog.usageExceeded.accountRateLimit.title")}
+-            description={isEnglish() ? action.message : t("dialog.usageExceeded.accountRateLimit.description")}
+-            actionLabel={isEnglish() ? action.label : t("dialog.usageExceeded.accountRateLimit.actionLabel")}
+-            link={action.link}
+-            onClose={(dontShowAgain) => {
+-              setGoUpsellState(keys.lastSeenAt, Date.now())
+-              if (dontShowAgain) setGoUpsellState(keys.dontShow, Date.now())
+-            }}
+-          />
+-        ))
+-      }
++        if (action.reason === "free_tier_limit" || action.reason === "account_rate_limit") {
++          void import("../../components/dialog-connect-provider").then((x) =>
++            dialog.show(() => <x.DialogConnectProvider provider={provider} />),
++          )
++          setGoUpsellState(keys.lastSeenAt, Date.now())
++        }
++      })()
+     }),
+   )
+ }

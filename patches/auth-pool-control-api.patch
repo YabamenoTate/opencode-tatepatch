@@ -1,0 +1,85 @@
+diff --git a/packages/opencode/src/server/routes/instance/httpapi/groups/control.ts b/packages/opencode/src/server/routes/instance/httpapi/groups/control.ts
+index 33e6a8e..6f2409a 100644
+--- a/packages/opencode/src/server/routes/instance/httpapi/groups/control.ts
++++ b/packages/opencode/src/server/routes/instance/httpapi/groups/control.ts
+@@ -27,9 +27,28 @@ export const LogInput = Schema.Struct({
+   }),
+ })
+ 
++const PoolEntry = Schema.Struct({
++  key: Schema.String,
++  label: Schema.optional(Schema.String),
++})
++
++const PoolIndexParams = Schema.Struct({
++  providerID: ProviderID,
++  index: Schema.NumberFromString,
++})
++
++const PoolIndexAndKey = Schema.Struct({
++  providerID: ProviderID,
++  index: Schema.NumberFromString,
++})
++
+ export const ControlPaths = {
+   auth: "/auth/:providerID",
+   log: "/log",
++  poolList: "/auth/:providerID/pool",
++  poolAdd: "/auth/:providerID/pool",
++  poolRemove: "/auth/:providerID/pool/:index",
++  poolSwitch: "/auth/:providerID/pool/switch/:index",
+ } as const
+ 
+ export const ControlApi = HttpApi.make("control").add(
+@@ -58,6 +77,51 @@ export const ControlApi = HttpApi.make("control").add(
+           description: "Remove authentication credentials",
+         }),
+       ),
++      HttpApiEndpoint.get("poolList", ControlPaths.poolList, {
++        params: AuthParams,
++        success: described(Schema.Array(PoolEntry), "List of pool API keys"),
++        error: HttpApiError.BadRequest,
++      }).annotateMerge(
++        OpenApi.annotations({
++          identifier: "auth.pool.list",
++          summary: "List pool API keys",
++          description: "List extra API keys in the auth pool for a provider",
++        }),
++      ),
++      HttpApiEndpoint.post("poolAdd", ControlPaths.poolAdd, {
++        params: AuthParams,
++        payload: PoolEntry,
++        success: described(Schema.Boolean, "API key added to pool"),
++        error: HttpApiError.BadRequest,
++      }).annotateMerge(
++        OpenApi.annotations({
++          identifier: "auth.pool.add",
++          summary: "Add API key to pool",
++          description: "Add an extra API key to the auth pool for a provider",
++        }),
++      ),
++      HttpApiEndpoint.delete("poolRemove", ControlPaths.poolRemove, {
++        params: PoolIndexParams,
++        success: described(Schema.Boolean, "API key removed from pool"),
++        error: HttpApiError.BadRequest,
++      }).annotateMerge(
++        OpenApi.annotations({
++          identifier: "auth.pool.remove",
++          summary: "Remove API key from pool",
++          description: "Remove an API key from the auth pool at a given index",
++        }),
++      ),
++      HttpApiEndpoint.post("poolSwitch", ControlPaths.poolSwitch, {
++        params: PoolIndexAndKey,
++        success: described(Schema.Boolean, "Switched main API key with pool key"),
++        error: HttpApiError.BadRequest,
++      }).annotateMerge(
++        OpenApi.annotations({
++          identifier: "auth.pool.switch",
++          summary: "Switch main API key with pool key",
++          description: "Swap the main API key with one from the pool at a given index",
++        }),
++      ),
+       HttpApiEndpoint.post("log", ControlPaths.log, {
+         query: LogQuery,
+         payload: LogInput,

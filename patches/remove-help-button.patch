@@ -1,0 +1,69 @@
+diff --git a/packages/app/src/pages/home.tsx b/packages/app/src/pages/home.tsx
+index 8e31ac3..7caf5a8 100644
+--- a/packages/app/src/pages/home.tsx
++++ b/packages/app/src/pages/home.tsx
+@@ -293,7 +293,6 @@ function HomeProjectColumn(props: {
+   clearNotifications: (project: LocalProject) => void
+   unseenCount: (project: LocalProject) => number
+   openSettings: () => void
+-  openHelp: () => void
+   language: ReturnType<typeof useLanguage>
+ }) {
+   const servers = useServers()
+@@ -395,14 +394,6 @@ function HomeProjectColumn(props: {
+           <IconV2 name="settings-gear" size="small" />
+           <span>{props.language.t("sidebar.settings")}</span>
+         </button>
+-        <button
+-          type="button"
+-          class={`${HOME_PROJECT_NAV_ROW} text-v2-text-text-faint [&>[data-slot=icon-svg]]:text-v2-icon-icon-muted`}
+-          onClick={props.openHelp}
+-        >
+-          <IconV2 name="help" size="small" />
+-          <span>{props.language.t("sidebar.help")}</span>
+-        </button>
+       </div>
+     </aside>
+   )
+diff --git a/packages/app/src/pages/layout.tsx b/packages/app/src/pages/layout.tsx
+index 70154a3..8307f92 100644
+--- a/packages/app/src/pages/layout.tsx
++++ b/packages/app/src/pages/layout.tsx
+@@ -2354,8 +2354,6 @@ export default function Layout(props: ParentProps) {
+       settingsLabel={() => language.t("sidebar.settings")}
+       settingsKeybind={() => command.keybind("settings.open")}
+       onOpenSettings={openSettings}
+-      helpLabel={() => language.t("sidebar.help")}
+-      onOpenHelp={() => platform.openLink("https://opencode.ai/desktop-feedback")}
+       renderPanel={() =>
+         mobile ? <SidebarPanel project={currentProject} mobile /> : <SidebarPanel project={currentProject} merged />
+       }
+diff --git a/packages/app/src/pages/layout/sidebar-shell.tsx b/packages/app/src/pages/layout/sidebar-shell.tsx
+index ca36af2..feef395 100644
+--- a/packages/app/src/pages/layout/sidebar-shell.tsx
++++ b/packages/app/src/pages/layout/sidebar-shell.tsx
+@@ -28,8 +28,6 @@ export const SidebarContent = (props: {
+   settingsLabel: Accessor<string>
+   settingsKeybind: Accessor<string | undefined>
+   onOpenSettings: () => void
+-  helpLabel: Accessor<string>
+-  onOpenHelp: () => void
+   renderPanel: () => JSX.Element
+ }): JSX.Element => {
+   const expanded = createMemo(() => !!props.mobile || props.opened())
+@@ -99,15 +97,6 @@ export const SidebarContent = (props: {
+               aria-label={props.settingsLabel()}
+             />
+           </TooltipKeybind>
+-          <Tooltip placement={placement()} value={props.helpLabel()}>
+-            <IconButton
+-              icon="help"
+-              variant="ghost"
+-              size="large"
+-              onClick={props.onOpenHelp}
+-              aria-label={props.helpLabel()}
+-            />
+-          </Tooltip>
+         </div>
+       </div>
+ 

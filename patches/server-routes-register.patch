@@ -1,0 +1,20 @@
+diff --git a/packages/opencode/src/server/routes/instance/httpapi/server.ts b/packages/opencode/src/server/routes/instance/httpapi/server.ts
+index 45a71a7..b784886 100644
+--- a/packages/opencode/src/server/routes/instance/httpapi/server.ts
++++ b/packages/opencode/src/server/routes/instance/httpapi/server.ts
+@@ -69,6 +69,7 @@ import { EventApi } from "./groups/event"
+ import { PtyConnectApi } from "./groups/pty"
+ import { eventHandlers } from "./handlers/event"
+ import { configHandlers } from "./handlers/config"
++import { persistHandlers } from "./handlers/persist"
+ import { controlHandlers } from "./handlers/control"
+ import { experimentalHandlers } from "./handlers/experimental"
+ import { fileHandlers } from "./handlers/file"
+@@ -137,6 +138,7 @@ const instanceApiRoutes = HttpApiBuilder.layer(InstanceHttpApi).pipe(
+     fileHandlers,
+     instanceHandlers,
+     mcpHandlers,
++    persistHandlers,
+     projectHandlers,
+     ptyHandlers,
+     questionHandlers,

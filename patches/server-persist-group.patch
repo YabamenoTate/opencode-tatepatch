@@ -1,0 +1,69 @@
+diff --git a/packages/opencode/src/server/routes/instance/httpapi/groups/persist.ts b/packages/opencode/src/server/routes/instance/httpapi/groups/persist.ts
+new file mode 100644
+index 0000000..3d6fb3f
+--- /dev/null
++++ b/packages/opencode/src/server/routes/instance/httpapi/groups/persist.ts
+@@ -0,0 +1,63 @@
++import { HttpApi, HttpApiEndpoint, HttpApiGroup, OpenApi } from "effect/unstable/httpapi"
++import { Schema } from "effect"
++import { Authorization } from "../middleware/authorization"
++import { InstanceContextMiddleware } from "../middleware/instance-context"
++import { WorkspaceRoutingMiddleware, WorkspaceRoutingQuery } from "../middleware/workspace-routing"
++import { described } from "./metadata"
++
++const root = "/persist"
++
++const PersistParams = Schema.Struct({
++  key: Schema.String,
++})
++
++export const PersistApi = HttpApi.make("persist")
++  .add(
++    HttpApiGroup.make("persist")
++      .add(
++        HttpApiEndpoint.get("get", `${root}/:key`, {
++          params: PersistParams,
++          success: described(Schema.String, "Stored value"),
++          error: Schema.Struct({ message: Schema.String }),
++        }).annotateMerge(
++          OpenApi.annotations({
++            identifier: "persist.get",
++            summary: "Get persisted value",
++          }),
++        ),
++        HttpApiEndpoint.put("set", `${root}/:key`, {
++          params: PersistParams,
++          payload: Schema.String,
++          success: Schema.Void,
++          error: Schema.Struct({ message: Schema.String }),
++        }).annotateMerge(
++          OpenApi.annotations({
++            identifier: "persist.set",
++            summary: "Set persisted value",
++          }),
++        ),
++        HttpApiEndpoint.delete("remove", `${root}/:key`, {
++          params: PersistParams,
++          success: Schema.Void,
++          error: Schema.Struct({ message: Schema.String }),
++        }).annotateMerge(
++          OpenApi.annotations({
++            identifier: "persist.remove",
++            summary: "Remove persisted value",
++          }),
++        ),
++      )
++      .annotateMerge(
++        OpenApi.annotations({
++          title: "persist",
++          description: "Key-value persistence for UI state.",
++        }),
++      )
++      .middleware(Authorization),
++  )
++  .annotateMerge(
++    OpenApi.annotations({
++      title: "opencode persistence HttpApi",
++      version: "0.0.1",
++    }),
++  )
