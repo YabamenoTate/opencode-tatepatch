@@ -1,0 +1,1261 @@
+diff --git a/packages/app/src/components/dialog-connect-provider.tsx b/packages/app/src/components/dialog-connect-provider.tsx
+index a0ccc16..6a73a81 100644
+--- a/packages/app/src/components/dialog-connect-provider.tsx
++++ b/packages/app/src/components/dialog-connect-provider.tsx
+@@ -9,7 +9,7 @@ import { ProviderIcon } from "@opencode-ai/ui/provider-icon"
+ import { Spinner } from "@opencode-ai/ui/spinner"
+ import { TextField } from "@opencode-ai/ui/text-field"
+ import { showToast } from "@opencode-ai/ui/toast"
+-import { createEffect, createMemo, createResource, Match, onCleanup, onMount, Switch } from "solid-js"
++import { createEffect, createMemo, createResource, createSignal, Match, onCleanup, onMount, Switch } from "solid-js"
+ import { createStore, produce } from "solid-js/store"
+ import { Link } from "@/components/link"
+ import { useServerSDK } from "@/context/server-sdk"
+@@ -17,6 +17,11 @@ import { useServerSync } from "@/context/server-sync"
+ import { useLanguage } from "@/context/language"
+ import { useProviders } from "@/hooks/use-providers"
+ 
++interface PoolEntry {
++  key: string
++  label?: string
++}
++
+ export function DialogConnectProvider(props: { provider: string }) {
+   const dialog = useDialog()
+   const serverSync = useServerSync()
+@@ -65,7 +70,7 @@ export function DialogConnectProvider(props: { provider: string }) {
+   const [store, setStore] = createStore({
+     methodIndex: undefined as undefined | number,
+     authorization: undefined as undefined | ProviderAuthAuthorization,
+-    state: "pending" as undefined | "pending" | "complete" | "error" | "prompt",
++    state: "pending" as undefined | "pending" | "complete" | "error" | "prompt" | "manage",
+     error: undefined as string | undefined,
+   })
+ 
+@@ -76,6 +81,7 @@ export function DialogConnectProvider(props: { provider: string }) {
+     | { type: "auth.pending" }
+     | { type: "auth.complete"; authorization: ProviderAuthAuthorization }
+     | { type: "auth.error"; error: string }
++    | { type: "manage.show" }
+ 
+   function dispatch(action: Action) {
+     setStore(
+@@ -110,6 +116,11 @@ export function DialogConnectProvider(props: { provider: string }) {
+           draft.error = undefined
+           return
+         }
++        if (action.type === "manage.show") {
++          draft.state = "manage"
++          draft.error = undefined
++          return
++        }
+         draft.state = "error"
+         draft.error = action.error
+       }),
+@@ -329,6 +340,52 @@ export function DialogConnectProvider(props: { provider: string }) {
+     }
+   })
+ 
++  const [poolEntries, setPoolEntries] = createSignal<PoolEntry[]>([])
++  const [poolLoading, setPoolLoading] = createSignal(false)
++  const [manageView, setManageView] = createSignal<"idle" | "loading" | "list" | "add">("idle")
++
++  const loadPool = createMemo(() => {
++    if (manageView() === "list" || manageView() === "loading") {
++      setPoolLoading(true)
++      fetch(`/auth/${encodeURIComponent(props.provider)}/pool`)
++        .then((r) => r.json())
++        .then((data) => {
++          if (alive.value) {
++            setPoolEntries(Array.isArray(data) ? data : [])
++            setManageView("list")
++          }
++        })
++        .catch(() => {
++          if (alive.value) {
++            setPoolEntries([])
++            setManageView("list")
++          }
++        })
++        .finally(() => {
++          if (alive.value) setPoolLoading(false)
++        })
++    }
++  })
++
++  async function addPoolKey(key: string, label?: string) {
++    await fetch(`/auth/${encodeURIComponent(props.provider)}/pool`, {
++      method: "POST",
++      headers: { "Content-Type": "application/json" },
++      body: JSON.stringify({ key, label }),
++    })
++    setManageView("loading")
++  }
++
++  async function removePoolKey(index: number) {
++    await fetch(`/auth/${encodeURIComponent(props.provider)}/pool/${index}`, { method: "DELETE" })
++    setManageView("loading")
++  }
++
++  async function switchPoolKey(index: number) {
++    await fetch(`/auth/${encodeURIComponent(props.provider)}/pool/switch/${index}`, { method: "POST" })
++    setManageView("loading")
++  }
++
+   async function complete() {
+     await serverSDK.client.global.dispose()
+     dialog.close()
+@@ -356,6 +413,166 @@ export function DialogConnectProvider(props: { provider: string }) {
+     all()
+   }
+ 
++  function ManageAccountsView() {
++    const hasMain = providers.connected().some((p) => p.id === props.provider)
++
++    createEffect(() => {
++      if (manageView() === "idle") {
++        setManageView("loading")
++      }
++    })
++
++    createEffect(() => {
++      if (manageView() === "loading") {
++        loadPool()
++      }
++    })
++
++    const [addStore, setAddStore] = createStore({
++      value: "",
++      error: undefined as string | undefined,
++    })
++
++    async function handleAddSubmit(e: SubmitEvent) {
++      e.preventDefault()
++      const form = e.currentTarget as HTMLFormElement
++      const formData = new FormData(form)
++      const apiKey = formData.get("apiKey") as string
++
++      if (!apiKey?.trim()) {
++        setAddStore("error", language.t("provider.connect.apiKey.required"))
++        return
++      }
++
++      setAddStore("error", undefined)
++      await addPoolKey(apiKey)
++      setAddStore("value", "")
++      setManageView("loading")
++    }
++
++    return (
++      <div class="flex flex-col gap-4">
++        <Switch>
++          <Match when={poolLoading()}>
++            <div class="flex items-center gap-x-2 text-14-regular text-text-base">
++              <Spinner />
++              <span>{language.t("provider.connect.status.inProgress")}</span>
++            </div>
++          </Match>
++          <Match when={manageView() === "add"}>
++            <div class="text-14-regular text-text-base">
++              {language.t("provider.connect.apiKey.description", { provider: provider().name })}
++            </div>
++            <form onSubmit={handleAddSubmit} class="flex flex-col items-start gap-4">
++              <TextField
++                autofocus
++                type="text"
++                label={language.t("provider.connect.apiKey.label", { provider: provider().name })}
++                placeholder={language.t("provider.connect.apiKey.placeholder")}
++                name="apiKey"
++                value={addStore.value}
++                onChange={(v) => setAddStore("value", v)}
++                validationState={addStore.error ? "invalid" : undefined}
++                error={addStore.error}
++              />
++              <div class="flex gap-2">
++                <Button class="w-auto" type="submit" size="large" variant="primary">
++                  {language.t("common.continue")}
++                </Button>
++                <Button
++                  class="w-auto"
++                  size="large"
++                  variant="secondary"
++                  onClick={() => setManageView("list")}
++                >
++                  {language.t("common.cancel")}
++                </Button>
++              </div>
++            </form>
++          </Match>
++          <Match when={manageView() === "list"}>
++            <div class="flex flex-col gap-3">
++              <div class="flex items-center justify-between">
++                <div class="text-14-regular text-text-base">
++                  {language.t("provider.connect.accounts", { provider: provider().name })}
++                </div>
++                <Button
++                  size="small"
++                  variant="secondary"
++                  icon="plus-small"
++                  onClick={() => setManageView("add")}
++                >
++                  {language.t("common.add")}
++                </Button>
++              </div>
++
++              <div class="flex flex-col gap-2">
++                {hasMain ? (
++                  <div class="flex items-center justify-between gap-2 p-2 rounded-md bg-surface-stronger-base border border-border-weak-base">
++                    <div class="flex items-center gap-2 min-w-0">
++                      <Icon name="circle-check" class="text-icon-success-base size-4 shrink-0" />
++                      <span class="text-14-medium text-text-strong truncate">
++                        {provider().name}
++                      </span>
++                      <span class="text-12-regular text-text-weak">({language.t("provider.connect.mainAccount")})</span>
++                    </div>
++                  </div>
++                ) : null}
++
++                {poolEntries().length === 0 && !hasMain ? (
++                  <div class="text-14-regular text-text-weak py-2">
++                    {language.t("provider.connect.noAccounts")}
++                  </div>
++                ) : null}
++
++                {poolEntries().map((entry, i) => (
++                  <div class="flex items-center justify-between gap-2 p-2 rounded-md bg-surface-stronger-base border border-border-weak-base">
++                    <div class="flex items-center gap-2 min-w-0">
++                      <Icon name="key" class="text-icon-base size-4 shrink-0" />
++                      <span class="text-14-regular text-text-strong truncate font-mono text-xs">
++                        {entry.key.slice(0, 8)}...{entry.key.slice(-4)}
++                      </span>
++                      {entry.label ? (
++                        <span class="text-12-regular text-text-weak">{entry.label}</span>
++                      ) : null}
++                    </div>
++                    <div class="flex items-center gap-1 shrink-0">
++                      <Button
++                        size="small"
++                        variant="ghost"
++                        icon="arrow-swap"
++                        onClick={() => void switchPoolKey(i)}
++                        title={language.t("provider.connect.setMainAccount")}
++                      />
++                      <Button
++                        size="small"
++                        variant="ghost"
++                        icon="trash"
++                        onClick={() => void removePoolKey(i)}
++                        title={language.t("common.delete")}
++                      />
++                    </div>
++                  </div>
++                ))}
++              </div>
++
++              <div class="flex gap-2 pt-2">
++                <Button
++                  class="w-auto"
++                  size="large"
++                  variant="primary"
++                  onClick={() => void complete()}
++                >
++                  {language.t("common.done")}
++                </Button>
++              </div>
++            </div>
++          </Match>
++        </Switch>
++      </div>
++    )
++  }
++
+   function MethodSelection() {
+     return (
+       <>
+@@ -414,7 +631,7 @@ export function DialogConnectProvider(props: { provider: string }) {
+           key: apiKey,
+         },
+       })
+-      await complete()
++      dispatch({ type: "manage.show" })
+     }
+ 
+     return (
+@@ -573,6 +790,11 @@ export function DialogConnectProvider(props: { provider: string }) {
+     )
+   }
+ 
++  const showManage = createMemo(() => {
++    const hasAuth = providers.connected().some((p) => p.id === props.provider)
++    return hasAuth || store.state === "manage"
++  })
++
+   return (
+     <Dialog
+       title={
+@@ -608,6 +830,9 @@ export function DialogConnectProvider(props: { provider: string }) {
+                   </div>
+                 </div>
+               </Match>
++              <Match when={showManage()}>
++                <ManageAccountsView />
++              </Match>
+               <Match when={store.methodIndex === undefined}>
+                 <MethodSelection />
+               </Match>
+diff --git a/packages/app/src/components/dialog-select-provider.tsx b/packages/app/src/components/dialog-select-provider.tsx
+index 1273db5..859ced5 100644
+--- a/packages/app/src/components/dialog-select-provider.tsx
++++ b/packages/app/src/components/dialog-select-provider.tsx
+@@ -1,4 +1,4 @@
+-import { Component, Show } from "solid-js"
++import { Component, Show, createMemo } from "solid-js"
+ import { useDialog } from "@opencode-ai/ui/context/dialog"
+ import { popularProviders, useProviders } from "@/hooks/use-providers"
+ import { Dialog } from "@opencode-ai/ui/dialog"
+@@ -7,6 +7,7 @@ import { Tag } from "@opencode-ai/ui/tag"
+ import { ProviderIcon } from "@opencode-ai/ui/provider-icon"
+ import { DialogConnectProvider } from "./dialog-connect-provider"
+ import { useLanguage } from "@/context/language"
++import { useServerSync } from "@/context/server-sync"
+ import { DialogCustomProvider } from "./dialog-custom-provider"
+ 
+ const CUSTOM_ID = "_custom"
+@@ -15,6 +16,8 @@ export const DialogSelectProvider: Component = () => {
+   const dialog = useDialog()
+   const providers = useProviders()
+   const language = useLanguage()
++  const serverSync = useServerSync()
++  const connectedProviders = createMemo(() => new Set(Object.keys(serverSync.data.provider_auth)))
+ 
+   const popularGroup = () => language.t("dialog.provider.group.popular")
+   const otherGroup = () => language.t("dialog.provider.group.other")
+@@ -74,10 +77,13 @@ export const DialogSelectProvider: Component = () => {
+             <Show when={i.id === "opencode"}>
+               <Tag>{language.t("dialog.provider.tag.recommended")}</Tag>
+             </Show>
+-            <Show when={note(i.id)}>{(value) => <div class="text-14-regular text-text-weak">{value()}</div>}</Show>
+-            <Show when={i.id === "opencode-go"}>
+-              <Tag>{language.t("dialog.provider.tag.recommended")}</Tag>
+-            </Show>
++          <Show when={note(i.id)}>{(value) => <div class="text-14-regular text-text-weak">{value()}</div>}</Show>
++          <Show when={i.id === "opencode-go"}>
++            <Tag>{language.t("dialog.provider.tag.recommended")}</Tag>
++          </Show>
++          <Show when={connectedProviders().has(i.id)}>
++            <Tag>Connected</Tag>
++          </Show>
+           </div>
+         )}
+       </List>
+diff --git a/packages/app/src/i18n/ar.ts b/packages/app/src/i18n/ar.ts
+index 5d12402..c581446 100644
+--- a/packages/app/src/i18n/ar.ts
++++ b/packages/app/src/i18n/ar.ts
+@@ -142,6 +142,10 @@ export const dict = {
+   "provider.connect.oauth.auto.confirmationCode": "رمز التأكيد",
+   "provider.connect.toast.connected.title": "تم توصيل {{provider}}",
+   "provider.connect.toast.connected.description": "نماذج {{provider}} متاحة الآن للاستخدام.",
++  "provider.connect.accounts": "حسابات {{provider}}",
++  "provider.connect.mainAccount": "الحساب الرئيسي",
++  "provider.connect.noAccounts": "لا توجد حسابات بعد",
++  "provider.connect.setMainAccount": "تعيين كحساب رئيسي",
+   "provider.custom.title": "موفر مخصص",
+   "provider.custom.description.prefix": "تكوين موفر متوافق مع OpenAI. راجع ",
+   "provider.custom.description.link": "وثائق تكوين الموفر",
+@@ -529,6 +533,8 @@ export const dict = {
+   "common.reset": "إعادة تعيين",
+   "common.archive": "أرشفة",
+   "common.delete": "حذف",
++  "common.add": "إضافة",
++  "common.done": "تم",
+   "common.close": "إغلاق",
+   "common.edit": "تحرير",
+   "common.loadMore": "تحميل المزيد",
+diff --git a/packages/app/src/i18n/br.ts b/packages/app/src/i18n/br.ts
+index 7c6965e..9548d1f 100644
+--- a/packages/app/src/i18n/br.ts
++++ b/packages/app/src/i18n/br.ts
+@@ -142,6 +142,10 @@ export const dict = {
+   "provider.connect.oauth.auto.confirmationCode": "Código de confirmação",
+   "provider.connect.toast.connected.title": "{{provider}} conectado",
+   "provider.connect.toast.connected.description": "Modelos do {{provider}} agora estão disponíveis para uso.",
++  "provider.connect.accounts": "Contas {{provider}}",
++  "provider.connect.mainAccount": "Conta principal",
++  "provider.connect.noAccounts": "Nenhuma conta ainda",
++  "provider.connect.setMainAccount": "Definir como conta principal",
+   "provider.custom.title": "Provedor personalizado",
+   "provider.custom.description.prefix": "Configure um provedor compatível com OpenAI. Veja a ",
+   "provider.custom.description.link": "documentação de configuração do provedor",
+@@ -536,6 +540,8 @@ export const dict = {
+   "common.reset": "Redefinir",
+   "common.archive": "Arquivar",
+   "common.delete": "Excluir",
++  "common.add": "Adicionar",
++  "common.done": "Concluído",
+   "common.close": "Fechar",
+   "common.edit": "Editar",
+   "common.loadMore": "Carregar mais",
+diff --git a/packages/app/src/i18n/bs.ts b/packages/app/src/i18n/bs.ts
+index 201b6ed..0d9b853 100644
+--- a/packages/app/src/i18n/bs.ts
++++ b/packages/app/src/i18n/bs.ts
+@@ -154,6 +154,10 @@ export const dict = {
+   "provider.connect.oauth.auto.confirmationCode": "Kod za potvrdu",
+   "provider.connect.toast.connected.title": "{{provider}} povezan",
+   "provider.connect.toast.connected.description": "{{provider}} modeli su sada dostupni za korištenje.",
++  "provider.connect.accounts": "{{provider}} računi",
++  "provider.connect.mainAccount": "Glavni račun",
++  "provider.connect.noAccounts": "Još nema računa",
++  "provider.connect.setMainAccount": "Postavi kao glavni račun",
+ 
+   "provider.custom.title": "Prilagođeni provajder",
+   "provider.custom.description.prefix": "Konfiguriši OpenAI-kompatibilnog provajdera. Pogledaj ",
+@@ -596,6 +600,8 @@ export const dict = {
+   "common.reset": "Resetuj",
+   "common.archive": "Arhiviraj",
+   "common.delete": "Izbriši",
++  "common.add": "Dodaj",
++  "common.done": "Gotovo",
+   "common.close": "Zatvori",
+   "common.edit": "Uredi",
+   "common.loadMore": "Učitaj još",
+diff --git a/packages/app/src/i18n/da.ts b/packages/app/src/i18n/da.ts
+index d52aca8..31d1ed9 100644
+--- a/packages/app/src/i18n/da.ts
++++ b/packages/app/src/i18n/da.ts
+@@ -154,6 +154,10 @@ export const dict = {
+   "provider.connect.oauth.auto.confirmationCode": "Bekræftelseskode",
+   "provider.connect.toast.connected.title": "{{provider}} forbundet",
+   "provider.connect.toast.connected.description": "{{provider}} modeller er nu tilgængelige.",
++  "provider.connect.accounts": "{{provider}}-konti",
++  "provider.connect.mainAccount": "Primær konto",
++  "provider.connect.noAccounts": "Ingen konti endnu",
++  "provider.connect.setMainAccount": "Angiv som primær konto",
+ 
+   "provider.custom.title": "Brugerdefineret udbyder",
+   "provider.custom.description.prefix": "Konfigurer en OpenAI-kompatibel udbyder. Se ",
+@@ -592,6 +596,8 @@ export const dict = {
+   "common.reset": "Nulstil",
+   "common.archive": "Arkivér",
+   "common.delete": "Slet",
++  "common.add": "Tilføj",
++  "common.done": "Færdig",
+   "common.close": "Luk",
+   "common.edit": "Rediger",
+   "common.loadMore": "Indlæs flere",
+diff --git a/packages/app/src/i18n/de.ts b/packages/app/src/i18n/de.ts
+index 4d5a649..b75667a 100644
+--- a/packages/app/src/i18n/de.ts
++++ b/packages/app/src/i18n/de.ts
+@@ -146,6 +146,10 @@ export const dict = {
+   "provider.connect.oauth.auto.confirmationCode": "Bestätigungscode",
+   "provider.connect.toast.connected.title": "{{provider}} verbunden",
+   "provider.connect.toast.connected.description": "{{provider}} Modelle sind jetzt verfügbar.",
++  "provider.connect.accounts": "{{provider}}-Konten",
++  "provider.connect.mainAccount": "Hauptkonto",
++  "provider.connect.noAccounts": "Noch keine Konten",
++  "provider.connect.setMainAccount": "Als Hauptkonto festlegen",
+   "provider.custom.title": "Benutzerdefinierter Anbieter",
+   "provider.custom.description.prefix": "Konfigurieren Sie einen OpenAI-kompatiblen Anbieter. Siehe die ",
+   "provider.custom.description.link": "Anbieter-Konfigurationsdokumente",
+@@ -544,6 +548,8 @@ export const dict = {
+   "common.reset": "Zurücksetzen",
+   "common.archive": "Archivieren",
+   "common.delete": "Löschen",
++  "common.add": "Hinzufügen",
++  "common.done": "Fertig",
+   "common.close": "Schließen",
+   "common.edit": "Bearbeiten",
+   "common.loadMore": "Mehr laden",
+diff --git a/packages/app/src/i18n/en.ts b/packages/app/src/i18n/en.ts
+index 29f662f..bfe4282 100644
+--- a/packages/app/src/i18n/en.ts
++++ b/packages/app/src/i18n/en.ts
+@@ -157,6 +157,10 @@ export const dict = {
+   "provider.connect.oauth.auto.confirmationCode": "Confirmation code",
+   "provider.connect.toast.connected.title": "{{provider}} connected",
+   "provider.connect.toast.connected.description": "{{provider}} models are now available to use.",
++  "provider.connect.accounts": "{{provider}} Accounts",
++  "provider.connect.mainAccount": "Main Account",
++  "provider.connect.noAccounts": "No accounts yet",
++  "provider.connect.setMainAccount": "Set as main account",
+ 
+   "provider.custom.title": "Custom provider",
+   "provider.custom.description.prefix": "Configure an OpenAI-compatible provider. See the ",
+@@ -663,6 +667,8 @@ export const dict = {
+   "common.reset": "Reset",
+   "common.archive": "Archive",
+   "common.delete": "Delete",
++  "common.add": "Add",
++  "common.done": "Done",
+   "common.close": "Close",
+   "common.edit": "Edit",
+   "common.loadMore": "Load more",
+diff --git a/packages/app/src/i18n/es.ts b/packages/app/src/i18n/es.ts
+index b71fe03..f0e0f61 100644
+--- a/packages/app/src/i18n/es.ts
++++ b/packages/app/src/i18n/es.ts
+@@ -154,6 +154,10 @@ export const dict = {
+   "provider.connect.oauth.auto.confirmationCode": "Código de confirmación",
+   "provider.connect.toast.connected.title": "{{provider}} conectado",
+   "provider.connect.toast.connected.description": "Los modelos de {{provider}} ahora están disponibles para usar.",
++  "provider.connect.accounts": "Cuentas de {{provider}}",
++  "provider.connect.mainAccount": "Cuenta principal",
++  "provider.connect.noAccounts": "Aún no hay cuentas",
++  "provider.connect.setMainAccount": "Establecer como cuenta principal",
+ 
+   "provider.custom.title": "Proveedor personalizado",
+   "provider.custom.description.prefix": "Configurar un proveedor compatible con OpenAI. Ver la ",
+@@ -599,6 +603,8 @@ export const dict = {
+   "common.reset": "Restablecer",
+   "common.archive": "Archivar",
+   "common.delete": "Eliminar",
++  "common.add": "Añadir",
++  "common.done": "Hecho",
+   "common.close": "Cerrar",
+   "common.edit": "Editar",
+   "common.loadMore": "Cargar más",
+diff --git a/packages/app/src/i18n/fr.ts b/packages/app/src/i18n/fr.ts
+index 385dbdd..3666d58 100644
+--- a/packages/app/src/i18n/fr.ts
++++ b/packages/app/src/i18n/fr.ts
+@@ -142,6 +142,10 @@ export const dict = {
+   "provider.connect.oauth.auto.confirmationCode": "Code de confirmation",
+   "provider.connect.toast.connected.title": "{{provider}} connecté",
+   "provider.connect.toast.connected.description": "Les modèles {{provider}} sont maintenant disponibles.",
++  "provider.connect.accounts": "Comptes {{provider}}",
++  "provider.connect.mainAccount": "Compte principal",
++  "provider.connect.noAccounts": "Aucun compte pour l'instant",
++  "provider.connect.setMainAccount": "Définir comme compte principal",
+   "provider.custom.title": "Fournisseur personnalisé",
+   "provider.custom.description.prefix": "Configurer un fournisseur compatible OpenAI. Voir la ",
+   "provider.custom.description.link": "doc de config fournisseur",
+@@ -541,6 +545,8 @@ export const dict = {
+   "common.reset": "Réinitialiser",
+   "common.archive": "Archiver",
+   "common.delete": "Supprimer",
++  "common.add": "Ajouter",
++  "common.done": "Terminé",
+   "common.close": "Fermer",
+   "common.edit": "Modifier",
+   "common.loadMore": "Charger plus",
+diff --git a/packages/app/src/i18n/ja.ts b/packages/app/src/i18n/ja.ts
+index 34ac398..707c29f 100644
+--- a/packages/app/src/i18n/ja.ts
++++ b/packages/app/src/i18n/ja.ts
+@@ -141,6 +141,10 @@ export const dict = {
+   "provider.connect.oauth.auto.confirmationCode": "確認コード",
+   "provider.connect.toast.connected.title": "{{provider}}が接続されました",
+   "provider.connect.toast.connected.description": "{{provider}}モデルが使用可能になりました。",
++  "provider.connect.accounts": "{{provider}}のアカウント",
++  "provider.connect.mainAccount": "メインアカウント",
++  "provider.connect.noAccounts": "アカウントがまだありません",
++  "provider.connect.setMainAccount": "メインアカウントに設定",
+   "provider.custom.title": "カスタムプロバイダー",
+   "provider.custom.description.prefix": "OpenAI互換のプロバイダーを設定します。詳細は",
+   "provider.custom.description.link": "プロバイダー設定ドキュメント",
+@@ -533,6 +537,8 @@ export const dict = {
+   "common.reset": "リセット",
+   "common.archive": "アーカイブ",
+   "common.delete": "削除",
++  "common.add": "追加",
++  "common.done": "完了",
+   "common.close": "閉じる",
+   "common.edit": "編集",
+   "common.loadMore": "さらに読み込む",
+diff --git a/packages/app/src/i18n/ko.ts b/packages/app/src/i18n/ko.ts
+index f1926f3..95a0ce7 100644
+--- a/packages/app/src/i18n/ko.ts
++++ b/packages/app/src/i18n/ko.ts
+@@ -141,6 +141,10 @@ export const dict = {
+   "provider.connect.oauth.auto.confirmationCode": "확인 코드",
+   "provider.connect.toast.connected.title": "{{provider}} 연결됨",
+   "provider.connect.toast.connected.description": "이제 {{provider}} 모델을 사용할 수 있습니다.",
++  "provider.connect.accounts": "{{provider}} 계정",
++  "provider.connect.mainAccount": "기본 계정",
++  "provider.connect.noAccounts": "아직 계정 없음",
++  "provider.connect.setMainAccount": "기본 계정으로 설정",
+   "provider.custom.title": "사용자 지정 공급자",
+   "provider.custom.description.prefix": "OpenAI 호환 공급자를 구성합니다. ",
+   "provider.custom.description.link": "공급자 구성 문서",
+@@ -530,6 +534,8 @@ export const dict = {
+   "common.reset": "초기화",
+   "common.archive": "보관",
+   "common.delete": "삭제",
++  "common.add": "추가",
++  "common.done": "완료",
+   "common.close": "닫기",
+   "common.edit": "편집",
+   "common.loadMore": "더 불러오기",
+diff --git a/packages/app/src/i18n/no.ts b/packages/app/src/i18n/no.ts
+index b4adebd..00ade66 100644
+--- a/packages/app/src/i18n/no.ts
++++ b/packages/app/src/i18n/no.ts
+@@ -157,6 +157,10 @@ export const dict = {
+   "provider.connect.oauth.auto.confirmationCode": "Bekreftelseskode",
+   "provider.connect.toast.connected.title": "{{provider}} tilkoblet",
+   "provider.connect.toast.connected.description": "{{provider}}-modeller er nå tilgjengelige.",
++  "provider.connect.accounts": "{{provider}}-kontoer",
++  "provider.connect.mainAccount": "Hovedkonto",
++  "provider.connect.noAccounts": "Ingen kontoer ennå",
++  "provider.connect.setMainAccount": "Sett som hovedkonto",
+ 
+   "provider.custom.title": "Egendefinert leverandør",
+   "provider.custom.description.prefix": "Konfigurer en OpenAI-kompatibel leverandør. Se ",
+@@ -599,6 +603,8 @@ export const dict = {
+   "common.reset": "Tilbakestill",
+   "common.archive": "Arkiver",
+   "common.delete": "Slett",
++  "common.add": "Legg til",
++  "common.done": "Ferdig",
+   "common.close": "Lukk",
+   "common.edit": "Rediger",
+   "common.loadMore": "Last flere",
+diff --git a/packages/app/src/i18n/pl.ts b/packages/app/src/i18n/pl.ts
+index 02637e5..45af55d 100644
+--- a/packages/app/src/i18n/pl.ts
++++ b/packages/app/src/i18n/pl.ts
+@@ -142,6 +142,10 @@ export const dict = {
+   "provider.connect.oauth.auto.confirmationCode": "Kod potwierdzający",
+   "provider.connect.toast.connected.title": "Połączono {{provider}}",
+   "provider.connect.toast.connected.description": "Modele {{provider}} są teraz dostępne do użycia.",
++  "provider.connect.accounts": "Konta {{provider}}",
++  "provider.connect.mainAccount": "Konto główne",
++  "provider.connect.noAccounts": "Brak kont jeszcze",
++  "provider.connect.setMainAccount": "Ustaw jako konto główne",
+   "provider.custom.title": "Dostawca niestandardowy",
+   "provider.custom.description.prefix": "Skonfiguruj dostawcę zgodnego z OpenAI. Zobacz ",
+   "provider.custom.description.link": "dokumentację konfiguracji dostawcy",
+@@ -534,6 +538,8 @@ export const dict = {
+   "common.reset": "Resetuj",
+   "common.archive": "Archiwizuj",
+   "common.delete": "Usuń",
++  "common.add": "Dodaj",
++  "common.done": "Gotowe",
+   "common.close": "Zamknij",
+   "common.edit": "Edytuj",
+   "common.loadMore": "Załaduj więcej",
+diff --git a/packages/app/src/i18n/ru.ts b/packages/app/src/i18n/ru.ts
+index a965acf..5bb3950 100644
+--- a/packages/app/src/i18n/ru.ts
++++ b/packages/app/src/i18n/ru.ts
+@@ -154,6 +154,10 @@ export const dict = {
+   "provider.connect.oauth.auto.confirmationCode": "Код подтверждения",
+   "provider.connect.toast.connected.title": "{{provider}} подключён",
+   "provider.connect.toast.connected.description": "Модели {{provider}} теперь доступны.",
++  "provider.connect.accounts": "Аккаунты {{provider}}",
++  "provider.connect.mainAccount": "Основной аккаунт",
++  "provider.connect.noAccounts": "Ещё нет аккаунтов",
++  "provider.connect.setMainAccount": "Сделать основным аккаунтом",
+ 
+   "provider.custom.title": "Пользовательский провайдер",
+   "provider.custom.description.prefix": "Настройте OpenAI-совместимого провайдера. См. ",
+@@ -596,6 +600,8 @@ export const dict = {
+   "common.reset": "Сбросить",
+   "common.archive": "Архивировать",
+   "common.delete": "Удалить",
++  "common.add": "Добавить",
++  "common.done": "Готово",
+   "common.close": "Закрыть",
+   "common.edit": "Редактировать",
+   "common.loadMore": "Загрузить ещё",
+diff --git a/packages/app/src/i18n/th.ts b/packages/app/src/i18n/th.ts
+index 00df86a..18f45fe 100644
+--- a/packages/app/src/i18n/th.ts
++++ b/packages/app/src/i18n/th.ts
+@@ -154,6 +154,10 @@ export const dict = {
+   "provider.connect.oauth.auto.confirmationCode": "รหัสยืนยัน",
+   "provider.connect.toast.connected.title": "{{provider}} ที่เชื่อมต่อแล้ว",
+   "provider.connect.toast.connected.description": "โมเดล {{provider}} พร้อมใช้งานแล้ว",
++  "provider.connect.accounts": "บัญชี {{provider}}",
++  "provider.connect.mainAccount": "บัญชีหลัก",
++  "provider.connect.noAccounts": "ยังไม่มีบัญชี",
++  "provider.connect.setMainAccount": "ตั้งเป็นบัญชีหลัก",
+ 
+   "provider.custom.title": "ผู้ให้บริการที่กำหนดเอง",
+   "provider.custom.description.prefix": "กำหนดค่าผู้ให้บริการที่เข้ากันได้กับ OpenAI ดู ",
+@@ -590,6 +594,8 @@ export const dict = {
+   "common.reset": "รีเซ็ต",
+   "common.archive": "จัดเก็บ",
+   "common.delete": "ลบ",
++  "common.add": "เพิ่ม",
++  "common.done": "เสร็จสิ้น",
+   "common.close": "ปิด",
+   "common.edit": "แก้ไข",
+   "common.loadMore": "โหลดเพิ่มเติม",
+diff --git a/packages/app/src/i18n/tr.ts b/packages/app/src/i18n/tr.ts
+index 27a6e03..f10b914 100644
+--- a/packages/app/src/i18n/tr.ts
++++ b/packages/app/src/i18n/tr.ts
+@@ -158,6 +158,10 @@ export const dict = {
+   "provider.connect.oauth.auto.confirmationCode": "Onay kodu",
+   "provider.connect.toast.connected.title": "{{provider}} bağlandı",
+   "provider.connect.toast.connected.description": "{{provider}} modelleri artık kullanımda.",
++  "provider.connect.accounts": "{{provider}} Hesapları",
++  "provider.connect.mainAccount": "Ana Hesap",
++  "provider.connect.noAccounts": "Henüz hesap yok",
++  "provider.connect.setMainAccount": "Ana hesap olarak ayarla",
+ 
+   "provider.custom.title": "Özel sağlayıcı",
+   "provider.custom.description.prefix": "OpenAI uyumlu bir sağlayıcı yapılandırın. ",
+@@ -602,6 +606,8 @@ export const dict = {
+   "common.reset": "Sıfırla",
+   "common.archive": "Arşivle",
+   "common.delete": "Sil",
++  "common.add": "Ekle",
++  "common.done": "Tamam",
+   "common.close": "Kapat",
+   "common.edit": "Düzenle",
+   "common.loadMore": "Daha fazla yükle",
+diff --git a/packages/app/src/i18n/uk.ts b/packages/app/src/i18n/uk.ts
+index 948c9a6..f6880e3 100644
+--- a/packages/app/src/i18n/uk.ts
++++ b/packages/app/src/i18n/uk.ts
+@@ -157,6 +157,10 @@ export const dict = {
+   "provider.connect.oauth.auto.confirmationCode": "Код підтвердження",
+   "provider.connect.toast.connected.title": "{{provider}} підключено",
+   "provider.connect.toast.connected.description": "Моделі {{provider}} тепер доступні для використання.",
++  "provider.connect.accounts": "Акаунти {{provider}}",
++  "provider.connect.mainAccount": "Основний акаунт",
++  "provider.connect.noAccounts": "Ще немає акаунтів",
++  "provider.connect.setMainAccount": "Зробити основним акаунтом",
+ 
+   "provider.custom.title": "Користувацький провайдер",
+   "provider.custom.description.prefix": "Налаштуйте провайдера, сумісного з OpenAI. Перегляньте ",
+@@ -652,6 +656,8 @@ export const dict = {
+   "common.reset": "Скинути",
+   "common.archive": "Архівувати",
+   "common.delete": "Видалити",
++  "common.add": "Додати",
++  "common.done": "Готово",
+   "common.close": "Закрити",
+   "common.edit": "Редагувати",
+   "common.loadMore": "Завантажити більше",
+diff --git a/packages/app/src/i18n/zh.ts b/packages/app/src/i18n/zh.ts
+index f5c962a..fce58ae 100644
+--- a/packages/app/src/i18n/zh.ts
++++ b/packages/app/src/i18n/zh.ts
+@@ -176,6 +176,10 @@ export const dict = {
+   "provider.connect.oauth.auto.confirmationCode": "确认码",
+   "provider.connect.toast.connected.title": "{{provider}} 已连接",
+   "provider.connect.toast.connected.description": "现在可以使用 {{provider}} 模型了。",
++  "provider.connect.accounts": "{{provider}} 账号",
++  "provider.connect.mainAccount": "主账号",
++  "provider.connect.noAccounts": "暂无账号",
++  "provider.connect.setMainAccount": "设为主账号",
+ 
+   "provider.custom.title": "自定义提供商",
+   "provider.custom.description.prefix": "配置与 OpenAI 兼容的提供商。请查看",
+@@ -597,6 +601,8 @@ export const dict = {
+   "common.reset": "重置",
+   "common.archive": "归档",
+   "common.delete": "删除",
++  "common.add": "添加",
++  "common.done": "完成",
+   "common.close": "关闭",
+   "common.edit": "编辑",
+   "common.loadMore": "加载更多",
+diff --git a/packages/app/src/i18n/zht.ts b/packages/app/src/i18n/zht.ts
+index edd6f7b..3db590f 100644
+--- a/packages/app/src/i18n/zht.ts
++++ b/packages/app/src/i18n/zht.ts
+@@ -155,6 +155,10 @@ export const dict = {
+   "provider.connect.oauth.auto.confirmationCode": "確認碼",
+   "provider.connect.toast.connected.title": "{{provider}} 已連線",
+   "provider.connect.toast.connected.description": "現在可以使用 {{provider}} 模型了。",
++  "provider.connect.accounts": "{{provider}} 帳戶",
++  "provider.connect.mainAccount": "主要帳戶",
++  "provider.connect.noAccounts": "尚無帳戶",
++  "provider.connect.setMainAccount": "設為主要帳戶",
+ 
+   "provider.custom.title": "自訂提供商",
+   "provider.custom.description.prefix": "設定與 OpenAI 相容的提供商。請參閱",
+@@ -586,6 +590,8 @@ export const dict = {
+   "common.reset": "重設",
+   "common.archive": "封存",
+   "common.delete": "刪除",
++  "common.add": "新增",
++  "common.done": "完成",
+   "common.close": "關閉",
+   "common.edit": "編輯",
+   "common.loadMore": "載入更多",
+diff --git a/packages/app/src/pages/session/usage-exceeded-dialogs.tsx b/packages/app/src/pages/session/usage-exceeded-dialogs.tsx
+index 5354410..f2bcd40 100644
+--- a/packages/app/src/pages/session/usage-exceeded-dialogs.tsx
++++ b/packages/app/src/pages/session/usage-exceeded-dialogs.tsx
+@@ -5,7 +5,6 @@ import { onCleanup } from "solid-js"
+ import { createStore } from "solid-js/store"
+ import { useSessionLayout } from "./session-layout"
+ import { useDialog } from "@opencode-ai/ui/context"
+-import { DialogUsageExceeded } from "@/components/dialog-usage-exceeded"
+ import { useI18n } from "@opencode-ai/ui/context"
+ 
+ const GO_UPSELL_FREE_TIER_LAST_SEEN_AT = "go_upsell_last_seen_at"
+@@ -33,6 +32,47 @@ function goUpsellKeys(status: SessionStatus) {
+   }
+ }
+ 
++const triedPoolKeys = new Set<string>()
++
++function getServerBase(): string {
++  if (typeof window !== "undefined" && window.location) {
++    return window.location.origin
++  }
++  return "http://localhost:4096"
++}
++
++async function listPoolEntries(provider: string): Promise<Array<{ key: string; label?: string }>> {
++  try {
++    const base = getServerBase()
++    const res = await fetch(`${base}/auth/${encodeURIComponent(provider)}/pool`)
++    if (!res.ok) return []
++    return await res.json()
++  } catch {
++    return []
++  }
++}
++
++async function switchPoolKey(provider: string, index: number): Promise<boolean> {
++  try {
++    const base = getServerBase()
++    const res = await fetch(`${base}/auth/${encodeURIComponent(provider)}/pool/switch/${index}`, {
++      method: "POST",
++    })
++    return res.ok
++  } catch {
++    return false
++  }
++}
++
++function notifySystemMessage(title: string, description: string) {
++  try {
++    if (typeof Notification !== "undefined" && Notification.permission === "granted") {
++      new Notification(title, { body: description })
++    }
++  } catch {
++  }
++}
++
+ export function useUsageExceededDialogs() {
+   const sdk = useSDK()
+   const dialog = useDialog()
+@@ -58,45 +98,43 @@ export function useUsageExceededDialogs() {
+       if (!action) return
+       if (dialog.active) return
+ 
+-      const keys = goUpsellKeys(evt.properties.status)
+-      if (!keys) return
++      const provider = action.provider
++      void (async () => {
++        const pool = await listPoolEntries(provider)
++        const untried = pool.filter((entry) => !triedPoolKeys.has(entry.key))
++
++        if (untried.length > 0) {
++          const idx = pool.indexOf(untried[0])
++          triedPoolKeys.add(untried[0].key)
++          const ok = await switchPoolKey(provider, idx)
++          if (ok) {
++            notifySystemMessage(
++              isEnglish()
++                ? `Switched API key for ${provider}`
++                : `${provider} のAPIキーを切り替えました`,
++              isEnglish()
++                ? `Quota exceeded. Switched to another API key.`
++                : `上限に達したため、別のAPIキーに切り替えました。`,
++            )
++          }
++          return
++        }
++
++        triedPoolKeys.clear()
++        const keys = goUpsellKeys(evt.properties.status)
++        if (!keys) return
+ 
+-      const seen = goUpsellState[keys.lastSeenAt]
+-      if (seen && Date.now() - seen < GO_UPSELL_WINDOW) return
+-      if (goUpsellState[keys.dontShow]) return
++        const seen = goUpsellState[keys.lastSeenAt]
++        if (seen && Date.now() - seen < GO_UPSELL_WINDOW) return
++        if (goUpsellState[keys.dontShow]) return
+ 
+-      if (action.reason === "free_tier_limit") {
+-        dialog.show(() => (
+-          <DialogUsageExceeded
+-            title={isEnglish() ? action.title : t("dialog.usageExceeded.freeTier.title")}
+-            description={isEnglish() ? action.message : t("dialog.usageExceeded.freeTier.description")}
+-            actionLabel={isEnglish() ? action.label : t("dialog.usageExceeded.freeTier.actionLabel")}
+-            link={action.link}
+-            onClose={(dontShowAgain) => {
+-              setGoUpsellState(keys.lastSeenAt, Date.now())
+-              if (dontShowAgain) setGoUpsellState(keys.dontShow, Date.now())
+-              else {
+-                void import("../../components/dialog-connect-provider").then((x) =>
+-                  dialog.show(() => <x.DialogConnectProvider provider="opencode-go" />),
+-                )
+-              }
+-            }}
+-          />
+-        ))
+-      } else if (action.reason === "account_rate_limit") {
+-        dialog.show(() => (
+-          <DialogUsageExceeded
+-            title={isEnglish() ? action.title : t("dialog.usageExceeded.accountRateLimit.title")}
+-            description={isEnglish() ? action.message : t("dialog.usageExceeded.accountRateLimit.description")}
+-            actionLabel={isEnglish() ? action.label : t("dialog.usageExceeded.accountRateLimit.actionLabel")}
+-            link={action.link}
+-            onClose={(dontShowAgain) => {
+-              setGoUpsellState(keys.lastSeenAt, Date.now())
+-              if (dontShowAgain) setGoUpsellState(keys.dontShow, Date.now())
+-            }}
+-          />
+-        ))
+-      }
++        if (action.reason === "free_tier_limit" || action.reason === "account_rate_limit") {
++          void import("../../components/dialog-connect-provider").then((x) =>
++            dialog.show(() => <x.DialogConnectProvider provider={provider} />),
++          )
++          setGoUpsellState(keys.lastSeenAt, Date.now())
++        }
++      })()
+     }),
+   )
+ }
+diff --git a/packages/opencode/src/cli/cmd/providers.ts b/packages/opencode/src/cli/cmd/providers.ts
+index 560781e..ef070b8 100644
+--- a/packages/opencode/src/cli/cmd/providers.ts
++++ b/packages/opencode/src/cli/cmd/providers.ts
+@@ -1,4 +1,5 @@
+ import { Auth } from "../../auth"
++import { AppFileSystem } from "@opencode-ai/core/filesystem"
+ import { cmd } from "./cmd"
+ import { CliError, effectCmd, fail } from "../effect-cmd"
+ import { UI } from "../ui"
+@@ -474,12 +475,128 @@ export const ProvidersLoginCommand = effectCmd({
+       )
+     }
+ 
+-    const key = yield* Prompt.password({
+-      message: "Enter your API key",
+-      validate: (x) => (x && x.length > 0 ? undefined : "Required"),
+-    })
+-    const apiKey = yield* promptValue(key)
+-    yield* Effect.orDie(authSvc.set(provider, { type: "api", key: apiKey }))
++    const POOL_FILE = path.join(Global.Path.data, "auth-pool.json")
++
++    const maskKey = (key: string) => (key.length <= 8 ? "****" : key.slice(0, 3) + "..." + key.slice(-4))
++
++    const fsys = yield* AppFileSystem.Service
++
++    const readPool = () =>
++      fsys.readJson(POOL_FILE).pipe(Effect.orElseSucceed(() => ({}) as Record<string, Array<{ key: string; label?: string }>>))
++
++    const writePool = (data: Record<string, Array<{ key: string; label?: string }>>) =>
++      fsys.writeJsonString(POOL_FILE, data)
++
++    const getPool = (maybeProvider?: string) =>
++      Effect.gen(function* () {
++        const data = yield* readPool()
++        const targetProvider = maybeProvider ?? provider
++        return { data, list: data[targetProvider] ?? [] }
++      })
++
++    const addToPool = (maybeProvider: string, entry: { key: string; label?: string }) =>
++      Effect.gen(function* () {
++        const { data, list } = yield* getPool(maybeProvider)
++        yield* writePool({ ...data, [maybeProvider]: [...list, entry] })
++      })
++
++    const removeFromPool = (maybeProvider: string, idx: number) =>
++      Effect.gen(function* () {
++        const { data, list } = yield* getPool(maybeProvider)
++        const updated = [...list.slice(0, idx), ...list.slice(idx + 1)]
++        if (updated.length > 0) {
++          yield* writePool({ ...data, [maybeProvider]: updated })
++        } else {
++          const { [maybeProvider]: _, ...rest } = data
++          yield* writePool(rest)
++        }
++      })
++
++    const switchFromPool = (maybeProvider: string, idx: number) =>
++      Effect.gen(function* () {
++        const { data, list } = yield* getPool(maybeProvider)
++        const toPromote = list[idx]
++        if (!toPromote) return
++        const updated = [...list.slice(0, idx), ...list.slice(idx + 1)]
++        if (updated.length > 0) {
++          yield* writePool({ ...data, [maybeProvider]: updated })
++        } else {
++          const { [maybeProvider]: _, ...rest } = data
++          yield* writePool(rest)
++        }
++        yield* Effect.orDie(authSvc.set(maybeProvider, { type: "api", key: toPromote.key }))
++        yield* Prompt.log.info(`Switched main account to ${maskKey(toPromote.key)}`)
++      })
++
++    const database = yield* modelsDev.get()
++    accounts: while (true) {
++      const all = yield* Effect.orDie(authSvc.all())
++      const main = all[provider] as Auth.Info | undefined
++      const { list: pool } = yield* getPool()
++
++      const options: { label: string; value: string }[] = []
++      if (main) {
++        const keyStr = main.type === "api" ? maskKey(main.key) : main.type
++        options.push({ label: `Main: ${keyStr}`, value: "__main" })
++      } else {
++        options.push({ label: "No main account", value: "__no_main" })
++      }
++      for (let i = 0; i < pool.length; i++) {
++        options.push({ label: `  ${i + 2}: ${maskKey(pool[i].key)}`, value: `__pool_${i}` })
++      }
++      options.push({ label: "─".repeat(30), value: "__sep" })
++      options.push({ label: "Add new API key", value: "add" })
++      if (pool.length > 0) {
++        for (let i = 0; i < pool.length; i++) {
++          options.push({ label: `Promote account ${i + 2} to main`, value: `promote_${i}` })
++          options.push({ label: `Remove account ${i + 2}`, value: `remove_${i}` })
++        }
++      }
++      if (main) {
++        options.push({ label: "Remove main account", value: "remove_main" })
++      }
++      options.push({ label: "Done", value: "done" })
++
++      const providerName = database?.[provider]?.name ?? provider
++      const action = yield* promptValue(
++        yield* Prompt.select({ message: `Manage accounts for ${providerName}`, options }),
++      )
++
++      if (action === "done") break
++
++      if (action === "add") {
++        const key = yield* promptValue(
++          yield* Prompt.password({
++            message: "Enter your API key",
++            validate: (x) => (x && x.length > 0 ? undefined : "Required"),
++          }),
++        )
++        if (main) {
++          yield* addToPool(provider, { key })
++        } else {
++          yield* Effect.orDie(authSvc.set(provider, { type: "api", key }))
++        }
++        continue
++      }
++
++      if (action.startsWith("remove_")) {
++        if (action === "remove_main") {
++          if (pool.length > 0) {
++            yield* switchFromPool(provider, 0)
++          } else {
++            yield* Effect.orDie(authSvc.remove(provider))
++          }
++        } else {
++          yield* removeFromPool(provider, Number(action.split("_").pop()!))
++        }
++        continue
++      }
++
++      if (action.startsWith("promote_")) {
++        yield* switchFromPool(provider, Number(action.split("_").pop()!))
++        continue
++      }
++    }
+ 
+     yield* Prompt.outro("Done")
+   }),
+diff --git a/packages/opencode/src/effect/app-runtime.ts b/packages/opencode/src/effect/app-runtime.ts
+index 2bef35e..baf97b2 100644
+--- a/packages/opencode/src/effect/app-runtime.ts
++++ b/packages/opencode/src/effect/app-runtime.ts
+@@ -5,6 +5,7 @@ import * as Observability from "@opencode-ai/core/effect/observability"
+ import { AppFileSystem } from "@opencode-ai/core/filesystem"
+ import { Bus } from "@/bus"
+ import { Auth } from "@/auth"
++import * as AuthPool from "@/auth/pool"
+ import { Account } from "@/account/account"
+ import { Config } from "@/config/config"
+ import { Git } from "@/git"
+@@ -114,6 +115,7 @@ export const AppLayer = Layer.mergeAll(
+   SyncEvent.defaultLayer,
+   EventV2Bridge.defaultLayer,
+   DataMigration.defaultLayer,
++  AuthPool.defaultLayer,
+ ).pipe(Layer.provideMerge(InstanceLayer.layer), Layer.provideMerge(Observability.layer))
+ 
+ const rt = ManagedRuntime.make(AppLayer, { memoMap })
+diff --git a/packages/opencode/src/server/routes/instance/httpapi/groups/control.ts b/packages/opencode/src/server/routes/instance/httpapi/groups/control.ts
+index 33e6a8e..6f2409a 100644
+--- a/packages/opencode/src/server/routes/instance/httpapi/groups/control.ts
++++ b/packages/opencode/src/server/routes/instance/httpapi/groups/control.ts
+@@ -27,9 +27,28 @@ export const LogInput = Schema.Struct({
+   }),
+ })
+ 
++const PoolEntry = Schema.Struct({
++  key: Schema.String,
++  label: Schema.optional(Schema.String),
++})
++
++const PoolIndexParams = Schema.Struct({
++  providerID: ProviderID,
++  index: Schema.NumberFromString,
++})
++
++const PoolIndexAndKey = Schema.Struct({
++  providerID: ProviderID,
++  index: Schema.NumberFromString,
++})
++
+ export const ControlPaths = {
+   auth: "/auth/:providerID",
+   log: "/log",
++  poolList: "/auth/:providerID/pool",
++  poolAdd: "/auth/:providerID/pool",
++  poolRemove: "/auth/:providerID/pool/:index",
++  poolSwitch: "/auth/:providerID/pool/switch/:index",
+ } as const
+ 
+ export const ControlApi = HttpApi.make("control").add(
+@@ -58,6 +77,51 @@ export const ControlApi = HttpApi.make("control").add(
+           description: "Remove authentication credentials",
+         }),
+       ),
++      HttpApiEndpoint.get("poolList", ControlPaths.poolList, {
++        params: AuthParams,
++        success: described(Schema.Array(PoolEntry), "List of pool API keys"),
++        error: HttpApiError.BadRequest,
++      }).annotateMerge(
++        OpenApi.annotations({
++          identifier: "auth.pool.list",
++          summary: "List pool API keys",
++          description: "List extra API keys in the auth pool for a provider",
++        }),
++      ),
++      HttpApiEndpoint.post("poolAdd", ControlPaths.poolAdd, {
++        params: AuthParams,
++        payload: PoolEntry,
++        success: described(Schema.Boolean, "API key added to pool"),
++        error: HttpApiError.BadRequest,
++      }).annotateMerge(
++        OpenApi.annotations({
++          identifier: "auth.pool.add",
++          summary: "Add API key to pool",
++          description: "Add an extra API key to the auth pool for a provider",
++        }),
++      ),
++      HttpApiEndpoint.delete("poolRemove", ControlPaths.poolRemove, {
++        params: PoolIndexParams,
++        success: described(Schema.Boolean, "API key removed from pool"),
++        error: HttpApiError.BadRequest,
++      }).annotateMerge(
++        OpenApi.annotations({
++          identifier: "auth.pool.remove",
++          summary: "Remove API key from pool",
++          description: "Remove an API key from the auth pool at a given index",
++        }),
++      ),
++      HttpApiEndpoint.post("poolSwitch", ControlPaths.poolSwitch, {
++        params: PoolIndexAndKey,
++        success: described(Schema.Boolean, "Switched main API key with pool key"),
++        error: HttpApiError.BadRequest,
++      }).annotateMerge(
++        OpenApi.annotations({
++          identifier: "auth.pool.switch",
++          summary: "Switch main API key with pool key",
++          description: "Swap the main API key with one from the pool at a given index",
++        }),
++      ),
+       HttpApiEndpoint.post("log", ControlPaths.log, {
+         query: LogQuery,
+         payload: LogInput,
+diff --git a/packages/opencode/src/server/routes/instance/httpapi/handlers/control.ts b/packages/opencode/src/server/routes/instance/httpapi/handlers/control.ts
+index e1ede22..79cc5e0 100644
+--- a/packages/opencode/src/server/routes/instance/httpapi/handlers/control.ts
++++ b/packages/opencode/src/server/routes/instance/httpapi/handlers/control.ts
+@@ -1,4 +1,5 @@
+ import { Auth } from "@/auth"
++import * as AuthPool from "@/auth/pool"
+ import { ProviderID } from "@/provider/schema"
+ import * as Log from "@opencode-ai/core/util/log"
+ import { Effect } from "effect"
+@@ -9,6 +10,7 @@ import { LogInput } from "../groups/control"
+ export const controlHandlers = HttpApiBuilder.group(RootHttpApi, "control", (handlers) =>
+   Effect.gen(function* () {
+     const auth = yield* Auth.Service
++    const pool = yield* AuthPool.Service
+ 
+     const authSet = Effect.fn("ControlHttpApi.authSet")(function* (ctx: {
+       params: { providerID: ProviderID }
+@@ -23,12 +25,48 @@ export const controlHandlers = HttpApiBuilder.group(RootHttpApi, "control", (han
+       return true
+     })
+ 
++    const poolList = Effect.fn("ControlHttpApi.poolList")(function* (ctx: {
++      params: { providerID: ProviderID }
++    }) {
++      const entries = yield* pool.list(ctx.params.providerID)
++      return entries
++    })
++
++    const poolAdd = Effect.fn("ControlHttpApi.poolAdd")(function* (ctx: {
++      params: { providerID: ProviderID }
++      payload: { key: string; label?: string }
++    }) {
++      yield* pool.add(ctx.params.providerID, { key: ctx.payload.key, label: ctx.payload.label })
++      return true
++    })
++
++    const poolRemove = Effect.fn("ControlHttpApi.poolRemove")(function* (ctx: {
++      params: { providerID: ProviderID; index: number }
++    }) {
++      yield* pool.remove(ctx.params.providerID, ctx.params.index)
++      return true
++    })
++
++    const poolSwitch = Effect.fn("ControlHttpApi.poolSwitch")(function* (ctx: {
++      params: { providerID: ProviderID; index: number }
++    }) {
++      yield* pool.switch(ctx.params.providerID, ctx.params.index)
++      return true
++    })
++
+     const log = Effect.fn("ControlHttpApi.log")(function* (ctx: { payload: typeof LogInput.Type }) {
+       const logger = Log.create({ service: ctx.payload.service })
+       logger[ctx.payload.level](ctx.payload.message, ctx.payload.extra)
+       return true
+     })
+ 
+-    return handlers.handle("authSet", authSet).handle("authRemove", authRemove).handle("log", log)
++    return handlers
++      .handle("authSet", authSet)
++      .handle("authRemove", authRemove)
++      .handle("poolList", poolList)
++      .handle("poolAdd", poolAdd)
++      .handle("poolRemove", poolRemove)
++      .handle("poolSwitch", poolSwitch)
++      .handle("log", log)
+   }),
+ )
+diff --git a/packages/opencode/src/server/routes/instance/httpapi/server.ts b/packages/opencode/src/server/routes/instance/httpapi/server.ts
+index 45a71a7..6473ce2 100644
+--- a/packages/opencode/src/server/routes/instance/httpapi/server.ts
++++ b/packages/opencode/src/server/routes/instance/httpapi/server.ts
+@@ -13,6 +13,7 @@ import { AppFileSystem } from "@opencode-ai/core/filesystem"
+ import { Account } from "@/account/account"
+ import { Agent } from "@/agent/agent"
+ import { Auth } from "@/auth"
++import * as AuthPool from "@/auth/pool"
+ import { Bus } from "@/bus"
+ import { Config } from "@/config/config"
+ import { Command } from "@/command"
+@@ -196,6 +197,7 @@ export function createRoutes(
+       Account.defaultLayer,
+       Agent.defaultLayer,
+       Auth.defaultLayer,
++      AuthPool.defaultLayer,
+       Command.defaultLayer,
+       Config.defaultLayer,
+       File.defaultLayer,

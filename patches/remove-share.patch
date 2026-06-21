@@ -1,3 +1,237 @@
+diff --git a/packages/app/src/i18n/ar.ts b/packages/app/src/i18n/ar.ts
+index 5d12402..fad7028 100644
+--- a/packages/app/src/i18n/ar.ts
++++ b/packages/app/src/i18n/ar.ts
+@@ -503,7 +503,7 @@ export const dict = {
+   "session.share.popover.title": "نشر على الويب",
+   "session.share.popover.description.shared": "هذه الجلسة عامة على الويب. يمكن لأي شخص لديه الرابط الوصول إليها.",
+   "session.share.popover.description.unshared": "شارك الجلسة علنًا على الويب. ستكون متاحة لأي شخص لديه الرابط.",
+-  "session.share.action.share": "مشاركة",
++  "session.share.action.share": "تصدير",
+   "session.share.action.publish": "نشر",
+   "session.share.action.publishing": "جارٍ النشر...",
+   "session.share.action.unpublish": "إلغاء النشر",
+diff --git a/packages/app/src/i18n/br.ts b/packages/app/src/i18n/br.ts
+index 7c6965e..55ff762 100644
+--- a/packages/app/src/i18n/br.ts
++++ b/packages/app/src/i18n/br.ts
+@@ -509,7 +509,7 @@ export const dict = {
+     "Esta sessão é pública na web. Está acessível para qualquer pessoa com o link.",
+   "session.share.popover.description.unshared":
+     "Compartilhar sessão publicamente na web. Estará acessível para qualquer pessoa com o link.",
+-  "session.share.action.share": "Compartilhar",
++  "session.share.action.share": "Exportar",
+   "session.share.action.publish": "Publicar",
+   "session.share.action.publishing": "Publicando...",
+   "session.share.action.unpublish": "Cancelar publicação",
+diff --git a/packages/app/src/i18n/bs.ts b/packages/app/src/i18n/bs.ts
+index 201b6ed..1417106 100644
+--- a/packages/app/src/i18n/bs.ts
++++ b/packages/app/src/i18n/bs.ts
+@@ -566,7 +566,7 @@ export const dict = {
+   "session.share.popover.title": "Objavi na webu",
+   "session.share.popover.description.shared": "Ova sesija je javna na webu. Dostupna je svima koji imaju link.",
+   "session.share.popover.description.unshared": "Podijeli sesiju javno na webu. Biće dostupna svima koji imaju link.",
+-  "session.share.action.share": "Podijeli",
++  "session.share.action.share": "Izvezi",
+   "session.share.action.publish": "Objavi",
+   "session.share.action.publishing": "Objavljivanje...",
+   "session.share.action.unpublish": "Poništi objavu",
+diff --git a/packages/app/src/i18n/da.ts b/packages/app/src/i18n/da.ts
+index d52aca8..c6aa9c8 100644
+--- a/packages/app/src/i18n/da.ts
++++ b/packages/app/src/i18n/da.ts
+@@ -563,7 +563,7 @@ export const dict = {
+     "Denne session er offentlig på nettet. Den er tilgængelig for alle med linket.",
+   "session.share.popover.description.unshared":
+     "Del session offentligt på nettet. Den vil være tilgængelig for alle med linket.",
+-  "session.share.action.share": "Del",
++  "session.share.action.share": "Eksporter",
+   "session.share.action.publish": "Udgiv",
+   "session.share.action.publishing": "Udgiver...",
+   "session.share.action.unpublish": "Afpublicer",
+diff --git a/packages/app/src/i18n/de.ts b/packages/app/src/i18n/de.ts
+index 4d5a649..6bbeb2e 100644
+--- a/packages/app/src/i18n/de.ts
++++ b/packages/app/src/i18n/de.ts
+@@ -517,7 +517,7 @@ export const dict = {
+     "Diese Sitzung ist öffentlich im Web. Sie ist für jeden mit dem Link zugänglich.",
+   "session.share.popover.description.unshared":
+     "Sitzung öffentlich im Web teilen. Sie wird für jeden mit dem Link zugänglich sein.",
+-  "session.share.action.share": "Teilen",
++  "session.share.action.share": "Exportieren",
+   "session.share.action.publish": "Veröffentlichen",
+   "session.share.action.publishing": "Veröffentliche...",
+   "session.share.action.unpublish": "Veröffentlichung aufheben",
+diff --git a/packages/app/src/i18n/en.ts b/packages/app/src/i18n/en.ts
+index 29f662f..5b5fcff 100644
+--- a/packages/app/src/i18n/en.ts
++++ b/packages/app/src/i18n/en.ts
+@@ -631,7 +631,7 @@ export const dict = {
+     "This session is public on the web. It is accessible to anyone with the link.",
+   "session.share.popover.description.unshared":
+     "Share session publicly on the web. It will be accessible to anyone with the link.",
+-  "session.share.action.share": "Share",
++  "session.share.action.share": "Export",
+   "session.share.action.publish": "Publish",
+   "session.share.action.publishing": "Publishing...",
+   "session.share.action.unpublish": "Unpublish",
+diff --git a/packages/app/src/i18n/es.ts b/packages/app/src/i18n/es.ts
+index b71fe03..7f0c30b 100644
+--- a/packages/app/src/i18n/es.ts
++++ b/packages/app/src/i18n/es.ts
+@@ -569,7 +569,7 @@ export const dict = {
+     "Esta sesión es pública en la web. Es accesible para cualquiera con el enlace.",
+   "session.share.popover.description.unshared":
+     "Compartir sesión públicamente en la web. Será accesible para cualquiera con el enlace.",
+-  "session.share.action.share": "Compartir",
++  "session.share.action.share": "Exportar",
+   "session.share.action.publish": "Publicar",
+   "session.share.action.publishing": "Publicando...",
+   "session.share.action.unpublish": "Despublicar",
+diff --git a/packages/app/src/i18n/fr.ts b/packages/app/src/i18n/fr.ts
+index 385dbdd..76cc38d 100644
+--- a/packages/app/src/i18n/fr.ts
++++ b/packages/app/src/i18n/fr.ts
+@@ -514,7 +514,7 @@ export const dict = {
+     "Cette session est publique sur le web. Elle est accessible à toute personne disposant du lien.",
+   "session.share.popover.description.unshared":
+     "Partager la session publiquement sur le web. Elle sera accessible à toute personne disposant du lien.",
+-  "session.share.action.share": "Partager",
++  "session.share.action.share": "Exporter",
+   "session.share.action.publish": "Publier",
+   "session.share.action.publishing": "Publication...",
+   "session.share.action.unpublish": "Dépublier",
+diff --git a/packages/app/src/i18n/ja.ts b/packages/app/src/i18n/ja.ts
+index 34ac398..707d945 100644
+--- a/packages/app/src/i18n/ja.ts
++++ b/packages/app/src/i18n/ja.ts
+@@ -506,7 +506,7 @@ export const dict = {
+     "このセッションはウェブで公開されています。リンクを知っている人なら誰でもアクセスできます。",
+   "session.share.popover.description.unshared":
+     "セッションをウェブで公開します。リンクを知っている人なら誰でもアクセスできるようになります。",
+-  "session.share.action.share": "共有",
++  "session.share.action.share": "エクスポート",
+   "session.share.action.publish": "公開",
+   "session.share.action.publishing": "公開中...",
+   "session.share.action.unpublish": "非公開にする",
+diff --git a/packages/app/src/i18n/ko.ts b/packages/app/src/i18n/ko.ts
+index f1926f3..ab82818 100644
+--- a/packages/app/src/i18n/ko.ts
++++ b/packages/app/src/i18n/ko.ts
+@@ -503,7 +503,7 @@ export const dict = {
+   "session.share.popover.description.shared": "이 세션은 웹에 공개되었습니다. 링크가 있는 누구나 액세스할 수 있습니다.",
+   "session.share.popover.description.unshared":
+     "세션을 웹에 공개적으로 공유합니다. 링크가 있는 누구나 액세스할 수 있습니다.",
+-  "session.share.action.share": "공유",
++  "session.share.action.share": "내보내기",
+   "session.share.action.publish": "게시",
+   "session.share.action.publishing": "게시 중...",
+   "session.share.action.unpublish": "게시 취소",
+diff --git a/packages/app/src/i18n/no.ts b/packages/app/src/i18n/no.ts
+index b4adebd..71667d9 100644
+--- a/packages/app/src/i18n/no.ts
++++ b/packages/app/src/i18n/no.ts
+@@ -569,7 +569,7 @@ export const dict = {
+     "Denne sesjonen er offentlig på nettet. Den er tilgjengelig for alle med lenken.",
+   "session.share.popover.description.unshared":
+     "Del sesjonen offentlig på nettet. Den vil være tilgjengelig for alle med lenken.",
+-  "session.share.action.share": "Del",
++  "session.share.action.share": "Eksporter",
+   "session.share.action.publish": "Publiser",
+   "session.share.action.publishing": "Publiserer...",
+   "session.share.action.unpublish": "Avpubliser",
+diff --git a/packages/app/src/i18n/pl.ts b/packages/app/src/i18n/pl.ts
+index 02637e5..552efb2 100644
+--- a/packages/app/src/i18n/pl.ts
++++ b/packages/app/src/i18n/pl.ts
+@@ -507,7 +507,7 @@ export const dict = {
+     "Ta sesja jest publiczna w sieci. Jest dostępna dla każdego, kto posiada link.",
+   "session.share.popover.description.unshared":
+     "Udostępnij sesję publicznie w sieci. Będzie dostępna dla każdego, kto posiada link.",
+-  "session.share.action.share": "Udostępnij",
++  "session.share.action.share": "Eksportuj",
+   "session.share.action.publish": "Opublikuj",
+   "session.share.action.publishing": "Publikowanie...",
+   "session.share.action.unpublish": "Cofnij publikację",
+diff --git a/packages/app/src/i18n/ru.ts b/packages/app/src/i18n/ru.ts
+index a965acf..6345bbe 100644
+--- a/packages/app/src/i18n/ru.ts
++++ b/packages/app/src/i18n/ru.ts
+@@ -566,7 +566,7 @@ export const dict = {
+     "Эта сессия общедоступна. Доступ к ней может получить любой, у кого есть ссылка.",
+   "session.share.popover.description.unshared":
+     "Опубликуйте сессию в интернете. Доступ к ней сможет получить любой, у кого есть ссылка.",
+-  "session.share.action.share": "Поделиться",
++  "session.share.action.share": "Экспорт",
+   "session.share.action.publish": "Опубликовать",
+   "session.share.action.publishing": "Публикация...",
+   "session.share.action.unpublish": "Отменить публикацию",
+diff --git a/packages/app/src/i18n/th.ts b/packages/app/src/i18n/th.ts
+index 00df86a..6678f0a 100644
+--- a/packages/app/src/i18n/th.ts
++++ b/packages/app/src/i18n/th.ts
+@@ -561,7 +561,7 @@ export const dict = {
+   "session.share.popover.title": "เผยแพร่บนเว็บ",
+   "session.share.popover.description.shared": "เซสชันนี้เป็นสาธารณะบนเว็บ สามารถเข้าถึงได้โดยผู้ที่มีลิงก์",
+   "session.share.popover.description.unshared": "แชร์เซสชันสาธารณะบนเว็บ จะเข้าถึงได้โดยผู้ที่มีลิงก์",
+-  "session.share.action.share": "แชร์",
++  "session.share.action.share": "ส่งออก",
+   "session.share.action.publish": "เผยแพร่",
+   "session.share.action.publishing": "กำลังเผยแพร่...",
+   "session.share.action.unpublish": "ยกเลิกการเผยแพร่",
+diff --git a/packages/app/src/i18n/tr.ts b/packages/app/src/i18n/tr.ts
+index 27a6e03..2a9064c 100644
+--- a/packages/app/src/i18n/tr.ts
++++ b/packages/app/src/i18n/tr.ts
+@@ -572,7 +572,7 @@ export const dict = {
+   "session.share.popover.description.shared": "Bu oturum web'de herkese açıktır. Bağlantıya sahip herkes erişebilir.",
+   "session.share.popover.description.unshared":
+     "Oturumu web'de herkese açık olarak paylaşın. Bağlantıya sahip herkes erişebilecek.",
+-  "session.share.action.share": "Paylaş",
++  "session.share.action.share": "Dışa Aktar",
+   "session.share.action.publish": "Yayınla",
+   "session.share.action.publishing": "Yayınlanıyor...",
+   "session.share.action.unpublish": "Yayından kaldır",
+diff --git a/packages/app/src/i18n/uk.ts b/packages/app/src/i18n/uk.ts
+index 948c9a6..6dd1948 100644
+--- a/packages/app/src/i18n/uk.ts
++++ b/packages/app/src/i18n/uk.ts
+@@ -620,7 +620,7 @@ export const dict = {
+     "Ця сесія є публічною в інтернеті. Вона доступна будь-кому за посиланням.",
+   "session.share.popover.description.unshared":
+     "Опублікуйте сесію публічно в інтернеті. Вона буде доступна будь-кому за посиланням.",
+-  "session.share.action.share": "Поділитися",
++  "session.share.action.share": "Експорт",
+   "session.share.action.publish": "Опублікувати",
+   "session.share.action.publishing": "Публікація...",
+   "session.share.action.unpublish": "Скасувати публікацію",
+diff --git a/packages/app/src/i18n/zh.ts b/packages/app/src/i18n/zh.ts
+index f5c962a..cd5f0c8 100644
+--- a/packages/app/src/i18n/zh.ts
++++ b/packages/app/src/i18n/zh.ts
+@@ -567,7 +567,7 @@ export const dict = {
+   "session.share.popover.title": "发布到网页",
+   "session.share.popover.description.shared": "此会话已在网页上公开。任何拥有链接的人都可以访问。",
+   "session.share.popover.description.unshared": "在网页上公开分享此会话。任何拥有链接的人都可以访问。",
+-  "session.share.action.share": "分享",
++  "session.share.action.share": "导出",
+   "session.share.action.publish": "发布",
+   "session.share.action.publishing": "正在发布...",
+   "session.share.action.unpublish": "取消发布",
+diff --git a/packages/app/src/i18n/zht.ts b/packages/app/src/i18n/zht.ts
+index edd6f7b..3efb096 100644
+--- a/packages/app/src/i18n/zht.ts
++++ b/packages/app/src/i18n/zht.ts
+@@ -557,7 +557,7 @@ export const dict = {
+   "session.share.popover.title": "發佈到網頁",
+   "session.share.popover.description.shared": "此工作階段已在網頁上公開。任何擁有連結的人都可以存取。",
+   "session.share.popover.description.unshared": "在網頁上公開分享此工作階段。任何擁有連結的人都可以存取。",
+-  "session.share.action.share": "分享",
++  "session.share.action.share": "匯出",
+   "session.share.action.publish": "發佈",
+   "session.share.action.publishing": "正在發佈...",
+   "session.share.action.unpublish": "取消發佈",
 diff --git a/packages/app/src/pages/session/message-timeline.tsx b/packages/app/src/pages/session/message-timeline.tsx
 index e071597..38002e6 100644
 --- a/packages/app/src/pages/session/message-timeline.tsx

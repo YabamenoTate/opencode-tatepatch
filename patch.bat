@@ -100,24 +100,11 @@ echo ^=^=^> Applying patches
 for %%p in (
     version.patch
     webapp-storage-proxy.patch
-    server-persist-group.patch
-    server-persist-handler.patch
-    server-api-register.patch
-    server-routes-register.patch
-    auth-pool-service.patch
-    auth-pool-control-api.patch
-    auth-pool-control-handler.patch
-    auth-pool-server.patch
-    auth-pool-cli-layer.patch
-    cli-account-mgmt.patch
-    account-mgmt-ui.patch
-    quota-switch.patch
-    select-provider-badge.patch
+    auth-pool.patch
+    ctrl-enter-send.patch
     remove-help-button.patch
     remove-share.patch
-    label-export.patch
     remove-upsell.patch
-    ctrl-enter-send.patch
 ) do (
     if exist "%PATCHES_DIR%\%%p" (
         echo Applying %%p ...

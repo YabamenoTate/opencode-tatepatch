@@ -130,30 +130,17 @@ patch.bat status
 }
 ```
 
-### Patch Inventory (20 patches, applied in order)
+### Patch Inventory (7 patches)
 
 | # | Patch | Target | Description |
 |---|-------|--------|-------------|
 | 1 | `version.patch` | Version string | Appends `(Tate Patched)` to CLI version output |
-| 2 | `webapp-storage-proxy.patch` | localStorage | Proxies localStorage calls to the server |
-| 3 | `server-persist-group.patch` | API routing | Defines `/persist/:key` endpoints |
-| 4 | `server-persist-handler.patch` | API handlers | Implements storage read/write as JSON |
-| 5 | `server-api-register.patch` | API config | Registers persist API handlers |
-| 6 | `server-routes-register.patch` | Server config | Wires storage handlers |
-| 7 | `auth-pool-service.patch` | Core service | Creates the AuthPool service |
-| 8 | `auth-pool-control-api.patch` | REST API | Defines pool endpoints |
-| 9 | `auth-pool-control-handler.patch` | REST handlers | Implements pool CRUD handlers |
-| 10 | `auth-pool-server.patch` | Server layers | Injects AuthPool service into server |
-| 11 | `auth-pool-cli-layer.patch` | CLI layers | Injects AuthPool service into CLI |
-| 12 | `cli-account-mgmt.patch` | CLI commands | Adds interactive account menu to CLI |
-| 13 | `account-mgmt-ui.patch` | WebUI | Adds Manage Accounts dialog in UI |
-| 14 | `quota-switch.patch` | Error handler | Auto-rotates keys on quota exhaustion |
-| 15 | `select-provider-badge.patch` | Provider list | Adds "Connected" badge for configured providers |
-| 16 | `remove-help-button.patch` | Sidebar UI | Removes help icon linking to Discord |
-| 17 | `remove-share.patch` | Share menu | Replaces cloud publishing with JSON export |
-| 18 | `label-export.patch` | i18n | Localizes labels and shortcut hints (18 languages) |
-| 19 | `remove-upsell.patch` | Promotion | Removes Go subscription banners and messages |
-| 20 | `ctrl-enter-send.patch` | Keyboard input | Rebinds Enter to newline and Ctrl+Enter to send |
+| 2 | `webapp-storage-proxy.patch` | Local persistence | Proxies webapp localStorage requests to server and persists layout config locally |
+| 3 | `auth-pool.patch` | Multi-account pool | Implements auth key pool management (CRUD backend APIs, WebUI connected badge & config page, CLI commands, and auto-rotation on quota error) including localized language keys |
+| 4 | `ctrl-enter-send.patch` | Keyboard input | Rebinds Enter to newline and Ctrl/Cmd+Enter to send, adding UI tray hint with all translations |
+| 5 | `remove-help-button.patch` | Help button | Removes the sidebar help icon linking to an external Discord server |
+| 6 | `remove-share.patch` | Cloud share | Replaces the cloud session publishing feature with local JSON export, including localized labels |
+| 7 | `remove-upsell.patch` | Billing ads | Strips away Go subscription billing promotion banners and error messages |
 
 ---
 
@@ -320,30 +307,17 @@ patch.bat status
 }
 ```
 
-### パッチ構成一覧（計20個、適用順）
+### パッチ構成一覧（計7個、適用順）
 
 | # | パッチ名 | 対象 | 説明 |
 |---|---------|------|------|
-| 1 | `version.patch` | バージョン表記 | CLIバージョン表示に `(Tate Patched)` を追加します |
-| 2 | `webapp-storage-proxy.patch` | localStorage | localStorage の操作をサーバーへ転送します |
-| 3 | `server-persist-group.patch` | APIルーティング | `/persist/:key` エンドポイントを定義します |
-| 4 | `server-persist-handler.patch` | APIハンドラ | ストレージの読み書きをJSONファイルとして実装します |
-| 5 | `server-api-register.patch` | API登録 | サーバーへ persist API ハンドラを登録します |
-| 6 | `server-routes-register.patch` | サーバー構成 | サーバーに永続化用ハンドラを配線します |
-| 7 | `auth-pool-service.patch` | コアサービス | 認証プール管理サービスを実装します |
-| 8 | `auth-pool-control-api.patch` | REST API | プール操作用 API エンドポイントを追加します |
-| 9 | `auth-pool-control-handler.patch` | RESTハンドラ | プール操作用のCRUD処理を実装します |
-| 10 | `auth-pool-server.patch` | サーバーレイヤー | サーバーに認証プールサービスを注入します |
-| 11 | `auth-pool-cli-layer.patch` | CLIレイヤー | CLI環境に認証プールサービスを注入します |
-| 12 | `cli-account-mgmt.patch` | CLIコマンド | CLIにインタラクティブなアカウント管理メニューを追加します |
-| 13 | `account-mgmt-ui.patch` | WebUI画面 | 接続ダイアログにアカウント管理UIを追加します |
-| 14 | `quota-switch.patch` | エラーハンドラ | 使用上限に達した際に自動で次のキーに切り替えます |
-| 15 | `select-provider-badge.patch` | プロバイダ一覧 | 接続済みのプロバイダに「Connected」バッジを表示します |
-| 16 | `remove-help-button.patch` | サイドバーUI | Discord等の外部接続へ遷移するヘルプアイコンを削除します |
-| 17 | `remove-share.patch` | 共有メニュー | クラウド公開を廃止し、ローカルJSONエクスポートに置換します |
-| 18 | `label-export.patch` | 多言語化 | 共通UIラベルおよび「Enterで改行」ヒントの翻訳（18言語）を追加します |
-| 19 | `remove-upsell.patch` | プロモーション | Goサブスクリプションの宣伝表示や案内リンクを削除します |
-| 20 | `ctrl-enter-send.patch` | キーボード入力 | Enterを改行、Ctrl+Enterを送信にマッピング変更します |
+| 1 | `version.patch` | バージョン表記 | CLIバージョン表示に `(Tate Patched)` を追加 |
+| 2 | `webapp-storage-proxy.patch` | 設定のローカル永続化 | localStorageの操作をサーバーへ転送し、レイアウト設定をPC上に保存 |
+| 3 | `auth-pool.patch` | 複数アカウントプール | APIキーのローカルプール管理機能（バックエンドAPI、CLI/WebUI管理画面、Connectedバッジ、クォータ時の自動ローテーション）と関連言語ラベルを実装 |
+| 4 | `ctrl-enter-send.patch` | キーボード入力 | Enterを改行、Ctrl+Enterを送信にマッピング変更し、入力欄のヒント（多言語対応）を追加 |
+| 5 | `remove-help-button.patch` | ヘルプリンク削除 | サイドバー上の外部Discordサーバーへ遷移するヘルプボタンを削除 |
+| 6 | `remove-share.patch` | 共有のローカル化 | セッションのクラウド共有を廃止し、ローカルJSONエクスポートに置換（関連言語ラベルを内包） |
+| 7 | `remove-upsell.patch` | 広告・宣伝の排除 | Goサブスクリプションの宣伝バナーや利用制限メッセージを排除 |
 
 ---
 

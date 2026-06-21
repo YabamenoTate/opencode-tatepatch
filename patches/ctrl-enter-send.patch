@@ -83,3 +83,219 @@ index 84fe749..743affa 100644
                  </div>
                </div>
              </DockTray>
+diff --git a/packages/app/src/i18n/ar.ts b/packages/app/src/i18n/ar.ts
+index 5d12402..bd08a26 100644
+--- a/packages/app/src/i18n/ar.ts
++++ b/packages/app/src/i18n/ar.ts
+@@ -255,6 +255,7 @@ export const dict = {
+   "prompt.context.removeActiveFile": "إزالة الملف النشط من السياق",
+   "prompt.context.removeFile": "إزالة الملف من السياق",
+   "prompt.action.attachFile": "إرفاق ملف",
++  "prompt.action.enterNewline": "\u200FEnter لسطر جديد",
+   "prompt.attachment.remove": "إزالة المرفق",
+   "prompt.action.send": "إرسال",
+   "prompt.action.stop": "توقف",
+diff --git a/packages/app/src/i18n/br.ts b/packages/app/src/i18n/br.ts
+index 7c6965e..0639fb8 100644
+--- a/packages/app/src/i18n/br.ts
++++ b/packages/app/src/i18n/br.ts
+@@ -255,6 +255,7 @@ export const dict = {
+   "prompt.context.removeActiveFile": "Remover arquivo ativo do contexto",
+   "prompt.context.removeFile": "Remover arquivo do contexto",
+   "prompt.action.attachFile": "Anexar arquivo",
++  "prompt.action.enterNewline": "Enter para nova linha",
+   "prompt.attachment.remove": "Remover anexo",
+   "prompt.action.send": "Enviar",
+   "prompt.action.stop": "Parar",
+diff --git a/packages/app/src/i18n/bs.ts b/packages/app/src/i18n/bs.ts
+index 201b6ed..609153c 100644
+--- a/packages/app/src/i18n/bs.ts
++++ b/packages/app/src/i18n/bs.ts
+@@ -275,6 +275,7 @@ export const dict = {
+   "prompt.context.removeActiveFile": "Ukloni aktivnu datoteku iz konteksta",
+   "prompt.context.removeFile": "Ukloni datoteku iz konteksta",
+   "prompt.action.attachFile": "Priloži datoteku",
++  "prompt.action.enterNewline": "Enter za novi red",
+   "prompt.attachment.remove": "Ukloni prilog",
+   "prompt.action.send": "Pošalji",
+   "prompt.action.stop": "Zaustavi",
+diff --git a/packages/app/src/i18n/da.ts b/packages/app/src/i18n/da.ts
+index d52aca8..1f5ba0b 100644
+--- a/packages/app/src/i18n/da.ts
++++ b/packages/app/src/i18n/da.ts
+@@ -273,6 +273,7 @@ export const dict = {
+   "prompt.context.removeActiveFile": "Fjern aktiv fil fra kontekst",
+   "prompt.context.removeFile": "Fjern fil fra kontekst",
+   "prompt.action.attachFile": "Vedhæft fil",
++  "prompt.action.enterNewline": "Enter for ny linje",
+   "prompt.attachment.remove": "Fjern vedhæftning",
+   "prompt.action.send": "Send",
+   "prompt.action.stop": "Stop",
+diff --git a/packages/app/src/i18n/de.ts b/packages/app/src/i18n/de.ts
+index 4d5a649..4049a2b 100644
+--- a/packages/app/src/i18n/de.ts
++++ b/packages/app/src/i18n/de.ts
+@@ -260,6 +260,7 @@ export const dict = {
+   "prompt.context.removeActiveFile": "Aktive Datei aus dem Kontext entfernen",
+   "prompt.context.removeFile": "Datei aus dem Kontext entfernen",
+   "prompt.action.attachFile": "Datei anhängen",
++  "prompt.action.enterNewline": "Enter für neue Zeile",
+   "prompt.attachment.remove": "Anhang entfernen",
+   "prompt.action.send": "Senden",
+   "prompt.action.stop": "Stopp",
+diff --git a/packages/app/src/i18n/en.ts b/packages/app/src/i18n/en.ts
+index 29f662f..43d29b6 100644
+--- a/packages/app/src/i18n/en.ts
++++ b/packages/app/src/i18n/en.ts
+@@ -281,6 +281,7 @@ export const dict = {
+   "prompt.context.removeActiveFile": "Remove active file from context",
+   "prompt.context.removeFile": "Remove file from context",
+   "prompt.action.attachFile": "Add files",
++  "prompt.action.enterNewline": "Enter for newline",
+   "prompt.attachment.remove": "Remove attachment",
+   "prompt.action.send": "Send",
+   "prompt.action.stop": "Stop",
+diff --git a/packages/app/src/i18n/es.ts b/packages/app/src/i18n/es.ts
+index b71fe03..7e28cf8 100644
+--- a/packages/app/src/i18n/es.ts
++++ b/packages/app/src/i18n/es.ts
+@@ -274,6 +274,7 @@ export const dict = {
+   "prompt.context.removeActiveFile": "Eliminar archivo activo del contexto",
+   "prompt.context.removeFile": "Eliminar archivo del contexto",
+   "prompt.action.attachFile": "Adjuntar archivo",
++  "prompt.action.enterNewline": "Enter para nueva línea",
+   "prompt.attachment.remove": "Eliminar adjunto",
+   "prompt.action.send": "Enviar",
+   "prompt.action.stop": "Detener",
+diff --git a/packages/app/src/i18n/fr.ts b/packages/app/src/i18n/fr.ts
+index 385dbdd..61c670a 100644
+--- a/packages/app/src/i18n/fr.ts
++++ b/packages/app/src/i18n/fr.ts
+@@ -255,6 +255,7 @@ export const dict = {
+   "prompt.context.removeActiveFile": "Retirer le fichier actif du contexte",
+   "prompt.context.removeFile": "Retirer le fichier du contexte",
+   "prompt.action.attachFile": "Joindre un fichier",
++  "prompt.action.enterNewline": "Entrée pour nouvelle ligne",
+   "prompt.attachment.remove": "Supprimer la pièce jointe",
+   "prompt.action.send": "Envoyer",
+   "prompt.action.stop": "Arrêter",
+diff --git a/packages/app/src/i18n/ja.ts b/packages/app/src/i18n/ja.ts
+index 34ac398..79c127f 100644
+--- a/packages/app/src/i18n/ja.ts
++++ b/packages/app/src/i18n/ja.ts
+@@ -254,6 +254,7 @@ export const dict = {
+   "prompt.context.removeActiveFile": "コンテキストからアクティブなファイルを削除",
+   "prompt.context.removeFile": "コンテキストからファイルを削除",
+   "prompt.action.attachFile": "ファイルを添付",
++  "prompt.action.enterNewline": "Enterで改行",
+   "prompt.attachment.remove": "添付ファイルを削除",
+   "prompt.action.send": "送信",
+   "prompt.action.stop": "停止",
+diff --git a/packages/app/src/i18n/ko.ts b/packages/app/src/i18n/ko.ts
+index f1926f3..621a694 100644
+--- a/packages/app/src/i18n/ko.ts
++++ b/packages/app/src/i18n/ko.ts
+@@ -254,6 +254,7 @@ export const dict = {
+   "prompt.context.removeActiveFile": "컨텍스트에서 활성 파일 제거",
+   "prompt.context.removeFile": "컨텍스트에서 파일 제거",
+   "prompt.action.attachFile": "파일 첨부",
++  "prompt.action.enterNewline": "Enter로 줄바꿈",
+   "prompt.attachment.remove": "첨부 파일 제거",
+   "prompt.action.send": "전송",
+   "prompt.action.stop": "중지",
+diff --git a/packages/app/src/i18n/no.ts b/packages/app/src/i18n/no.ts
+index b4adebd..f89d6f4 100644
+--- a/packages/app/src/i18n/no.ts
++++ b/packages/app/src/i18n/no.ts
+@@ -277,6 +277,7 @@ export const dict = {
+   "prompt.context.removeActiveFile": "Fjern aktiv fil fra kontekst",
+   "prompt.context.removeFile": "Fjern fil fra kontekst",
+   "prompt.action.attachFile": "Legg ved fil",
++  "prompt.action.enterNewline": "Enter for ny linje",
+   "prompt.attachment.remove": "Fjern vedlegg",
+   "prompt.action.send": "Send",
+   "prompt.action.stop": "Stopp",
+diff --git a/packages/app/src/i18n/pl.ts b/packages/app/src/i18n/pl.ts
+index 02637e5..5054a29 100644
+--- a/packages/app/src/i18n/pl.ts
++++ b/packages/app/src/i18n/pl.ts
+@@ -256,6 +256,7 @@ export const dict = {
+   "prompt.context.removeActiveFile": "Usuń aktywny plik z kontekstu",
+   "prompt.context.removeFile": "Usuń plik z kontekstu",
+   "prompt.action.attachFile": "Załącz plik",
++  "prompt.action.enterNewline": "Enter = nowa linia",
+   "prompt.attachment.remove": "Usuń załącznik",
+   "prompt.action.send": "Wyślij",
+   "prompt.action.stop": "Zatrzymaj",
+diff --git a/packages/app/src/i18n/ru.ts b/packages/app/src/i18n/ru.ts
+index a965acf..5322220 100644
+--- a/packages/app/src/i18n/ru.ts
++++ b/packages/app/src/i18n/ru.ts
+@@ -274,6 +274,7 @@ export const dict = {
+   "prompt.context.removeActiveFile": "Удалить активный файл из контекста",
+   "prompt.context.removeFile": "Удалить файл из контекста",
+   "prompt.action.attachFile": "Прикрепить файл",
++  "prompt.action.enterNewline": "Enter ↵",
+   "prompt.attachment.remove": "Удалить вложение",
+   "prompt.action.send": "Отправить",
+   "prompt.action.stop": "Остановить",
+diff --git a/packages/app/src/i18n/th.ts b/packages/app/src/i18n/th.ts
+index 00df86a..8935c1f 100644
+--- a/packages/app/src/i18n/th.ts
++++ b/packages/app/src/i18n/th.ts
+@@ -274,6 +274,7 @@ export const dict = {
+   "prompt.context.removeActiveFile": "เอาไฟล์ที่ใช้งานอยู่ออกจากบริบท",
+   "prompt.context.removeFile": "เอาไฟล์ออกจากบริบท",
+   "prompt.action.attachFile": "แนบไฟล์",
++  "prompt.action.enterNewline": "Enter สำหรับขึ้นบรรทัดใหม่",
+   "prompt.attachment.remove": "เอาไฟล์แนบออก",
+   "prompt.action.send": "ส่ง",
+   "prompt.action.stop": "หยุด",
+diff --git a/packages/app/src/i18n/tr.ts b/packages/app/src/i18n/tr.ts
+index 27a6e03..e402bc5 100644
+--- a/packages/app/src/i18n/tr.ts
++++ b/packages/app/src/i18n/tr.ts
+@@ -279,6 +279,7 @@ export const dict = {
+   "prompt.context.removeActiveFile": "Aktif dosyayı bağlamdan çıkar",
+   "prompt.context.removeFile": "Dosyayı bağlamdan çıkar",
+   "prompt.action.attachFile": "Dosya ekle",
++  "prompt.action.enterNewline": "Enter ile yeni satır",
+   "prompt.attachment.remove": "Eki kaldır",
+   "prompt.action.send": "Gönder",
+   "prompt.action.stop": "Durdur",
+diff --git a/packages/app/src/i18n/uk.ts b/packages/app/src/i18n/uk.ts
+index 948c9a6..2d0fd39 100644
+--- a/packages/app/src/i18n/uk.ts
++++ b/packages/app/src/i18n/uk.ts
+@@ -281,6 +281,7 @@ export const dict = {
+   "prompt.context.removeActiveFile": "Видалити активний файл з контексту",
+   "prompt.context.removeFile": "Видалити файл з контексту",
+   "prompt.action.attachFile": "Додати файли",
++  "prompt.action.enterNewline": "Enter ↵",
+   "prompt.attachment.remove": "Видалити вкладення",
+   "prompt.action.send": "Надіслати",
+   "prompt.action.stop": "Зупинити",
+diff --git a/packages/app/src/i18n/zh.ts b/packages/app/src/i18n/zh.ts
+index f5c962a..b66f8be 100644
+--- a/packages/app/src/i18n/zh.ts
++++ b/packages/app/src/i18n/zh.ts
+@@ -294,6 +294,7 @@ export const dict = {
+   "prompt.context.removeActiveFile": "从上下文移除活动文件",
+   "prompt.context.removeFile": "从上下文移除文件",
+   "prompt.action.attachFile": "附加文件",
++  "prompt.action.enterNewline": "Enter 换行",
+   "prompt.attachment.remove": "移除附件",
+   "prompt.action.send": "发送",
+   "prompt.action.stop": "停止",
+diff --git a/packages/app/src/i18n/zht.ts b/packages/app/src/i18n/zht.ts
+index edd6f7b..949d1b9 100644
+--- a/packages/app/src/i18n/zht.ts
++++ b/packages/app/src/i18n/zht.ts
+@@ -274,6 +274,7 @@ export const dict = {
+   "prompt.context.removeActiveFile": "從上下文移除目前檔案",
+   "prompt.context.removeFile": "從上下文移除檔案",
+   "prompt.action.attachFile": "附加檔案",
++  "prompt.action.enterNewline": "Enter 換行",
+   "prompt.attachment.remove": "移除附件",
+   "prompt.action.send": "傳送",
+   "prompt.action.stop": "停止",
