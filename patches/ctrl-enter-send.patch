@@ -91,7 +91,7 @@ index 5d12402..bd08a26 100644
    "prompt.context.removeActiveFile": "إزالة الملف النشط من السياق",
    "prompt.context.removeFile": "إزالة الملف من السياق",
    "prompt.action.attachFile": "إرفاق ملف",
-+  "prompt.action.enterNewline": "\u200FEnter لسطر جديد",
++  "prompt.action.enterNewline": "u200FEnter لسطر جديد",
    "prompt.attachment.remove": "إزالة المرفق",
    "prompt.action.send": "إرسال",
    "prompt.action.stop": "توقف",

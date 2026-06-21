@@ -33,7 +33,7 @@ index 201b6ed..1417106 100644
    "session.share.popover.description.shared": "Ova sesija je javna na webu. Dostupna je svima koji imaju link.",
    "session.share.popover.description.unshared": "Podijeli sesiju javno na webu. Biće dostupna svima koji imaju link.",
 -  "session.share.action.share": "Podijeli",
-+  "session.share.action.share": "Izvezi",
++  "session.share.action.share": "Izvoz",
    "session.share.action.publish": "Objavi",
    "session.share.action.publishing": "Objavljivanje...",
    "session.share.action.unpublish": "Poništi objavu",
@@ -150,7 +150,7 @@ index 02637e5..552efb2 100644
    "session.share.popover.description.unshared":
      "Udostępnij sesję publicznie w sieci. Będzie dostępna dla każdego, kto posiada link.",
 -  "session.share.action.share": "Udostępnij",
-+  "session.share.action.share": "Eksportuj",
++  "session.share.action.share": "Eksport",
    "session.share.action.publish": "Opublikuj",
    "session.share.action.publishing": "Publikowanie...",
    "session.share.action.unpublish": "Cofnij publikację",
@@ -189,7 +189,7 @@ index 27a6e03..2a9064c 100644
    "session.share.popover.description.unshared":
      "Oturumu web'de herkese açık olarak paylaşın. Bağlantıya sahip herkes erişebilecek.",
 -  "session.share.action.share": "Paylaş",
-+  "session.share.action.share": "Dışa Aktar",
++  "session.share.action.share": "Dışa aktar",
    "session.share.action.publish": "Yayınla",
    "session.share.action.publishing": "Yayınlanıyor...",
    "session.share.action.unpublish": "Yayından kaldır",
