@@ -1,5 +1,172 @@
+diff --git a/packages/opencode/src/cli/upgrade.ts b/packages/opencode/src/cli/upgrade.ts
+index 62b230a63..4fe03de59 100644
+--- a/packages/opencode/src/cli/upgrade.ts
++++ b/packages/opencode/src/cli/upgrade.ts
+@@ -1,53 +1,125 @@
+ import { Config } from "@/config/config"
+ import { AppRuntime } from "@/effect/app-runtime"
+ import { Flag } from "@opencode-ai/core/flag/flag"
+-import { Installation } from "@/installation"
+-import { InstallationVersion } from "@opencode-ai/core/installation/version"
+-import { GlobalBus } from "@/bus/global"
++import { existsSync, readdirSync, renameSync, rmSync } from "fs"
++import { tmpdir } from "os"
++import { execSync, spawn } from "child_process"
++
++const TATEPATCH_VERSION = "v1.15.13 (Tate Patched 1)"
++const TATEPATCH_REPO = "YabamenoTate/opencode-tatepatch"
++
++function tatepatchDir(): string | null {
++  const home =
++    process.env.OPENCODE_CONFIG_DIR ||
++    (process.platform === "win32"
++      ? (process.env.USERPROFILE || "") + "/.config/opencode"
++      : (process.env.HOME || "") + "/.config/opencode")
++  if (!home) return null
++  const dir = home + "/tatepatch"
++  if (!existsSync(dir)) return null
++  return dir
++}
++
++async function fetchLatestRelease(): Promise<{ name: string; tag_name: string } | null> {
++  const res = await fetch(`https://api.github.com/repos/${TATEPATCH_REPO}/releases/latest`, {
++    headers: { "User-Agent": "opencode" },
++  })
++  if (!res.ok) return null
++  return res.json()
++}
++
++async function listRemoteFiles(tag: string, subpath: string): Promise<string[]> {
++  const url = `https://api.github.com/repos/${TATEPATCH_REPO}/contents/${subpath}?ref=${tag}`
++  const res = await fetch(url, { headers: { "User-Agent": "opencode" } })
++  if (!res.ok) return []
++  const items: any[] = await res.json()
++  return items.map((i) => i.name)
++}
++
++function listLocalPatches(dir: string): string[] {
++  try {
++    return readdirSync(dir + "/patches").filter((f: string) => f.endsWith(".patch"))
++  } catch {
++    return []
++  }
++}
++
++function getExcluded(remote: string[], local: string[]): string[] {
++  return remote.filter((p) => !local.includes(p))
++}
++
++function backupFile(tpDir: string): string {
++  return tpDir + (process.platform === "win32" ? "/opencode-official-backup.exe" : "/opencode-official-backup")
++}
+ 
+ export async function upgrade() {
+   const config = await AppRuntime.runPromise(Config.Service.use((cfg) => cfg.getGlobal()))
+   if (config.autoupdate === false || Flag.OPENCODE_DISABLE_AUTOUPDATE) return
+-  const method = await Installation.method()
+-  const latest = await Installation.latest(method).catch(() => {})
+-  if (!latest) return
+-
+-  if (Flag.OPENCODE_ALWAYS_NOTIFY_UPDATE) {
+-    GlobalBus.emit("event", {
+-      directory: "global",
+-      payload: {
+-        type: Installation.Event.UpdateAvailable.type,
+-        properties: { version: latest },
+-      },
+-    })
++
++  const tpDir = tatepatchDir()
++  if (!tpDir) return
++
++  const release = await fetchLatestRelease().catch(() => null)
++  if (!release) return
++
++  const latestTitle: string = release.name
++  const tagName: string = release.tag_name
++
++  if (TATEPATCH_VERSION === latestTitle) return
++
++  console.log(`\n==> TatePatch update available: ${latestTitle}`)
++
++  const remotePatches = await listRemoteFiles(tagName, "patches")
++  const localPatches = listLocalPatches(tpDir)
++  const excluded = getExcluded(remotePatches, localPatches)
++
++  const bf = backupFile(tpDir)
++  const tmpPath = tmpdir() + "/tatepatch-backup-" + Date.now()
++  if (existsSync(bf)) {
++    renameSync(bf, tmpPath)
++  }
++
++  rmSync(tpDir, { recursive: true, force: true })
++
++  const cloneUrl = `https://github.com/${TATEPATCH_REPO}.git`
++  try {
++    execSync(`git clone --depth 1 --branch "${tagName}" "${cloneUrl}" "${tpDir}"`, { stdio: "inherit" })
++  } catch {
++    console.error("FAILED: git clone failed")
+     return
+   }
+ 
+-  if (InstallationVersion === latest) return
++  if (existsSync(tmpPath)) {
++    renameSync(tmpPath, bf)
++  }
++
++  for (const name of excluded) {
++    const p = tpDir + "/patches/" + name
++    if (existsSync(p)) rmSync(p)
++  }
+ 
+-  const kind = Installation.getReleaseType(InstallationVersion, latest)
++  const isWin = process.platform === "win32"
++  const script = tpDir + (isWin ? "/patch.bat" : "/patch.sh")
+ 
+-  if (config.autoupdate === "notify" || kind !== "patch") {
+-    GlobalBus.emit("event", {
+-      directory: "global",
+-      payload: {
+-        type: Installation.Event.UpdateAvailable.type,
+-        properties: { version: latest },
+-      },
+-    })
++  const code = await new Promise<number | null>((resolve) => {
++    const child = spawn(
++      isWin ? "cmd.exe" : "bash",
++      isWin ? ["/c", script, "unapply"] : [script, "unapply"],
++      { cwd: tpDir, stdio: "inherit" },
++    )
++    child.on("exit", (c) => resolve(c))
++  })
++
++  if (code !== 0) {
++    console.error("FAILED: unapply failed")
+     return
+   }
+ 
+-  if (method === "unknown") return
+-  await Installation.upgrade(method, latest)
+-    .then(() =>
+-      GlobalBus.emit("event", {
+-        directory: "global",
+-        payload: {
+-          type: Installation.Event.Updated.type,
+-          properties: { version: latest },
+-        },
+-      }),
+-    )
+-    .catch(() => {})
++  const child = spawn(
++    isWin ? "cmd.exe" : "bash",
++    isWin ? ["/c", script, "apply"] : [script, "apply"],
++    { cwd: tpDir, stdio: "inherit", detached: true },
++  )
++  child.unref()
++  setTimeout(() => process.exit(0), 200)
+ }
 diff --git a/packages/opencode/src/index.ts b/packages/opencode/src/index.ts
-index d20f29d..5fa3780 100644
+index d20f29dd4..cb3aab146 100644
 --- a/packages/opencode/src/index.ts
 +++ b/packages/opencode/src/index.ts
 @@ -73,7 +73,7 @@ const cli = yargs(args)
@@ -7,7 +174,7 @@ index d20f29d..5fa3780 100644
    .help("help", "show help")
    .alias("help", "h")
 -  .version("version", "show version number", InstallationVersion)
-+  .version("version", "show version number", InstallationVersion + " (Tate Patched)")
++  .version("version", "show version number", "v1.15.13 (Tate Patched 1)")
    .alias("version", "v")
    .option("print-logs", {
      describe: "print logs to stderr",

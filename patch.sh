@@ -27,6 +27,10 @@ WORK_DIR="${TATEPATCH_DIR}/_work"
 BUNDLE_DIR="$WORK_DIR/bundle"
 SOURCE_DIR="$WORK_DIR/source"
 
+TATEPATCH_VERSION="v1.15.13 (Tate Patched 1)"
+OPENCODE_TAG="v1.15.13"
+BACKUP_FILE="$TATEPATCH_DIR/opencode-official-backup"
+
 # インストール先 (opencode のパスを自動検出)
 OPENCODE_BIN=""
 if command -v opencode &>/dev/null; then
@@ -73,11 +77,11 @@ is_patched() {
 unapply() {
   header "Unapplying patch — restoring official binary"
 
-  if [ ! -f "$OPENCODE_BIN.backup" ]; then
-    fail "No backup found at $OPENCODE_BIN.backup"
+  if [ ! -f "$BACKUP_FILE" ]; then
+    fail "No backup found at $BACKUP_FILE"
   fi
 
-  cp "$OPENCODE_BIN.backup" "$OPENCODE_BIN"
+  cp "$BACKUP_FILE" "$OPENCODE_BIN"
   chmod +x "$OPENCODE_BIN"
   info "Restored backup binary."
   info "Version: $("$OPENCODE_BIN" --version 2>/dev/null || echo "?")"
@@ -102,21 +106,21 @@ do_patch() {
   if [ -z "$VERSION" ]; then
     fail "Cannot determine installed opencode version"
   fi
-  info "Installed: v$VERSION at $OPENCODE_BIN"
+  info "Installed: $("$OPENCODE_BIN" --version 2>/dev/null) at $OPENCODE_BIN"
 
   # 必要なツールの確認
   require_cmd git
   require_cmd bun
 
   # ソースの準備
-  header "Preparing source code (v$VERSION)"
+  header "Preparing source code ($OPENCODE_TAG)"
   rm -rf "$SOURCE_DIR"
   mkdir -p "$SOURCE_DIR"
 
-  info "Cloning opencode source at tag v$VERSION ..."
-  git clone --depth 1 --branch "v$VERSION" \
+  info "Cloning opencode source at tag $OPENCODE_TAG ..."
+  git clone --depth 1 --branch "$OPENCODE_TAG" \
     https://github.com/anomalyco/opencode.git "$SOURCE_DIR" 2>&1 | tail -3 || {
-    fail "Failed to clone source. Check: v$VERSION tag exists on GitHub?"
+    fail "Failed to clone source. Check: $OPENCODE_TAG tag exists on GitHub?"
   }
 
   cd "$SOURCE_DIR"
@@ -150,13 +154,13 @@ do_patch() {
   # web app のビルド (binary に埋め込む)
   header "Building web app"
   OPENCODE_CHANNEL=prod \
-  OPENCODE_VERSION="$VERSION" \
+  OPENCODE_VERSION="$TATEPATCH_VERSION" \
   bun run --cwd "$SOURCE_DIR/packages/app" build 2>&1 | tail -3
 
   # binary のビルド
   header "Building opencode binary"
   info "This may take a while..."
-  OPENCODE_VERSION="$VERSION" \
+  OPENCODE_VERSION="$TATEPATCH_VERSION" \
   bun run "$SOURCE_DIR/packages/opencode/script/build.ts" --single 2>&1 | tail -5
 
   # ビルド成果物の検索
@@ -174,8 +178,8 @@ do_patch() {
 
   # インストール
   header "Installing patched binary"
-  info "Backing up original to $OPENCODE_BIN.backup"
-  cp "$OPENCODE_BIN" "$OPENCODE_BIN.backup"
+  info "Backing up original to $BACKUP_FILE"
+  cp "$OPENCODE_BIN" "$BACKUP_FILE"
   info "Installing patched binary"
   cp "$binary_path" "$OPENCODE_BIN"
   chmod +x "$OPENCODE_BIN"

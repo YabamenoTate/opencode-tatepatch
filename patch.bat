@@ -17,7 +17,10 @@ set "TATEPATCH_DIR=%~dp0"
 set "PATCHES_DIR=%TATEPATCH_DIR%patches"
 set "WORK_DIR=%TATEPATCH_DIR%_work"
 set "SOURCE_DIR=%WORK_DIR%\source"
-
+set "TATEPATCH_VERSION=v1.15.13 (Tate Patched 1)"
+set "OPENCODE_TAG=v1.15.13"
+set "BACKUP_FILE=%TATEPATCH_DIR%opencode-official-backup.exe"
+ 
 REM Find opencode binary
 where opencode >nul 2>&1
 if %errorlevel% equ 0 (
@@ -47,11 +50,11 @@ REM ---------------------------------------------------------------------------
 :unapply
 echo.
 echo ^=^=^> Unapplying patch — restoring official binary
-if not exist "%OPENCODE_BIN%.backup" (
-    echo FAILED: No backup found at %OPENCODE_BIN%.backup
+if not exist "%BACKUP_FILE%" (
+    echo FAILED: No backup found at %BACKUP_FILE%
     exit /b 1
 )
-copy /y "%OPENCODE_BIN%.backup" "%OPENCODE_BIN%" >nul
+copy /y "%BACKUP_FILE%" "%OPENCODE_BIN%" >nul
 echo Restored backup binary.
 for /f "tokens=*" %%v in ('"%OPENCODE_BIN%" --version 2^>nul') do echo Version: %%v
 goto :eof
@@ -85,8 +88,8 @@ echo ^=^=^> Preparing source code (v%VER%)
 if exist "%SOURCE_DIR%" rmdir /s /q "%SOURCE_DIR%"
 mkdir "%SOURCE_DIR%"
 
-echo Cloning opencode source at tag v%VER% ...
-git clone --depth 1 --branch "v%VER%" https://github.com/anomalyco/opencode.git "%SOURCE_DIR%"
+echo Cloning opencode source at tag %OPENCODE_TAG% ...
+git clone --depth 1 --branch "%OPENCODE_TAG%" https://github.com/anomalyco/opencode.git "%SOURCE_DIR%"
 if %errorlevel% neq 0 (
     echo FAILED: Clone failed. Check that v%VER% tag exists on GitHub.
     exit /b 1
@@ -131,7 +134,7 @@ REM Build web app
 echo.
 echo ^=^=^> Building web app
 set "OPENCODE_CHANNEL=prod"
-set "OPENCODE_VERSION=%VER%"
+set "OPENCODE_VERSION=%TATEPATCH_VERSION%"
 pushd "%SOURCE_DIR%\packages\app"
 bun run build
 if %errorlevel% neq 0 (
@@ -145,7 +148,7 @@ popd
 REM Build binary
 echo.
 echo ^=^=^> Building opencode binary (this may take a while...)
-set "OPENCODE_VERSION=%VER%"
+set "OPENCODE_VERSION=%TATEPATCH_VERSION%"
 bun run "%SOURCE_DIR%\packages\opencode\script\build.ts" --single
 
 REM Find built binary
@@ -160,8 +163,8 @@ if "%BINARY_PATH%"=="" (
 REM Verify version
 echo.
 echo ^=^=^> Installing patched binary
-echo Backing up original to %OPENCODE_BIN%.backup
-copy /y "%OPENCODE_BIN%" "%OPENCODE_BIN%.backup" >nul
+echo Backing up original to %BACKUP_FILE%
+copy /y "%OPENCODE_BIN%" "%BACKUP_FILE%" >nul
 echo Installing patched binary
 copy /y "%BINARY_PATH%" "%OPENCODE_BIN%" >nul
 
