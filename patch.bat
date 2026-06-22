@@ -151,9 +151,14 @@ echo ^=^=^> Building opencode binary (this may take a while...)
 set "OPENCODE_VERSION=%TATEPATCH_VERSION%"
 bun run "%SOURCE_DIR%\packages\opencode\script\build.ts" --single
 
-REM Find built binary
-dir /s /b "%SOURCE_DIR%\packages\opencode\dist\*opencode*" > "%TATEPATCH_DIR%\_binary_list.txt"
+REM Find built binary (.exe or extensionless, exclude directory names)
+dir /s /b /a-d "%SOURCE_DIR%\packages\opencode\dist\*.exe" > "%TATEPATCH_DIR%\_binary_list.txt" 2>nul
 set /p BINARY_PATH=<"%TATEPATCH_DIR%\_binary_list.txt"
+if "%BINARY_PATH%"=="" (
+    REM Maybe bun output without .exe — search for any file named opencode
+    dir /s /b /a-d "%SOURCE_DIR%\packages\opencode\dist\opencode" > "%TATEPATCH_DIR%\_binary_list.txt" 2>nul
+    set /p BINARY_PATH=<"%TATEPATCH_DIR%\_binary_list.txt"
+)
 if "%BINARY_PATH%"=="" (
     echo FAILED: Built binary not found in dist/
     popd
