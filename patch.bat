@@ -123,7 +123,7 @@ for %%p in (
 REM Install dependencies
 echo.
 echo ^=^=^> Installing dependencies
-bun install
+bun install --ignore-scripts
 if %errorlevel% neq 0 (
     echo FAILED: bun install failed.
     popd

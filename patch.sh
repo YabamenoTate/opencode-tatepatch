@@ -147,9 +147,13 @@ do_patch() {
     fi
   done
 
-  # 依存関係のインストール
+  # 依存関係のインストール (--ignore-scripts: tree-sitter-powershell 等の
+  # ネイティブビルドは不要。WASM/プリビルドバイナリで動作する。)
   header "Installing dependencies"
-  bun install 2>&1 | tail -3
+  bun install --ignore-scripts 2>&1 | tail -3
+  if [ ${PIPESTATUS[0]} -ne 0 ]; then
+    fail "bun install failed."
+  fi
 
   # web app のビルド (binary に埋め込む)
   header "Building web app"
