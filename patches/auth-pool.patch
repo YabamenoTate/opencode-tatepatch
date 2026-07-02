@@ -358,6 +358,58 @@ index a0ccc16..270d935 100644
                <Match when={store.methodIndex === undefined}>
                  <MethodSelection />
                </Match>
+diff --git a/packages/app/src/components/prompt-input/submit.ts b/packages/app/src/components/prompt-input/submit.ts
+index 1570da0..ad2462f 100644
+--- a/packages/app/src/components/prompt-input/submit.ts
++++ b/packages/app/src/components/prompt-input/submit.ts
+@@ -5,6 +5,7 @@ import { Binary } from "@opencode-ai/core/util/binary"
+ import { useNavigate, useParams } from "@solidjs/router"
+ import { batch, type Accessor } from "solid-js"
+ import type { FileSelection } from "@/context/file"
++import { useServer } from "@/context/server"
+ import { useServerSync } from "@/context/server-sync"
+ import { useLanguage } from "@/context/language"
+ import { useLayout } from "@/context/layout"
+@@ -18,6 +19,7 @@ import { Worktree as WorktreeState } from "@/utils/worktree"
+ import { buildRequestParts } from "./build-request-parts"
+ import { setCursorPosition } from "./editor-dom"
+ import { formatServerError } from "@/utils/server-errors"
++import { authTokenFromCredentials } from "@/utils/server"
+ 
+ type PendingPrompt = {
+   abort: AbortController
+@@ -211,6 +213,7 @@ export function createPromptSubmit(input: PromptSubmitInput) {
+   const prompt = usePrompt()
+   const layout = useLayout()
+   const language = useLanguage()
++  const server = useServer()
+   const params = useParams()
+ 
+   const errorMessage = (err: unknown) => {
+@@ -360,6 +363,23 @@ export function createPromptSubmit(input: PromptSubmitInput) {
+       input.onNewSessionWorktreeReset?.()
+     }
+ 
++    if (isNewSession && currentModel) {
++      const base = typeof window !== "undefined" && window.location ? window.location.origin : "http://localhost:4096"
++      const srv = server.current
++      const headers: Record<string, string> = {}
++      if (srv?.http?.password) {
++        headers["Authorization"] = `Basic ${authTokenFromCredentials({ username: srv.http.username, password: srv.http.password })}`
++      }
++      try {
++        await fetch(`${base}/auth/${encodeURIComponent(currentModel.provider.id)}/pool/reset`, {
++          method: "POST",
++          headers,
++        })
++      } catch {
++        // pool reset is optional
++      }
++    }
++
+     let session = input.info()
+     if (!session && isNewSession) {
+       const created = await client.session
 diff --git a/packages/app/src/i18n/ar.ts b/packages/app/src/i18n/ar.ts
 index 5d12402..c581446 100644
 --- a/packages/app/src/i18n/ar.ts
@@ -790,11 +842,141 @@ index edd6f7b..3db590f 100644
    "common.close": "關閉",
    "common.edit": "編輯",
    "common.loadMore": "載入更多",
+diff --git a/packages/app/src/pages/session.tsx b/packages/app/src/pages/session.tsx
+index 312b5c3..3c4750a 100644
+--- a/packages/app/src/pages/session.tsx
++++ b/packages/app/src/pages/session.tsx
+@@ -14,6 +14,7 @@ import {
+   onMount,
+   untrack,
+   createResource,
++  createSignal,
+ } from "solid-js"
+ import { makeEventListener } from "@solid-primitives/event-listener"
+ import { createMediaQuery } from "@solid-primitives/media"
+@@ -1651,7 +1652,18 @@ export default function Page() {
+     if (fillFrame !== undefined) cancelAnimationFrame(fillFrame)
+   })
+ 
+-  useUsageExceededDialogs()
++  const [switchEvents, setSwitchEvents] = createSignal<Array<{ provider: string; label?: string }>>([])
++
++  createEffect(() => {
++    params.id
++    setSwitchEvents([])
++  })
++
++  useUsageExceededDialogs({
++    onSwitch: (provider, label) => {
++      setSwitchEvents((prev) => [...prev, { provider, label }])
++    },
++  })
+ 
+   const composerRegion = (placement: "dock" | "inline") => (
+     <SessionComposerRegion
+@@ -1794,6 +1806,7 @@ export default function Page() {
+                     setRevealMessage={(fn) => {
+                       revealMessage = fn
+                     }}
++                    switchEvents={switchEvents()}
+                   />
+                 </Show>
+               </Match>
+diff --git a/packages/app/src/pages/session/message-timeline.data.ts b/packages/app/src/pages/session/message-timeline.data.ts
+index 0643a42..0b5bb53 100644
+--- a/packages/app/src/pages/session/message-timeline.data.ts
++++ b/packages/app/src/pages/session/message-timeline.data.ts
+@@ -28,6 +28,7 @@ export type TimelineRowMap = {
+   Retry: { userMessageID: string }
+   DiffSummary: { userMessageID: string; diffs: SummaryDiff[] }
+   Error: { userMessageID: string; text: string }
++  AccountSwitch: { provider: string; label?: string }
+   BottomSpacer: {}
+ }
+ 
+@@ -65,6 +66,10 @@ export namespace TimelineRow {
+   export class Retry extends Data.TaggedClass("Retry")<{
+     userMessageID: string
+   }> {}
++  export class AccountSwitch extends Data.TaggedClass("AccountSwitch")<{
++    provider: string
++    label?: string
++  }> {}
+   export class BottomSpacer extends Data.TaggedClass("BottomSpacer")<{}> {}
+ 
+   export type TimelineRow =
+@@ -76,6 +81,7 @@ export namespace TimelineRow {
+     | DiffSummary
+     | Error
+     | Retry
++    | AccountSwitch
+     | BottomSpacer
+ 
+   export const key = (row: TimelineRow) => {
+@@ -96,6 +102,8 @@ export namespace TimelineRow {
+         return `error:${row.userMessageID}`
+       case "Retry":
+         return `retry:${row.userMessageID}`
++      case "AccountSwitch":
++        return `account-switch:${row.provider}:${row.label ?? ""}`
+       case "BottomSpacer":
+         return "bottom-spacer"
+     }
+diff --git a/packages/app/src/pages/session/message-timeline.tsx b/packages/app/src/pages/session/message-timeline.tsx
+index e071597..b49eb67 100644
+--- a/packages/app/src/pages/session/message-timeline.tsx
++++ b/packages/app/src/pages/session/message-timeline.tsx
+@@ -282,6 +282,7 @@ export function MessageTimeline(props: {
+   userMessages: UserMessage[]
+   anchor: (id: string) => string
+   setRevealMessage?: (fn: (id: string) => void) => void
++  switchEvents?: Array<{ provider: string; label?: string }>
+ }) {
+   let touchGesture: number | undefined
+ 
+@@ -426,7 +427,10 @@ export function MessageTimeline(props: {
+   const timelineRows = createMemo((previous: TimelineRow.TimelineRow[] | undefined) => {
+     const rows = messageRowMemos().flatMap((memo) => memo())
+     if (rows.length === 0) return rows
+-    return reuseTimelineRows(previous, [...rows, new TimelineRow.BottomSpacer()])
++    const switchRows = (props.switchEvents ?? []).map(
++      (evt) => new TimelineRow.AccountSwitch({ provider: evt.provider, label: evt.label }),
++    )
++    return reuseTimelineRows(previous, [...rows, ...switchRows, new TimelineRow.BottomSpacer()])
+   })
+   const timelineRowKeys = createMemo(() => timelineRows().map(TimelineRow.key), [] as string[], { equals: sameKeys })
+   const virtualCache = createMemo(() => readTimelineCache(sessionKey(), timelineRowKeys()))
+@@ -1246,6 +1250,25 @@ export function MessageTimeline(props: {
+           </TimelineRowFrame>
+         )
+       }
++      case "AccountSwitch": {
++        const switchRow = row as Accessor<TimelineRowByTag<"AccountSwitch">>
++        const isEn = () => language.locale().startsWith("en")
++        return (
++          <TimelineRowFrame row={switchRow}>
++            <div data-slot="session-turn-message-container" class="w-full px-4 md:px-5">
++              <div class="flex items-center gap-2 py-2 text-13-regular text-text-weak">
++                <Icon name="check-small" class="size-4 shrink-0" />
++                <span>
++                  {isEn()
++                    ? `Switched API key for ${switchRow().provider}`
++                    : `${switchRow().provider} のAPIキーを切り替えました`}
++                  {switchRow().label ? `: ${switchRow().label}` : ""}
++                </span>
++              </div>
++            </div>
++          </TimelineRowFrame>
++        )
++      }
+       case "BottomSpacer":
+         return <div data-timeline-row="bottom-spacer" aria-hidden="true" class="h-16" />
+     }
 diff --git a/packages/app/src/pages/session/usage-exceeded-dialogs.tsx b/packages/app/src/pages/session/usage-exceeded-dialogs.tsx
-index 5354410..77a6eb3 100644
+index 5354410..6b9205f 100644
 --- a/packages/app/src/pages/session/usage-exceeded-dialogs.tsx
 +++ b/packages/app/src/pages/session/usage-exceeded-dialogs.tsx
-@@ -1,12 +1,13 @@
+@@ -1,15 +1,16 @@
  import { useSDK } from "@/context/sdk"
  import { Persist, persisted } from "@/utils/persist"
  import { SessionStatus } from "@opencode-ai/sdk/v2"
@@ -808,14 +990,18 @@ index 5354410..77a6eb3 100644
 +import { useServer } from "@/context/server"
 +import { authTokenFromCredentials } from "@/utils/server"
  
- const GO_UPSELL_FREE_TIER_LAST_SEEN_AT = "go_upsell_last_seen_at"
- const GO_UPSELL_FREE_TIER_DONT_SHOW = "go_upsell_dont_show"
+-const GO_UPSELL_FREE_TIER_LAST_SEEN_AT = "go_upsell_last_seen_at"
+-const GO_UPSELL_FREE_TIER_DONT_SHOW = "go_upsell_dont_show"
++const GO_UPSELL_FREE_TIER_LAST_SEEN_AT = "go_upsell_free_tier_last_seen_at"
++const GO_UPSELL_FREE_TIER_DONT_SHOW = "go_upsell_free_tier_dont_show"
+ const GO_UPSELL_ACCOUNT_RATE_LIMIT_LAST_SEEN_AT = "go_upsell_account_rate_limit_last_seen_at"
+ const GO_UPSELL_ACCOUNT_RATE_LIMIT_DONT_SHOW = "go_upsell_account_rate_limit_dont_show"
+ const GO_UPSELL_WINDOW = 86_400_000 // 24 hrs
 @@ -33,12 +34,78 @@ function goUpsellKeys(status: SessionStatus) {
    }
  }
  
-+const triedPoolKeys = new Set<string>()
-+
+-export function useUsageExceededDialogs() {
 +function getServerBase(): string {
 +  if (typeof window !== "undefined" && window.location) {
 +    return window.location.origin
@@ -831,17 +1017,17 @@ index 5354410..77a6eb3 100644
 +async function listPoolEntries(
 +  provider: string,
 +  authHeaders?: Record<string, string>,
-+): Promise<Array<{ key: string; label?: string }>> {
++): Promise<{ entries: Array<{ key: string; label?: string }>; currentKey?: string }> {
 +  try {
 +    const base = getServerBase()
 +    const res = await fetch(`${base}/auth/${encodeURIComponent(provider)}/pool`, {
 +      headers: authHeaders,
 +    })
-+    if (!res.ok) return []
++    if (!res.ok) return { entries: [] }
 +    const data: PoolListResponse = await res.json()
-+    return data.entries ?? []
++    return { entries: data.entries ?? [], currentKey: data.main?.key }
 +  } catch {
-+    return []
++    return { entries: [] }
 +  }
 +}
 +
@@ -871,7 +1057,9 @@ index 5354410..77a6eb3 100644
 +  }
 +}
 +
- export function useUsageExceededDialogs() {
++export function useUsageExceededDialogs(props?: {
++  onSwitch?: (provider: string, label?: string) => void
++}) {
    const sdk = useSDK()
    const dialog = useDialog()
    const { params } = useSessionLayout()
@@ -889,7 +1077,16 @@ index 5354410..77a6eb3 100644
  
    const [goUpsellState, setGoUpsellState] = persisted(
      Persist.global("go-upsell"),
-@@ -58,45 +125,44 @@ export function useUsageExceededDialogs() {
+@@ -50,6 +117,8 @@ export function useUsageExceededDialogs() {
+     }),
+   )
+ 
++  let triedPoolKeys = new Set<string>()
++
+   onCleanup(
+     sdk.event.on("session.status", (evt) => {
+       if (evt.properties.sessionID !== params.id) return
+@@ -58,45 +127,49 @@ export function useUsageExceededDialogs() {
        if (!action) return
        if (dialog.active) return
  
@@ -935,14 +1132,19 @@ index 5354410..77a6eb3 100644
 +      const provider = action.provider
 +      const auth = poolAuthHeaders()
 +      void (async () => {
-+        const pool = await listPoolEntries(provider, auth)
-+        const untried = pool.filter((entry) => !triedPoolKeys.has(entry.key))
++        const { entries: pool, currentKey } = await listPoolEntries(provider, auth)
++
++        const untried = pool.filter(
++          (entry) => entry.key !== currentKey && !triedPoolKeys.has(entry.key),
++        )
 +
 +        if (untried.length > 0) {
-+          const idx = pool.indexOf(untried[0])
-+          triedPoolKeys.add(untried[0].key)
++          const entry = untried[0]
++          const idx = pool.indexOf(entry)
++          triedPoolKeys.add(entry.key)
 +          const ok = await switchPoolKey(provider, idx, auth)
 +          if (ok) {
++            props?.onSwitch?.(provider, entry.label)
 +            notifySystemMessage(
 +              isEnglish()
 +                ? `Switched API key for ${provider}`
@@ -975,10 +1177,10 @@ index 5354410..77a6eb3 100644
  }
 diff --git a/packages/opencode/src/auth/pool.ts b/packages/opencode/src/auth/pool.ts
 new file mode 100644
-index 0000000..e15af78
+index 0000000..f913ec4
 --- /dev/null
 +++ b/packages/opencode/src/auth/pool.ts
-@@ -0,0 +1,90 @@
+@@ -0,0 +1,146 @@
 +import path from "path"
 +import { Effect, Layer, Schema, Context } from "effect"
 +import { Global } from "@opencode-ai/core/global"
@@ -994,22 +1196,35 @@ index 0000000..e15af78
 +
 +export type PoolEntry = Schema.Schema.Type<typeof PoolSchema>
 +
++type PoolData = Record<string, unknown>
++
 +export interface Interface {
 +  readonly list: (providerID: string) => Effect.Effect<PoolEntry[], never>
 +  readonly add: (providerID: string, entry: PoolEntry) => Effect.Effect<void, never>
 +  readonly remove: (providerID: string, index: number) => Effect.Effect<void, never>
 +  readonly switch: (providerID: string, index: number) => Effect.Effect<void, never>
 +  readonly count: (providerID: string) => Effect.Effect<number, never>
++  readonly resetToMain: (providerID: string) => Effect.Effect<void, never>
 +}
 +
 +export const Service: Context.Service<Interface, Interface> = Context.Service("@opencode/AuthPool")
 +
++const getEntries = (data: PoolData, providerID: string): PoolEntry[] =>
++  Array.isArray(data[providerID]) ? (data[providerID] as PoolEntry[]) : []
++
++const getMain = (data: PoolData, providerID: string): string | undefined => {
++  const main = data._main
++  return typeof main === "object" && main !== null && !Array.isArray(main)
++    ? (main as Record<string, string>)[providerID]
++    : undefined
++}
++
 +const rawPool = (fsys: AppFileSystem.Service) =>
 +  fsys.readJson(POOL_FILE).pipe(
-+    Effect.orElseSucceed(() => ({}) as Record<string, Array<{ key: string; label?: string }>>),
++    Effect.orElseSucceed(() => ({}) as PoolData),
 +  )
 +
-+const writePool = (fsys: AppFileSystem.Service, data: Record<string, Array<{ key: string; label?: string }>>) =>
++const writePool = (fsys: AppFileSystem.Service, data: PoolData) =>
 +  fsys.writeJson(POOL_FILE, data, 0o600).pipe(Effect.orDie)
 +
 +export const layer = Layer.effect(
@@ -1019,33 +1234,42 @@ index 0000000..e15af78
 +
 +    const list = Effect.fn("AuthPool.list")(function* (providerID: string) {
 +      const data = yield* rawPool(fsys)
-+      return (data[providerID] ?? []) as PoolEntry[]
++      return getEntries(data, providerID)
 +    })
 +
 +    const add = Effect.fn("AuthPool.add")(function* (providerID: string, entry: PoolEntry) {
 +      const data = yield* rawPool(fsys)
-+      if (!data[providerID]) data[providerID] = []
-+      data[providerID].push(entry)
++      const arr = getEntries(data, providerID)
++      arr.push(entry)
++      data[providerID] = arr
 +      yield* writePool(fsys, data)
 +    })
 +
 +    const remove = Effect.fn("AuthPool.remove")(function* (providerID: string, index: number) {
 +      const data = yield* rawPool(fsys)
-+      const arr = data[providerID]
-+      if (!arr || index < 0 || index >= arr.length) return
++      const arr = getEntries(data, providerID)
++      if (index < 0 || index >= arr.length) return
 +      arr.splice(index, 1)
-+      if (arr.length === 0) delete data[providerID]
++      if (arr.length === 0) {
++        delete data[providerID]
++      } else {
++        data[providerID] = arr
++      }
 +      yield* writePool(fsys, data)
 +    })
 +
 +    const switch_ = Effect.fn("AuthPool.switch")(function* (providerID: string, index: number) {
 +      const data = yield* rawPool(fsys)
-+      const arr = data[providerID]
-+      if (!arr || index < 0 || index >= arr.length) return
++      const arr = getEntries(data, providerID)
++      if (index < 0 || index >= arr.length) return
 +
 +      const poolEntry = arr[index]
 +      const authService = yield* Auth.Service
 +      const current = yield* authService.get(providerID)
++
++      if (current?.type === "api" && !getMain(data, providerID)) {
++        data._main = { ...((data._main as Record<string, string>) ?? {}), [providerID]: current.key }
++      }
 +
 +      const newMain: Auth.Info = { type: "api", key: poolEntry.key }
 +      yield* authService.set(providerID, newMain)
@@ -1055,16 +1279,50 @@ index 0000000..e15af78
 +      } else {
 +        arr.splice(index, 1)
 +      }
-+      if (arr.length === 0) delete data[providerID]
++      if (arr.length === 0) {
++        delete data[providerID]
++      } else {
++        data[providerID] = arr
++      }
 +      yield* writePool(fsys, data)
 +    })
 +
 +    const count = Effect.fn("AuthPool.count")(function* (providerID: string) {
 +      const data = yield* rawPool(fsys)
-+      return (data[providerID] ?? []).length
++      return getEntries(data, providerID).length
 +    })
 +
-+    return { list, add, remove, switch: switch_, count }
++    const resetToMain = Effect.fn("AuthPool.resetToMain")(function* (providerID: string) {
++      const data = yield* rawPool(fsys)
++      const mainKey = getMain(data, providerID)
++      if (!mainKey) return
++
++      const arr = getEntries(data, providerID)
++      const idx = arr.findIndex((e) => e.key === mainKey)
++      if (idx < 0) return
++
++      // Same swap logic as switch()
++      const authService = yield* Auth.Service
++      const current = yield* authService.get(providerID)
++      const newMain: Auth.Info = { type: "api", key: mainKey }
++      yield* authService.set(providerID, newMain)
++
++      if (current?.type === "api") {
++        arr[idx] = { key: current.key }
++      } else {
++        arr.splice(idx, 1)
++      }
++      if (arr.length === 0) {
++        delete data[providerID]
++      } else {
++        data[providerID] = arr
++      }
++      delete (data._main as Record<string, string>)[providerID]
++      if (Object.keys(data._main as Record<string, string>).length === 0) delete data._main
++      yield* writePool(fsys, data)
++    })
++
++    return { list, add, remove, switch: switch_, count, resetToMain }
 +  }),
 +)
 +
@@ -1242,10 +1500,10 @@ index 2bef35e..baf97b2 100644
  
  const rt = ManagedRuntime.make(AppLayer, { memoMap })
 diff --git a/packages/opencode/src/server/routes/instance/httpapi/groups/control.ts b/packages/opencode/src/server/routes/instance/httpapi/groups/control.ts
-index 33e6a8e..101061e 100644
+index 33e6a8e..f25fbb3 100644
 --- a/packages/opencode/src/server/routes/instance/httpapi/groups/control.ts
 +++ b/packages/opencode/src/server/routes/instance/httpapi/groups/control.ts
-@@ -27,9 +27,28 @@ export const LogInput = Schema.Struct({
+@@ -27,9 +27,29 @@ export const LogInput = Schema.Struct({
    }),
  })
  
@@ -1271,10 +1529,11 @@ index 33e6a8e..101061e 100644
 +  poolAdd: "/auth/:providerID/pool",
 +  poolRemove: "/auth/:providerID/pool/:index",
 +  poolSwitch: "/auth/:providerID/pool/switch/:index",
++  poolReset: "/auth/:providerID/pool/reset",
  } as const
  
  export const ControlApi = HttpApi.make("control").add(
-@@ -58,6 +77,57 @@ export const ControlApi = HttpApi.make("control").add(
+@@ -58,6 +78,68 @@ export const ControlApi = HttpApi.make("control").add(
            description: "Remove authentication credentials",
          }),
        ),
@@ -1329,20 +1588,36 @@ index 33e6a8e..101061e 100644
 +          description: "Swap the main API key with one from the pool at a given index",
 +        }),
 +      ),
++      HttpApiEndpoint.post("poolReset", ControlPaths.poolReset, {
++        params: AuthParams,
++        success: described(Schema.Boolean, "Reset to saved main API key"),
++        error: HttpApiError.BadRequest,
++      }).annotateMerge(
++        OpenApi.annotations({
++          identifier: "auth.pool.reset",
++          summary: "Reset to main API key",
++          description: "Switch back to the original main API key saved before the first pool switch",
++        }),
++      ),
        HttpApiEndpoint.post("log", ControlPaths.log, {
          query: LogQuery,
          payload: LogInput,
 diff --git a/packages/opencode/src/server/routes/instance/httpapi/handlers/control.ts b/packages/opencode/src/server/routes/instance/httpapi/handlers/control.ts
-index e1ede22..890ed60 100644
+index e1ede22..0a862cb 100644
 --- a/packages/opencode/src/server/routes/instance/httpapi/handlers/control.ts
 +++ b/packages/opencode/src/server/routes/instance/httpapi/handlers/control.ts
-@@ -1,4 +1,5 @@
+@@ -1,25 +1,72 @@
  import { Auth } from "@/auth"
 +import * as AuthPool from "@/auth/pool"
  import { ProviderID } from "@/provider/schema"
++import * as InstanceState from "@/effect/instance-state"
  import * as Log from "@opencode-ai/core/util/log"
  import { Effect } from "effect"
-@@ -9,6 +10,7 @@ import { LogInput } from "../groups/control"
+ import { HttpApiBuilder } from "effect/unstable/httpapi"
+ import { RootHttpApi } from "../api"
+ import { LogInput } from "../groups/control"
++import { markInstanceForDisposal } from "../lifecycle"
+ 
  export const controlHandlers = HttpApiBuilder.group(RootHttpApi, "control", (handlers) =>
    Effect.gen(function* () {
      const auth = yield* Auth.Service
@@ -1350,10 +1625,19 @@ index e1ede22..890ed60 100644
  
      const authSet = Effect.fn("ControlHttpApi.authSet")(function* (ctx: {
        params: { providerID: ProviderID }
-@@ -23,12 +25,51 @@ export const controlHandlers = HttpApiBuilder.group(RootHttpApi, "control", (han
+       payload: Auth.Info
+     }) {
+       yield* auth.set(ctx.params.providerID, ctx.payload).pipe(Effect.orDie)
++      yield* markInstanceForDisposal(yield* InstanceState.context)
        return true
      })
  
+     const authRemove = Effect.fn("ControlHttpApi.authRemove")(function* (ctx: { params: { providerID: ProviderID } }) {
+       yield* auth.remove(ctx.params.providerID).pipe(Effect.orDie)
++      yield* markInstanceForDisposal(yield* InstanceState.context)
++      return true
++    })
++
 +    const poolList = Effect.fn("ControlHttpApi.poolList")(function* (ctx: {
 +      params: { providerID: ProviderID }
 +    }) {
@@ -1383,12 +1667,19 @@ index e1ede22..890ed60 100644
 +      params: { providerID: ProviderID; index: number }
 +    }) {
 +      yield* pool.switch(ctx.params.providerID, ctx.params.index)
++      yield* markInstanceForDisposal(yield* InstanceState.context)
 +      return true
 +    })
 +
-     const log = Effect.fn("ControlHttpApi.log")(function* (ctx: { payload: typeof LogInput.Type }) {
-       const logger = Log.create({ service: ctx.payload.service })
-       logger[ctx.payload.level](ctx.payload.message, ctx.payload.extra)
++    const poolReset = Effect.fn("ControlHttpApi.poolReset")(function* (ctx: {
++      params: { providerID: ProviderID }
++    }) {
++      yield* pool.resetToMain(ctx.params.providerID)
++      yield* markInstanceForDisposal(yield* InstanceState.context)
+       return true
+     })
+ 
+@@ -29,6 +76,14 @@ export const controlHandlers = HttpApiBuilder.group(RootHttpApi, "control", (han
        return true
      })
  
@@ -1400,6 +1691,7 @@ index e1ede22..890ed60 100644
 +      .handle("poolAdd", poolAdd)
 +      .handle("poolRemove", poolRemove)
 +      .handle("poolSwitch", poolSwitch)
++      .handle("poolReset", poolReset)
 +      .handle("log", log)
    }),
  )
