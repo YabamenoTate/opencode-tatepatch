@@ -1,108 +1,8 @@
-diff --git a/packages/opencode/src/auth/pool.ts b/packages/opencode/src/auth/pool.ts
-new file mode 100644
-index 0000000..91498cf
---- /dev/null
-+++ b/packages/opencode/src/auth/pool.ts
-@@ -0,0 +1,94 @@
-+import path from "path"
-+import { Effect, Layer, Schema, Context } from "effect"
-+import { Global } from "@opencode-ai/core/global"
-+import { AppFileSystem } from "@opencode-ai/core/filesystem"
-+import { Auth } from "."
-+
-+const POOL_FILE = path.join(Global.Path.data, "auth-pool.json")
-+
-+export class PoolSchema extends Schema.Class<PoolSchema>("AuthPoolEntry")({
-+  key: Schema.String,
-+  label: Schema.optional(Schema.String),
-+}) {}
-+
-+export type PoolEntry = Schema.Schema.Type<typeof PoolSchema>
-+
-+export interface Interface {
-+  readonly list: (providerID: string) => Effect.Effect<PoolEntry[], never>
-+  readonly add: (providerID: string, entry: PoolEntry) => Effect.Effect<void, never>
-+  readonly remove: (providerID: string, index: number) => Effect.Effect<void, never>
-+  readonly switch: (providerID: string, index: number) => Effect.Effect<void, never>
-+  readonly count: (providerID: string) => Effect.Effect<number, never>
-+}
-+
-+export const Service: Context.Service<Interface, Interface> = Context.Service("@opencode/AuthPool")
-+
-+const rawPool = (fsys: AppFileSystem.Service) =>
-+  Effect.fn("AuthPool.read")(function* () {
-+    const data = (yield* fsys.readJson(POOL_FILE).pipe(Effect.orElseSucceed(() => ({})))) as Record<
-+      string,
-+      Array<{ key: string; label?: string }>
-+    >
-+    return data
-+  })
-+
-+const writePool = (fsys: AppFileSystem.Service, data: Record<string, Array<{ key: string; label?: string }>>) =>
-+  fsys.writeJson(POOL_FILE, data, 0o600).pipe(Effect.orDie)
-+
-+export const layer = Layer.effect(
-+  Service,
-+  Effect.gen(function* () {
-+    const fsys = yield* AppFileSystem.Service
-+
-+    const list = Effect.fn("AuthPool.list")(function* (providerID: string) {
-+      const data = yield* rawPool(fsys)
-+      return (data[providerID] ?? []) as PoolEntry[]
-+    })
-+
-+    const add = Effect.fn("AuthPool.add")(function* (providerID: string, entry: PoolEntry) {
-+      const data = yield* rawPool(fsys)
-+      if (!data[providerID]) data[providerID] = []
-+      data[providerID].push(entry)
-+      yield* writePool(fsys, data)
-+    })
-+
-+    const remove = Effect.fn("AuthPool.remove")(function* (providerID: string, index: number) {
-+      const data = yield* rawPool(fsys)
-+      const arr = data[providerID]
-+      if (!arr || index < 0 || index >= arr.length) return
-+      arr.splice(index, 1)
-+      if (arr.length === 0) delete data[providerID]
-+      yield* writePool(fsys, data)
-+    })
-+
-+    const switch_ = Effect.fn("AuthPool.switch")(function* (providerID: string, index: number) {
-+      const data = yield* rawPool(fsys)
-+      const arr = data[providerID]
-+      if (!arr || index < 0 || index >= arr.length) return
-+
-+      const poolEntry = arr[index]
-+      const authService = yield* Auth.Service
-+      const current = yield* authService.get(providerID)
-+
-+      const newMain: Auth.Info = { type: "api", key: poolEntry.key }
-+      yield* authService.set(providerID, newMain)
-+
-+      if (current?.type === "api") {
-+        arr[index] = { key: current.key }
-+      } else {
-+        arr.splice(index, 1)
-+      }
-+      if (arr.length === 0) delete data[providerID]
-+      yield* writePool(fsys, data)
-+    })
-+
-+    const count = Effect.fn("AuthPool.count")(function* (providerID: string) {
-+      const data = yield* rawPool(fsys)
-+      return (data[providerID] ?? []).length
-+    })
-+
-+    return { list, add, remove, switch: switch_, count }
-+  }),
-+)
-+
-+export const defaultLayer = layer.pipe(Layer.provide(AppFileSystem.defaultLayer))
 diff --git a/packages/app/src/components/dialog-connect-provider.tsx b/packages/app/src/components/dialog-connect-provider.tsx
-index a0ccc16..6a73a81 100644
+index a0ccc16..270d935 100644
 --- a/packages/app/src/components/dialog-connect-provider.tsx
 +++ b/packages/app/src/components/dialog-connect-provider.tsx
-@@ -9,7 +9,7 @@ import { ProviderIcon } from "@opencode-ai/ui/provider-icon"
+@@ -9,13 +9,25 @@ import { ProviderIcon } from "@opencode-ai/ui/provider-icon"
  import { Spinner } from "@opencode-ai/ui/spinner"
  import { TextField } from "@opencode-ai/ui/text-field"
  import { showToast } from "@opencode-ai/ui/toast"
@@ -111,19 +11,25 @@ index a0ccc16..6a73a81 100644
  import { createStore, produce } from "solid-js/store"
  import { Link } from "@/components/link"
  import { useServerSDK } from "@/context/server-sdk"
-@@ -17,6 +17,11 @@ import { useServerSync } from "@/context/server-sync"
+ import { useServerSync } from "@/context/server-sync"
  import { useLanguage } from "@/context/language"
  import { useProviders } from "@/hooks/use-providers"
- 
++import { useServer } from "@/context/server"
++import { authTokenFromCredentials } from "@/utils/server"
++
 +interface PoolEntry {
 +  key: string
 +  label?: string
 +}
 +
++function maskKey(key: string): string {
++  if (key.length <= 12) return key.slice(0, 4) + "..."
++  return key.slice(0, 8) + "..." + key.slice(-4)
++}
+ 
  export function DialogConnectProvider(props: { provider: string }) {
    const dialog = useDialog()
-   const serverSync = useServerSync()
-@@ -65,7 +70,7 @@ export function DialogConnectProvider(props: { provider: string }) {
+@@ -65,7 +77,7 @@ export function DialogConnectProvider(props: { provider: string }) {
    const [store, setStore] = createStore({
      methodIndex: undefined as undefined | number,
      authorization: undefined as undefined | ProviderAuthAuthorization,
@@ -132,7 +38,7 @@ index a0ccc16..6a73a81 100644
      error: undefined as string | undefined,
    })
  
-@@ -76,6 +81,7 @@ export function DialogConnectProvider(props: { provider: string }) {
+@@ -76,6 +88,7 @@ export function DialogConnectProvider(props: { provider: string }) {
      | { type: "auth.pending" }
      | { type: "auth.complete"; authorization: ProviderAuthAuthorization }
      | { type: "auth.error"; error: string }
@@ -140,7 +46,7 @@ index a0ccc16..6a73a81 100644
  
    function dispatch(action: Action) {
      setStore(
-@@ -110,6 +116,11 @@ export function DialogConnectProvider(props: { provider: string }) {
+@@ -110,6 +123,11 @@ export function DialogConnectProvider(props: { provider: string }) {
            draft.error = undefined
            return
          }
@@ -152,7 +58,7 @@ index a0ccc16..6a73a81 100644
          draft.state = "error"
          draft.error = action.error
        }),
-@@ -329,6 +340,52 @@ export function DialogConnectProvider(props: { provider: string }) {
+@@ -329,6 +347,66 @@ export function DialogConnectProvider(props: { provider: string }) {
      }
    })
  
@@ -160,68 +66,106 @@ index a0ccc16..6a73a81 100644
 +  const [poolLoading, setPoolLoading] = createSignal(false)
 +  const [manageView, setManageView] = createSignal<"idle" | "loading" | "list" | "add">("idle")
 +
-+  const loadPool = createMemo(() => {
-+    if (manageView() === "list" || manageView() === "loading") {
-+      setPoolLoading(true)
-+      fetch(`/auth/${encodeURIComponent(props.provider)}/pool`)
-+        .then((r) => r.json())
-+        .then((data) => {
-+          if (alive.value) {
-+            setPoolEntries(Array.isArray(data) ? data : [])
-+            setManageView("list")
-+          }
-+        })
-+        .catch(() => {
-+          if (alive.value) {
-+            setPoolEntries([])
-+            setManageView("list")
-+          }
-+        })
-+        .finally(() => {
-+          if (alive.value) setPoolLoading(false)
-+        })
++  const server = useServer()
++  const poolAuthHeaders = createMemo((): Record<string, string> => {
++    const srv = server.current
++    if (!srv?.http?.password) return {}
++    return {
++      Authorization: `Basic ${authTokenFromCredentials({ username: srv.http.username, password: srv.http.password })}`,
 +    }
 +  })
 +
++  function poolFetch(url: string, init?: RequestInit) {
++    const base = typeof window !== "undefined" ? window.location.origin : ""
++    return fetch(`${base}${url}`, { ...init, headers: { ...poolAuthHeaders(), ...init?.headers } })
++  }
++
++
++
 +  async function addPoolKey(key: string, label?: string) {
-+    await fetch(`/auth/${encodeURIComponent(props.provider)}/pool`, {
++    const res = await poolFetch(`/auth/${encodeURIComponent(props.provider)}/pool`, {
 +      method: "POST",
 +      headers: { "Content-Type": "application/json" },
 +      body: JSON.stringify({ key, label }),
 +    })
++    if (!res.ok) {
++      showToast({ variant: "error", title: language.t("common.requestFailed") })
++      return
++    }
 +    setManageView("loading")
 +  }
 +
 +  async function removePoolKey(index: number) {
-+    await fetch(`/auth/${encodeURIComponent(props.provider)}/pool/${index}`, { method: "DELETE" })
++    const res = await poolFetch(`/auth/${encodeURIComponent(props.provider)}/pool/${index}`, { method: "DELETE" })
++    if (!res.ok) {
++      showToast({ variant: "error", title: language.t("common.requestFailed") })
++      return
++    }
 +    setManageView("loading")
 +  }
 +
 +  async function switchPoolKey(index: number) {
-+    await fetch(`/auth/${encodeURIComponent(props.provider)}/pool/switch/${index}`, { method: "POST" })
++    const res = await poolFetch(`/auth/${encodeURIComponent(props.provider)}/pool/switch/${index}`, { method: "POST" })
++    if (!res.ok) {
++      showToast({ variant: "error", title: language.t("common.requestFailed") })
++      return
++    }
++    setManageView("loading")
++  }
++
++  async function removeMainAccount() {
++    const res = await poolFetch(`/auth/${encodeURIComponent(props.provider)}`, { method: "DELETE" })
++    if (!res.ok) {
++      showToast({ variant: "error", title: language.t("common.requestFailed") })
++      return
++    }
 +    setManageView("loading")
 +  }
 +
    async function complete() {
      await serverSDK.client.global.dispose()
      dialog.close()
-@@ -356,6 +413,166 @@ export function DialogConnectProvider(props: { provider: string }) {
+@@ -356,6 +434,201 @@ export function DialogConnectProvider(props: { provider: string }) {
      all()
    }
  
 +  function ManageAccountsView() {
-+    const hasMain = providers.connected().some((p) => p.id === props.provider)
-+
 +    createEffect(() => {
 +      if (manageView() === "idle") {
 +        setManageView("loading")
 +      }
 +    })
 +
++    const [mainEntry, setMainEntry] = createSignal<PoolEntry | null>(null)
++
 +    createEffect(() => {
-+      if (manageView() === "loading") {
-+        loadPool()
-+      }
++      if (manageView() !== "loading") return
++      setPoolLoading(true)
++      poolFetch(`/auth/${encodeURIComponent(props.provider)}/pool`)
++        .then(async (r) => {
++          if (!r.ok) throw new Error(`HTTP ${r.status}`)
++          return r.json()
++        })
++        .then((data) => {
++          if (alive.value) {
++            const d = data as { entries: PoolEntry[]; main: PoolEntry | null }
++            setPoolEntries(d.entries ?? [])
++            setMainEntry(d.main ?? null)
++            setManageView("list")
++          }
++        })
++        .catch((e: Error) => {
++          if (alive.value) {
++            setPoolEntries([])
++            setMainEntry(null)
++            setManageView("list")
++            console.error("Pool fetch failed:", e.message)
++            showToast({ variant: "error", title: language.t("common.requestFailed") })
++          }
++        })
++        .finally(() => {
++          if (alive.value) setPoolLoading(false)
++        })
 +    })
 +
 +    const [addStore, setAddStore] = createStore({
@@ -303,30 +247,48 @@ index a0ccc16..6a73a81 100644
 +              </div>
 +
 +              <div class="flex flex-col gap-2">
-+                {hasMain ? (
++                {mainEntry() ? (
 +                  <div class="flex items-center justify-between gap-2 p-2 rounded-md bg-surface-stronger-base border border-border-weak-base">
 +                    <div class="flex items-center gap-2 min-w-0">
 +                      <Icon name="circle-check" class="text-icon-success-base size-4 shrink-0" />
-+                      <span class="text-14-medium text-text-strong truncate">
-+                        {provider().name}
++                      <span class="text-14-regular text-text-strong truncate font-mono text-xs">
++                        {maskKey(mainEntry()!.key)}
 +                      </span>
++                      {mainEntry()!.label ? (
++                        <span class="text-12-regular text-text-weak">{mainEntry()!.label}</span>
++                      ) : null}
 +                      <span class="text-12-regular text-text-weak">({language.t("provider.connect.mainAccount")})</span>
++                    </div>
++                    <div class="flex items-center gap-1 shrink-0">
++                      <Button
++                        size="small"
++                        variant="ghost"
++                        icon="trash"
++                        onClick={() => void removeMainAccount()}
++                        title={language.t("common.delete")}
++                      />
 +                    </div>
 +                  </div>
 +                ) : null}
 +
-+                {poolEntries().length === 0 && !hasMain ? (
++                {poolEntries().length === 0 && !mainEntry() ? (
 +                  <div class="text-14-regular text-text-weak py-2">
 +                    {language.t("provider.connect.noAccounts")}
 +                  </div>
 +                ) : null}
 +
 +                {poolEntries().map((entry, i) => (
-+                  <div class="flex items-center justify-between gap-2 p-2 rounded-md bg-surface-stronger-base border border-border-weak-base">
++                  <div
++                    class="flex items-center justify-between gap-2 p-2 rounded-md bg-surface-stronger-base border border-border-weak-base cursor-pointer hover:bg-surface-stronger-hover"
++                    onClick={() => void switchPoolKey(i)}
++                    role="button"
++                    tabIndex={0}
++                    onKeyDown={(e) => { if (e.key === "Enter") void switchPoolKey(i) }}
++                  >
 +                    <div class="flex items-center gap-2 min-w-0">
-+                      <Icon name="key" class="text-icon-base size-4 shrink-0" />
++                      <Icon name="arrow-swap" class="text-icon-base size-4 shrink-0" />
 +                      <span class="text-14-regular text-text-strong truncate font-mono text-xs">
-+                        {entry.key.slice(0, 8)}...{entry.key.slice(-4)}
++                        {maskKey(entry.key)}
 +                      </span>
 +                      {entry.label ? (
 +                        <span class="text-12-regular text-text-weak">{entry.label}</span>
@@ -336,15 +298,8 @@ index a0ccc16..6a73a81 100644
 +                      <Button
 +                        size="small"
 +                        variant="ghost"
-+                        icon="arrow-swap"
-+                        onClick={() => void switchPoolKey(i)}
-+                        title={language.t("provider.connect.setMainAccount")}
-+                      />
-+                      <Button
-+                        size="small"
-+                        variant="ghost"
 +                        icon="trash"
-+                        onClick={() => void removePoolKey(i)}
++                        onClick={(e: MouseEvent) => { e.stopPropagation(); void removePoolKey(i) }}
 +                        title={language.t("common.delete")}
 +                      />
 +                    </div>
@@ -372,7 +327,7 @@ index a0ccc16..6a73a81 100644
    function MethodSelection() {
      return (
        <>
-@@ -414,7 +631,7 @@ export function DialogConnectProvider(props: { provider: string }) {
+@@ -414,7 +687,7 @@ export function DialogConnectProvider(props: { provider: string }) {
            key: apiKey,
          },
        })
@@ -381,7 +336,7 @@ index a0ccc16..6a73a81 100644
      }
  
      return (
-@@ -573,6 +790,11 @@ export function DialogConnectProvider(props: { provider: string }) {
+@@ -573,6 +846,11 @@ export function DialogConnectProvider(props: { provider: string }) {
      )
    }
  
@@ -393,7 +348,7 @@ index a0ccc16..6a73a81 100644
    return (
      <Dialog
        title={
-@@ -608,6 +830,9 @@ export function DialogConnectProvider(props: { provider: string }) {
+@@ -608,6 +886,9 @@ export function DialogConnectProvider(props: { provider: string }) {
                    </div>
                  </div>
                </Match>
@@ -403,51 +358,6 @@ index a0ccc16..6a73a81 100644
                <Match when={store.methodIndex === undefined}>
                  <MethodSelection />
                </Match>
-diff --git a/packages/app/src/components/dialog-select-provider.tsx b/packages/app/src/components/dialog-select-provider.tsx
-index 1273db5..859ced5 100644
---- a/packages/app/src/components/dialog-select-provider.tsx
-+++ b/packages/app/src/components/dialog-select-provider.tsx
-@@ -1,4 +1,4 @@
--import { Component, Show } from "solid-js"
-+import { Component, Show, createMemo } from "solid-js"
- import { useDialog } from "@opencode-ai/ui/context/dialog"
- import { popularProviders, useProviders } from "@/hooks/use-providers"
- import { Dialog } from "@opencode-ai/ui/dialog"
-@@ -7,6 +7,7 @@ import { Tag } from "@opencode-ai/ui/tag"
- import { ProviderIcon } from "@opencode-ai/ui/provider-icon"
- import { DialogConnectProvider } from "./dialog-connect-provider"
- import { useLanguage } from "@/context/language"
-+import { useServerSync } from "@/context/server-sync"
- import { DialogCustomProvider } from "./dialog-custom-provider"
- 
- const CUSTOM_ID = "_custom"
-@@ -15,6 +16,8 @@ export const DialogSelectProvider: Component = () => {
-   const dialog = useDialog()
-   const providers = useProviders()
-   const language = useLanguage()
-+  const serverSync = useServerSync()
-+  const connectedProviders = createMemo(() => new Set(Object.keys(serverSync.data.provider_auth)))
- 
-   const popularGroup = () => language.t("dialog.provider.group.popular")
-   const otherGroup = () => language.t("dialog.provider.group.other")
-@@ -74,10 +77,13 @@ export const DialogSelectProvider: Component = () => {
-             <Show when={i.id === "opencode"}>
-               <Tag>{language.t("dialog.provider.tag.recommended")}</Tag>
-             </Show>
--            <Show when={note(i.id)}>{(value) => <div class="text-14-regular text-text-weak">{value()}</div>}</Show>
--            <Show when={i.id === "opencode-go"}>
--              <Tag>{language.t("dialog.provider.tag.recommended")}</Tag>
--            </Show>
-+          <Show when={note(i.id)}>{(value) => <div class="text-14-regular text-text-weak">{value()}</div>}</Show>
-+          <Show when={i.id === "opencode-go"}>
-+            <Tag>{language.t("dialog.provider.tag.recommended")}</Tag>
-+          </Show>
-+          <Show when={connectedProviders().has(i.id)}>
-+            <Tag>Connected</Tag>
-+          </Show>
-           </div>
-         )}
-       </List>
 diff --git a/packages/app/src/i18n/ar.ts b/packages/app/src/i18n/ar.ts
 index 5d12402..c581446 100644
 --- a/packages/app/src/i18n/ar.ts
@@ -881,18 +791,26 @@ index edd6f7b..3db590f 100644
    "common.edit": "編輯",
    "common.loadMore": "載入更多",
 diff --git a/packages/app/src/pages/session/usage-exceeded-dialogs.tsx b/packages/app/src/pages/session/usage-exceeded-dialogs.tsx
-index 5354410..f2bcd40 100644
+index 5354410..77a6eb3 100644
 --- a/packages/app/src/pages/session/usage-exceeded-dialogs.tsx
 +++ b/packages/app/src/pages/session/usage-exceeded-dialogs.tsx
-@@ -5,7 +5,6 @@ import { onCleanup } from "solid-js"
+@@ -1,12 +1,13 @@
+ import { useSDK } from "@/context/sdk"
+ import { Persist, persisted } from "@/utils/persist"
+ import { SessionStatus } from "@opencode-ai/sdk/v2"
+-import { onCleanup } from "solid-js"
++import { onCleanup, createMemo } from "solid-js"
  import { createStore } from "solid-js/store"
  import { useSessionLayout } from "./session-layout"
  import { useDialog } from "@opencode-ai/ui/context"
 -import { DialogUsageExceeded } from "@/components/dialog-usage-exceeded"
  import { useI18n } from "@opencode-ai/ui/context"
++import { useServer } from "@/context/server"
++import { authTokenFromCredentials } from "@/utils/server"
  
  const GO_UPSELL_FREE_TIER_LAST_SEEN_AT = "go_upsell_last_seen_at"
-@@ -33,6 +32,47 @@ function goUpsellKeys(status: SessionStatus) {
+ const GO_UPSELL_FREE_TIER_DONT_SHOW = "go_upsell_dont_show"
+@@ -33,12 +34,78 @@ function goUpsellKeys(status: SessionStatus) {
    }
  }
  
@@ -905,22 +823,38 @@ index 5354410..f2bcd40 100644
 +  return "http://localhost:4096"
 +}
 +
-+async function listPoolEntries(provider: string): Promise<Array<{ key: string; label?: string }>> {
++interface PoolListResponse {
++  entries: Array<{ key: string; label?: string }>
++  main?: { key: string; label?: string } | null
++}
++
++async function listPoolEntries(
++  provider: string,
++  authHeaders?: Record<string, string>,
++): Promise<Array<{ key: string; label?: string }>> {
 +  try {
 +    const base = getServerBase()
-+    const res = await fetch(`${base}/auth/${encodeURIComponent(provider)}/pool`)
++    const res = await fetch(`${base}/auth/${encodeURIComponent(provider)}/pool`, {
++      headers: authHeaders,
++    })
 +    if (!res.ok) return []
-+    return await res.json()
++    const data: PoolListResponse = await res.json()
++    return data.entries ?? []
 +  } catch {
 +    return []
 +  }
 +}
 +
-+async function switchPoolKey(provider: string, index: number): Promise<boolean> {
++async function switchPoolKey(
++  provider: string,
++  index: number,
++  authHeaders?: Record<string, string>,
++): Promise<boolean> {
 +  try {
 +    const base = getServerBase()
 +    const res = await fetch(`${base}/auth/${encodeURIComponent(provider)}/pool/switch/${index}`, {
 +      method: "POST",
++      headers: authHeaders,
 +    })
 +    return res.ok
 +  } catch {
@@ -940,45 +874,32 @@ index 5354410..f2bcd40 100644
  export function useUsageExceededDialogs() {
    const sdk = useSDK()
    const dialog = useDialog()
-@@ -58,45 +98,43 @@ export function useUsageExceededDialogs() {
+   const { params } = useSessionLayout()
+   const { t, locale } = useI18n()
+   const isEnglish = () => locale() === "en"
++  const server = useServer()
++
++  const poolAuthHeaders = createMemo((): Record<string, string> => {
++    const srv = server.current
++    if (!srv?.http?.password) return {}
++    return {
++      Authorization: `Basic ${authTokenFromCredentials({ username: srv.http.username, password: srv.http.password })}`,
++    }
++  })
+ 
+   const [goUpsellState, setGoUpsellState] = persisted(
+     Persist.global("go-upsell"),
+@@ -58,45 +125,44 @@ export function useUsageExceededDialogs() {
        if (!action) return
        if (dialog.active) return
  
 -      const keys = goUpsellKeys(evt.properties.status)
 -      if (!keys) return
-+      const provider = action.provider
-+      void (async () => {
-+        const pool = await listPoolEntries(provider)
-+        const untried = pool.filter((entry) => !triedPoolKeys.has(entry.key))
-+
-+        if (untried.length > 0) {
-+          const idx = pool.indexOf(untried[0])
-+          triedPoolKeys.add(untried[0].key)
-+          const ok = await switchPoolKey(provider, idx)
-+          if (ok) {
-+            notifySystemMessage(
-+              isEnglish()
-+                ? `Switched API key for ${provider}`
-+                : `${provider} のAPIキーを切り替えました`,
-+              isEnglish()
-+                ? `Quota exceeded. Switched to another API key.`
-+                : `上限に達したため、別のAPIキーに切り替えました。`,
-+            )
-+          }
-+          return
-+        }
-+
-+        triedPoolKeys.clear()
-+        const keys = goUpsellKeys(evt.properties.status)
-+        if (!keys) return
- 
+-
 -      const seen = goUpsellState[keys.lastSeenAt]
 -      if (seen && Date.now() - seen < GO_UPSELL_WINDOW) return
 -      if (goUpsellState[keys.dontShow]) return
-+        const seen = goUpsellState[keys.lastSeenAt]
-+        if (seen && Date.now() - seen < GO_UPSELL_WINDOW) return
-+        if (goUpsellState[keys.dontShow]) return
- 
+-
 -      if (action.reason === "free_tier_limit") {
 -        dialog.show(() => (
 -          <DialogUsageExceeded
@@ -1011,6 +932,37 @@ index 5354410..f2bcd40 100644
 -          />
 -        ))
 -      }
++      const provider = action.provider
++      const auth = poolAuthHeaders()
++      void (async () => {
++        const pool = await listPoolEntries(provider, auth)
++        const untried = pool.filter((entry) => !triedPoolKeys.has(entry.key))
++
++        if (untried.length > 0) {
++          const idx = pool.indexOf(untried[0])
++          triedPoolKeys.add(untried[0].key)
++          const ok = await switchPoolKey(provider, idx, auth)
++          if (ok) {
++            notifySystemMessage(
++              isEnglish()
++                ? `Switched API key for ${provider}`
++                : `${provider} のAPIキーを切り替えました`,
++              isEnglish()
++                ? `Quota exceeded. Switched to another API key.`
++                : `上限に達したため、別のAPIキーに切り替えました。`,
++            )
++          }
++          return
++        }
++
++        triedPoolKeys.clear()
++        const keys = goUpsellKeys(evt.properties.status)
++        if (!keys) return
++
++        const seen = goUpsellState[keys.lastSeenAt]
++        if (seen && Date.now() - seen < GO_UPSELL_WINDOW) return
++        if (goUpsellState[keys.dontShow]) return
++
 +        if (action.reason === "free_tier_limit" || action.reason === "account_rate_limit") {
 +          void import("../../components/dialog-connect-provider").then((x) =>
 +            dialog.show(() => <x.DialogConnectProvider provider={provider} />),
@@ -1021,8 +973,104 @@ index 5354410..f2bcd40 100644
      }),
    )
  }
+diff --git a/packages/opencode/src/auth/pool.ts b/packages/opencode/src/auth/pool.ts
+new file mode 100644
+index 0000000..e15af78
+--- /dev/null
++++ b/packages/opencode/src/auth/pool.ts
+@@ -0,0 +1,90 @@
++import path from "path"
++import { Effect, Layer, Schema, Context } from "effect"
++import { Global } from "@opencode-ai/core/global"
++import { AppFileSystem } from "@opencode-ai/core/filesystem"
++import { Auth } from "."
++
++const POOL_FILE = path.join(Global.Path.data, "auth-pool.json")
++
++export class PoolSchema extends Schema.Class<PoolSchema>("AuthPoolEntry")({
++  key: Schema.String,
++  label: Schema.optional(Schema.String),
++}) {}
++
++export type PoolEntry = Schema.Schema.Type<typeof PoolSchema>
++
++export interface Interface {
++  readonly list: (providerID: string) => Effect.Effect<PoolEntry[], never>
++  readonly add: (providerID: string, entry: PoolEntry) => Effect.Effect<void, never>
++  readonly remove: (providerID: string, index: number) => Effect.Effect<void, never>
++  readonly switch: (providerID: string, index: number) => Effect.Effect<void, never>
++  readonly count: (providerID: string) => Effect.Effect<number, never>
++}
++
++export const Service: Context.Service<Interface, Interface> = Context.Service("@opencode/AuthPool")
++
++const rawPool = (fsys: AppFileSystem.Service) =>
++  fsys.readJson(POOL_FILE).pipe(
++    Effect.orElseSucceed(() => ({}) as Record<string, Array<{ key: string; label?: string }>>),
++  )
++
++const writePool = (fsys: AppFileSystem.Service, data: Record<string, Array<{ key: string; label?: string }>>) =>
++  fsys.writeJson(POOL_FILE, data, 0o600).pipe(Effect.orDie)
++
++export const layer = Layer.effect(
++  Service,
++  Effect.gen(function* () {
++    const fsys = yield* AppFileSystem.Service
++
++    const list = Effect.fn("AuthPool.list")(function* (providerID: string) {
++      const data = yield* rawPool(fsys)
++      return (data[providerID] ?? []) as PoolEntry[]
++    })
++
++    const add = Effect.fn("AuthPool.add")(function* (providerID: string, entry: PoolEntry) {
++      const data = yield* rawPool(fsys)
++      if (!data[providerID]) data[providerID] = []
++      data[providerID].push(entry)
++      yield* writePool(fsys, data)
++    })
++
++    const remove = Effect.fn("AuthPool.remove")(function* (providerID: string, index: number) {
++      const data = yield* rawPool(fsys)
++      const arr = data[providerID]
++      if (!arr || index < 0 || index >= arr.length) return
++      arr.splice(index, 1)
++      if (arr.length === 0) delete data[providerID]
++      yield* writePool(fsys, data)
++    })
++
++    const switch_ = Effect.fn("AuthPool.switch")(function* (providerID: string, index: number) {
++      const data = yield* rawPool(fsys)
++      const arr = data[providerID]
++      if (!arr || index < 0 || index >= arr.length) return
++
++      const poolEntry = arr[index]
++      const authService = yield* Auth.Service
++      const current = yield* authService.get(providerID)
++
++      const newMain: Auth.Info = { type: "api", key: poolEntry.key }
++      yield* authService.set(providerID, newMain)
++
++      if (current?.type === "api") {
++        arr[index] = { key: current.key }
++      } else {
++        arr.splice(index, 1)
++      }
++      if (arr.length === 0) delete data[providerID]
++      yield* writePool(fsys, data)
++    })
++
++    const count = Effect.fn("AuthPool.count")(function* (providerID: string) {
++      const data = yield* rawPool(fsys)
++      return (data[providerID] ?? []).length
++    })
++
++    return { list, add, remove, switch: switch_, count }
++  }),
++)
++
++export const defaultLayer = layer.pipe(Layer.provide(AppFileSystem.defaultLayer))
 diff --git a/packages/opencode/src/cli/cmd/providers.ts b/packages/opencode/src/cli/cmd/providers.ts
-index 560781e..ef070b8 100644
+index 560781e..5995182 100644
 --- a/packages/opencode/src/cli/cmd/providers.ts
 +++ b/packages/opencode/src/cli/cmd/providers.ts
 @@ -1,4 +1,5 @@
@@ -1031,7 +1079,7 @@ index 560781e..ef070b8 100644
  import { cmd } from "./cmd"
  import { CliError, effectCmd, fail } from "../effect-cmd"
  import { UI } from "../ui"
-@@ -474,12 +475,128 @@ export const ProvidersLoginCommand = effectCmd({
+@@ -474,12 +475,135 @@ export const ProvidersLoginCommand = effectCmd({
        )
      }
  
@@ -1051,7 +1099,7 @@ index 560781e..ef070b8 100644
 +      fsys.readJson(POOL_FILE).pipe(Effect.orElseSucceed(() => ({}) as Record<string, Array<{ key: string; label?: string }>>))
 +
 +    const writePool = (data: Record<string, Array<{ key: string; label?: string }>>) =>
-+      fsys.writeJsonString(POOL_FILE, data)
++      fsys.writeJson(POOL_FILE, data, 0o600).pipe(Effect.orDie)
 +
 +    const getPool = (maybeProvider?: string) =>
 +      Effect.gen(function* () {
@@ -1078,20 +1126,16 @@ index 560781e..ef070b8 100644
 +        }
 +      })
 +
-+    const switchFromPool = (maybeProvider: string, idx: number) =>
++    const switchFromPool = (maybeProvider: string, idx: number, newMainKey: string) =>
 +      Effect.gen(function* () {
 +        const { data, list } = yield* getPool(maybeProvider)
-+        const toPromote = list[idx]
-+        if (!toPromote) return
 +        const updated = [...list.slice(0, idx), ...list.slice(idx + 1)]
 +        if (updated.length > 0) {
-+          yield* writePool({ ...data, [maybeProvider]: updated })
++          yield* writePool({ ...data, [maybeProvider]: [...updated, { key: newMainKey }] })
 +        } else {
-+          const { [maybeProvider]: _, ...rest } = data
-+          yield* writePool(rest)
++          yield* writePool({ ...data, [maybeProvider]: [{ key: newMainKey }] })
 +        }
-+        yield* Effect.orDie(authSvc.set(maybeProvider, { type: "api", key: toPromote.key }))
-+        yield* Prompt.log.info(`Switched main account to ${maskKey(toPromote.key)}`)
++        yield* Effect.orDie(authSvc.set(maybeProvider, { type: "api", key: list[idx].key }))
 +      })
 +
 +    const database = yield* modelsDev.get()
@@ -1100,26 +1144,26 @@ index 560781e..ef070b8 100644
 +      const main = all[provider] as Auth.Info | undefined
 +      const { list: pool } = yield* getPool()
 +
-+      const options: { label: string; value: string }[] = []
 +      if (main) {
 +        const keyStr = main.type === "api" ? maskKey(main.key) : main.type
-+        options.push({ label: `Main: ${keyStr}`, value: "__main" })
++        yield* Prompt.log.info(`Main account: ${keyStr}`)
 +      } else {
-+        options.push({ label: "No main account", value: "__no_main" })
++        yield* Prompt.log.info("No current account")
 +      }
-+      for (let i = 0; i < pool.length; i++) {
-+        options.push({ label: `  ${i + 2}: ${maskKey(pool[i].key)}`, value: `__pool_${i}` })
-+      }
-+      options.push({ label: "─".repeat(30), value: "__sep" })
-+      options.push({ label: "Add new API key", value: "add" })
 +      if (pool.length > 0) {
-+        for (let i = 0; i < pool.length; i++) {
-+          options.push({ label: `Promote account ${i + 2} to main`, value: `promote_${i}` })
-+          options.push({ label: `Remove account ${i + 2}`, value: `remove_${i}` })
-+        }
++        yield* Prompt.log.info(`Pool accounts: ${pool.length}`)
++      }
++
++      const options: { label: string; value: string }[] = []
++      options.push({ label: "Add new API key", value: "add" })
++      for (let i = 0; i < pool.length; i++) {
++        options.push({ label: `Use: ${maskKey(pool[i].key)}`, value: `use_${i}` })
 +      }
 +      if (main) {
-+        options.push({ label: "Remove main account", value: "remove_main" })
++        options.push({ label: "Delete current account", value: "delete_main" })
++      }
++      for (let i = 0; i < pool.length; i++) {
++        options.push({ label: `Delete: ${maskKey(pool[i].key)}`, value: `delete_${i}` })
 +      }
 +      options.push({ label: "Done", value: "done" })
 +
@@ -1145,21 +1189,32 @@ index 560781e..ef070b8 100644
 +        continue
 +      }
 +
-+      if (action.startsWith("remove_")) {
-+        if (action === "remove_main") {
-+          if (pool.length > 0) {
-+            yield* switchFromPool(provider, 0)
++      if (action.startsWith("use_")) {
++        const idx = Number(action.split("_").pop()!)
++        if (pool[idx]) {
++          if (main && main.type === "api") {
++            yield* switchFromPool(provider, idx, main.key)
 +          } else {
-+            yield* Effect.orDie(authSvc.remove(provider))
++            yield* Effect.orDie(authSvc.set(provider, { type: "api", key: pool[idx].key }))
++            yield* removeFromPool(provider, idx)
 +          }
-+        } else {
-+          yield* removeFromPool(provider, Number(action.split("_").pop()!))
 +        }
 +        continue
 +      }
 +
-+      if (action.startsWith("promote_")) {
-+        yield* switchFromPool(provider, Number(action.split("_").pop()!))
++      if (action === "delete_main") {
++        yield* Effect.orDie(authSvc.remove(provider))
++        const { list: poolAfter } = yield* getPool()
++        if (poolAfter.length > 0) {
++          yield* Effect.orDie(authSvc.set(provider, { type: "api", key: poolAfter[0].key }))
++          yield* removeFromPool(provider, 0)
++        }
++        continue
++      }
++
++      if (action.startsWith("delete_")) {
++        const idx = Number(action.split("_").pop()!)
++        yield* removeFromPool(provider, idx)
 +        continue
 +      }
 +    }
@@ -1187,7 +1242,7 @@ index 2bef35e..baf97b2 100644
  
  const rt = ManagedRuntime.make(AppLayer, { memoMap })
 diff --git a/packages/opencode/src/server/routes/instance/httpapi/groups/control.ts b/packages/opencode/src/server/routes/instance/httpapi/groups/control.ts
-index 33e6a8e..6f2409a 100644
+index 33e6a8e..101061e 100644
 --- a/packages/opencode/src/server/routes/instance/httpapi/groups/control.ts
 +++ b/packages/opencode/src/server/routes/instance/httpapi/groups/control.ts
 @@ -27,9 +27,28 @@ export const LogInput = Schema.Struct({
@@ -1219,13 +1274,19 @@ index 33e6a8e..6f2409a 100644
  } as const
  
  export const ControlApi = HttpApi.make("control").add(
-@@ -58,6 +77,51 @@ export const ControlApi = HttpApi.make("control").add(
+@@ -58,6 +77,57 @@ export const ControlApi = HttpApi.make("control").add(
            description: "Remove authentication credentials",
          }),
        ),
 +      HttpApiEndpoint.get("poolList", ControlPaths.poolList, {
 +        params: AuthParams,
-+        success: described(Schema.Array(PoolEntry), "List of pool API keys"),
++        success: described(
++          Schema.Struct({
++            entries: Schema.Array(PoolEntry),
++            main: Schema.optional(Schema.NullishOr(PoolEntry)),
++          }),
++          "List of pool API keys with main account",
++        ),
 +        error: HttpApiError.BadRequest,
 +      }).annotateMerge(
 +        OpenApi.annotations({
@@ -1272,7 +1333,7 @@ index 33e6a8e..6f2409a 100644
          query: LogQuery,
          payload: LogInput,
 diff --git a/packages/opencode/src/server/routes/instance/httpapi/handlers/control.ts b/packages/opencode/src/server/routes/instance/httpapi/handlers/control.ts
-index e1ede22..79cc5e0 100644
+index e1ede22..890ed60 100644
 --- a/packages/opencode/src/server/routes/instance/httpapi/handlers/control.ts
 +++ b/packages/opencode/src/server/routes/instance/httpapi/handlers/control.ts
 @@ -1,4 +1,5 @@
@@ -1289,15 +1350,18 @@ index e1ede22..79cc5e0 100644
  
      const authSet = Effect.fn("ControlHttpApi.authSet")(function* (ctx: {
        params: { providerID: ProviderID }
-@@ -23,12 +25,48 @@ export const controlHandlers = HttpApiBuilder.group(RootHttpApi, "control", (han
+@@ -23,12 +25,51 @@ export const controlHandlers = HttpApiBuilder.group(RootHttpApi, "control", (han
        return true
      })
  
 +    const poolList = Effect.fn("ControlHttpApi.poolList")(function* (ctx: {
 +      params: { providerID: ProviderID }
 +    }) {
-+      const entries = yield* pool.list(ctx.params.providerID)
-+      return entries
++      const [entries, current] = yield* Effect.all([pool.list(ctx.params.providerID), auth.get(ctx.params.providerID)])
++      return {
++        entries,
++        main: current?.type === "api" ? { key: current.key } : null,
++      }
 +    })
 +
 +    const poolAdd = Effect.fn("ControlHttpApi.poolAdd")(function* (ctx: {
@@ -1340,7 +1404,7 @@ index e1ede22..79cc5e0 100644
    }),
  )
 diff --git a/packages/opencode/src/server/routes/instance/httpapi/server.ts b/packages/opencode/src/server/routes/instance/httpapi/server.ts
-index 45a71a7..6473ce2 100644
+index b784886..9d1f4dc 100644
 --- a/packages/opencode/src/server/routes/instance/httpapi/server.ts
 +++ b/packages/opencode/src/server/routes/instance/httpapi/server.ts
 @@ -13,6 +13,7 @@ import { AppFileSystem } from "@opencode-ai/core/filesystem"
@@ -1351,7 +1415,7 @@ index 45a71a7..6473ce2 100644
  import { Bus } from "@/bus"
  import { Config } from "@/config/config"
  import { Command } from "@/command"
-@@ -196,6 +197,7 @@ export function createRoutes(
+@@ -198,6 +199,7 @@ export function createRoutes(
        Account.defaultLayer,
        Agent.defaultLayer,
        Auth.defaultLayer,

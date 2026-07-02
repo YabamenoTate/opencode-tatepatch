@@ -13,7 +13,7 @@ index 62b230a63..4fe03de59 100644
 +import { tmpdir } from "os"
 +import { execSync, spawn } from "child_process"
 +
-+const TATEPATCH_VERSION = "v1.15.13 (Tate Patched 1)"
++const TATEPATCH_VERSION = "v1.15.13 (Tate Patched 2)"
 +const TATEPATCH_REPO = "YabamenoTate/opencode-tatepatch"
 +
 +function tatepatchDir(): string | null {
@@ -174,7 +174,7 @@ index d20f29dd4..cb3aab146 100644
    .help("help", "show help")
    .alias("help", "h")
 -  .version("version", "show version number", InstallationVersion)
-+  .version("version", "show version number", "v1.15.13 (Tate Patched 1)")
++  .version("version", "show version number", "v1.15.13 (Tate Patched 2)")
    .alias("version", "v")
    .option("print-logs", {
      describe: "print logs to stderr",

@@ -17,7 +17,7 @@ set "TATEPATCH_DIR=%~dp0"
 set "PATCHES_DIR=%TATEPATCH_DIR%patches"
 set "WORK_DIR=%TATEPATCH_DIR%_work"
 set "SOURCE_DIR=%WORK_DIR%\source"
-set "TATEPATCH_VERSION=v1.15.13 (Tate Patched 1)"
+set "TATEPATCH_VERSION=v1.15.13 (Tate Patched 2)"
 set "OPENCODE_TAG=v1.15.13"
 set "BACKUP_FILE=%TATEPATCH_DIR%opencode-official-backup.exe"
  

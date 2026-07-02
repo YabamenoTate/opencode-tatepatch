@@ -27,7 +27,7 @@ WORK_DIR="${TATEPATCH_DIR}/_work"
 BUNDLE_DIR="$WORK_DIR/bundle"
 SOURCE_DIR="$WORK_DIR/source"
 
-TATEPATCH_VERSION="v1.15.13 (Tate Patched 1)"
+TATEPATCH_VERSION="v1.15.13 (Tate Patched 2)"
 OPENCODE_TAG="v1.15.13"
 BACKUP_FILE="$TATEPATCH_DIR/opencode-official-backup"
 
