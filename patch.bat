@@ -2,7 +2,7 @@
 REM ===========================================================================
 REM tatepatch ? opencode patching script (Windows)
 REM
-REM Applies server-side persistence patch and appends "(Tate Patched)"
+REM Applies server-side persistence patch and appends "(Tate Patched 2)"
 REM to the version string.
 REM
 REM Usage:
@@ -43,7 +43,7 @@ goto :eof
 
 REM ---------------------------------------------------------------------------
 :is_patched
-"%OPENCODE_BIN%" --version 2>nul | findstr "(Tate Patched)" >nul
+"%OPENCODE_BIN%" --version 2>nul | findstr "(Tate Patched 2)" >nul
 if %errorlevel% equ 0 (exit /b 0) else (exit /b 1)
 
 REM ---------------------------------------------------------------------------
@@ -177,7 +177,7 @@ echo.
 echo ^=^=^= Installation complete! ^=^=^=
 for /f "tokens=*" %%v in ('"%OPENCODE_BIN%" --version 2^>nul') do echo Version: %%v
 echo.
-echo "(Tate Patched)" appears in version output on success.
+echo "(Tate Patched 2)" appears in version output on success.
 echo Restore original: %~0 unapply
 
 popd

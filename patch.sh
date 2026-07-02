@@ -3,7 +3,7 @@
 # tatepatch — opencode 改造スクリプト
 #
 # 公式 opencode に server-side persistence パッチを適用し、
-# バージョン文字列に "(Tate Patched)" を追加します。
+# バージョン文字列に "(Tate Patched 2)" を追加します。
 #
 # 使い方:
 #   ./patch.sh             パッチを適用
@@ -68,7 +68,7 @@ get_installed_version() {
 
 is_patched() {
   if [ -z "$OPENCODE_BIN" ]; then return 1; fi
-  "$OPENCODE_BIN" --version 2>/dev/null | grep -q "(Tate Patched)"
+  "$OPENCODE_BIN" --version 2>/dev/null | grep -q "(Tate Patched 2)"
 }
 
 # ---------------------------------------------------------------------------
@@ -191,7 +191,7 @@ do_patch() {
   header "Installation complete!"
   info "Version: $("$OPENCODE_BIN" --version 2>/dev/null)"
   info ""
-  info "(Tate Patched) が表示されていれば成功です。"
+  info "(Tate Patched 2) が表示されていれば成功です。"
   info ""
   info "元の binary に戻す: $0 unapply"
 }
