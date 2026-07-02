@@ -1,6 +1,6 @@
 @echo off
 REM ===========================================================================
-REM tatepatch — opencode patching script (Windows)
+REM tatepatch ? opencode patching script (Windows)
 REM
 REM Applies server-side persistence patch and appends "(Tate Patched)"
 REM to the version string.
@@ -49,7 +49,7 @@ if %errorlevel% equ 0 (exit /b 0) else (exit /b 1)
 REM ---------------------------------------------------------------------------
 :unapply
 echo.
-echo ^=^=^> Unapplying patch — restoring official binary
+echo ^=^=^> Unapplying patch ? restoring official binary
 if not exist "%BACKUP_FILE%" (
     echo FAILED: No backup found at %BACKUP_FILE%
     exit /b 1
@@ -155,7 +155,7 @@ REM Find built binary (.exe or extensionless, exclude directory names)
 dir /s /b /a-d "%SOURCE_DIR%\packages\opencode\dist\*.exe" > "%TATEPATCH_DIR%\_binary_list.txt" 2>nul
 set /p BINARY_PATH=<"%TATEPATCH_DIR%\_binary_list.txt"
 if "%BINARY_PATH%"=="" (
-    REM Maybe bun output without .exe — search for any file named opencode
+    REM Maybe bun output without .exe ? search for any file named opencode
     dir /s /b /a-d "%SOURCE_DIR%\packages\opencode\dist\opencode" > "%TATEPATCH_DIR%\_binary_list.txt" 2>nul
     set /p BINARY_PATH=<"%TATEPATCH_DIR%\_binary_list.txt"
 )
