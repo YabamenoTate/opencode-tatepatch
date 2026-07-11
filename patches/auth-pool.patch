@@ -973,22 +973,15 @@ index e071597..b49eb67 100644
          return <div data-timeline-row="bottom-spacer" aria-hidden="true" class="h-16" />
      }
 diff --git a/packages/app/src/pages/session/usage-exceeded-dialogs.tsx b/packages/app/src/pages/session/usage-exceeded-dialogs.tsx
-index 5354410..6b9205f 100644
+index 5354410..05e03d5 100644
 --- a/packages/app/src/pages/session/usage-exceeded-dialogs.tsx
 +++ b/packages/app/src/pages/session/usage-exceeded-dialogs.tsx
-@@ -1,15 +1,16 @@
- import { useSDK } from "@/context/sdk"
- import { Persist, persisted } from "@/utils/persist"
- import { SessionStatus } from "@opencode-ai/sdk/v2"
--import { onCleanup } from "solid-js"
-+import { onCleanup, createMemo } from "solid-js"
+@@ -5,11 +5,10 @@ import { onCleanup } from "solid-js"
  import { createStore } from "solid-js/store"
  import { useSessionLayout } from "./session-layout"
  import { useDialog } from "@opencode-ai/ui/context"
 -import { DialogUsageExceeded } from "@/components/dialog-usage-exceeded"
  import { useI18n } from "@opencode-ai/ui/context"
-+import { useServer } from "@/context/server"
-+import { authTokenFromCredentials } from "@/utils/server"
  
 -const GO_UPSELL_FREE_TIER_LAST_SEEN_AT = "go_upsell_last_seen_at"
 -const GO_UPSELL_FREE_TIER_DONT_SHOW = "go_upsell_dont_show"
@@ -997,66 +990,11 @@ index 5354410..6b9205f 100644
  const GO_UPSELL_ACCOUNT_RATE_LIMIT_LAST_SEEN_AT = "go_upsell_account_rate_limit_last_seen_at"
  const GO_UPSELL_ACCOUNT_RATE_LIMIT_DONT_SHOW = "go_upsell_account_rate_limit_dont_show"
  const GO_UPSELL_WINDOW = 86_400_000 // 24 hrs
-@@ -33,12 +34,78 @@ function goUpsellKeys(status: SessionStatus) {
+@@ -33,12 +32,13 @@ function goUpsellKeys(status: SessionStatus) {
    }
  }
  
 -export function useUsageExceededDialogs() {
-+function getServerBase(): string {
-+  if (typeof window !== "undefined" && window.location) {
-+    return window.location.origin
-+  }
-+  return "http://localhost:4096"
-+}
-+
-+interface PoolListResponse {
-+  entries: Array<{ key: string; label?: string }>
-+  main?: { key: string; label?: string } | null
-+}
-+
-+async function listPoolEntries(
-+  provider: string,
-+  authHeaders?: Record<string, string>,
-+): Promise<{ entries: Array<{ key: string; label?: string }>; currentKey?: string }> {
-+  try {
-+    const base = getServerBase()
-+    const res = await fetch(`${base}/auth/${encodeURIComponent(provider)}/pool`, {
-+      headers: authHeaders,
-+    })
-+    if (!res.ok) return { entries: [] }
-+    const data: PoolListResponse = await res.json()
-+    return { entries: data.entries ?? [], currentKey: data.main?.key }
-+  } catch {
-+    return { entries: [] }
-+  }
-+}
-+
-+async function switchPoolKey(
-+  provider: string,
-+  index: number,
-+  authHeaders?: Record<string, string>,
-+): Promise<boolean> {
-+  try {
-+    const base = getServerBase()
-+    const res = await fetch(`${base}/auth/${encodeURIComponent(provider)}/pool/switch/${index}`, {
-+      method: "POST",
-+      headers: authHeaders,
-+    })
-+    return res.ok
-+  } catch {
-+    return false
-+  }
-+}
-+
-+function notifySystemMessage(title: string, description: string) {
-+  try {
-+    if (typeof Notification !== "undefined" && Notification.permission === "granted") {
-+      new Notification(title, { body: description })
-+    }
-+  } catch {
-+  }
-+}
-+
 +export function useUsageExceededDialogs(props?: {
 +  onSwitch?: (provider: string, label?: string) => void
 +}) {
@@ -1064,39 +1002,42 @@ index 5354410..6b9205f 100644
    const dialog = useDialog()
    const { params } = useSessionLayout()
    const { t, locale } = useI18n()
-   const isEnglish = () => locale() === "en"
-+  const server = useServer()
-+
-+  const poolAuthHeaders = createMemo((): Record<string, string> => {
-+    const srv = server.current
-+    if (!srv?.http?.password) return {}
-+    return {
-+      Authorization: `Basic ${authTokenFromCredentials({ username: srv.http.username, password: srv.http.password })}`,
-+    }
-+  })
+-  const isEnglish = () => locale() === "en"
  
    const [goUpsellState, setGoUpsellState] = persisted(
      Persist.global("go-upsell"),
-@@ -50,6 +117,8 @@ export function useUsageExceededDialogs() {
-     }),
-   )
- 
-+  let triedPoolKeys = new Set<string>()
-+
-   onCleanup(
+@@ -54,48 +54,37 @@ export function useUsageExceededDialogs() {
      sdk.event.on("session.status", (evt) => {
        if (evt.properties.sessionID !== params.id) return
-@@ -58,45 +127,49 @@ export function useUsageExceededDialogs() {
+       if (evt.properties.status.type !== "retry") return
+-      const { action } = evt.properties.status
++      const status = evt.properties.status
++      const { action } = status
++
++      // Server-side auto-rotation already happened; handle the result.
++      if (status.poolSwitch) {
++        props?.onSwitch?.(status.poolSwitch.provider, status.poolSwitch.label)
++        return
++      }
++
++      if (status.poolExhausted && action?.reason === "account_rate_limit") {
++        void import("../../components/dialog-connect-provider").then((x) =>
++          dialog.show(() => <x.DialogConnectProvider provider={action.provider} />),
++        )
++        return
++      }
++
        if (!action) return
        if (dialog.active) return
  
 -      const keys = goUpsellKeys(evt.properties.status)
--      if (!keys) return
--
--      const seen = goUpsellState[keys.lastSeenAt]
--      if (seen && Date.now() - seen < GO_UPSELL_WINDOW) return
--      if (goUpsellState[keys.dontShow]) return
--
++      const keys = goUpsellKeys(status)
+       if (!keys) return
+ 
+       const seen = goUpsellState[keys.lastSeenAt]
+       if (seen && Date.now() - seen < GO_UPSELL_WINDOW) return
+       if (goUpsellState[keys.dontShow]) return
+ 
 -      if (action.reason === "free_tier_limit") {
 -        dialog.show(() => (
 -          <DialogUsageExceeded
@@ -1128,59 +1069,20 @@ index 5354410..6b9205f 100644
 -            }}
 -          />
 -        ))
--      }
-+      const provider = action.provider
-+      const auth = poolAuthHeaders()
-+      void (async () => {
-+        const { entries: pool, currentKey } = await listPoolEntries(provider, auth)
-+
-+        const untried = pool.filter(
-+          (entry) => entry.key !== currentKey && !triedPoolKeys.has(entry.key),
++      if (action.reason === "free_tier_limit" || action.reason === "account_rate_limit") {
++        void import("../../components/dialog-connect-provider").then((x) =>
++          dialog.show(() => <x.DialogConnectProvider provider={action.provider} />),
 +        )
-+
-+        if (untried.length > 0) {
-+          const entry = untried[0]
-+          const idx = pool.indexOf(entry)
-+          triedPoolKeys.add(entry.key)
-+          const ok = await switchPoolKey(provider, idx, auth)
-+          if (ok) {
-+            props?.onSwitch?.(provider, entry.label)
-+            notifySystemMessage(
-+              isEnglish()
-+                ? `Switched API key for ${provider}`
-+                : `${provider} のAPIキーを切り替えました`,
-+              isEnglish()
-+                ? `Quota exceeded. Switched to another API key.`
-+                : `上限に達したため、別のAPIキーに切り替えました。`,
-+            )
-+          }
-+          return
-+        }
-+
-+        triedPoolKeys.clear()
-+        const keys = goUpsellKeys(evt.properties.status)
-+        if (!keys) return
-+
-+        const seen = goUpsellState[keys.lastSeenAt]
-+        if (seen && Date.now() - seen < GO_UPSELL_WINDOW) return
-+        if (goUpsellState[keys.dontShow]) return
-+
-+        if (action.reason === "free_tier_limit" || action.reason === "account_rate_limit") {
-+          void import("../../components/dialog-connect-provider").then((x) =>
-+            dialog.show(() => <x.DialogConnectProvider provider={provider} />),
-+          )
-+          setGoUpsellState(keys.lastSeenAt, Date.now())
-+        }
-+      })()
++        setGoUpsellState(keys.lastSeenAt, Date.now())
+       }
      }),
    )
- }
 diff --git a/packages/opencode/src/auth/pool.ts b/packages/opencode/src/auth/pool.ts
 new file mode 100644
-index 0000000..f913ec4
+index 0000000..e1f78fd
 --- /dev/null
 +++ b/packages/opencode/src/auth/pool.ts
-@@ -0,0 +1,146 @@
+@@ -0,0 +1,187 @@
 +import path from "path"
 +import { Effect, Layer, Schema, Context } from "effect"
 +import { Global } from "@opencode-ai/core/global"
@@ -1198,6 +1100,12 @@ index 0000000..f913ec4
 +
 +type PoolData = Record<string, unknown>
 +
++export interface RotateResult {
++  switched: boolean
++  label?: string
++  exhausted: boolean
++}
++
 +export interface Interface {
 +  readonly list: (providerID: string) => Effect.Effect<PoolEntry[], never>
 +  readonly add: (providerID: string, entry: PoolEntry) => Effect.Effect<void, never>
@@ -1205,6 +1113,7 @@ index 0000000..f913ec4
 +  readonly switch: (providerID: string, index: number) => Effect.Effect<void, never>
 +  readonly count: (providerID: string) => Effect.Effect<number, never>
 +  readonly resetToMain: (providerID: string) => Effect.Effect<void, never>
++  readonly rotate: (providerID: string) => Effect.Effect<RotateResult, never>
 +}
 +
 +export const Service: Context.Service<Interface, Interface> = Context.Service("@opencode/AuthPool")
@@ -1322,7 +1231,41 @@ index 0000000..f913ec4
 +      yield* writePool(fsys, data)
 +    })
 +
-+    return { list, add, remove, switch: switch_, count, resetToMain }
++    const rotate = Effect.fn("AuthPool.rotate")(function* (providerID: string) {
++      const authService = yield* Auth.Service
++      const current = yield* authService.get(providerID)
++      const data = yield* rawPool(fsys)
++      const entries = getEntries(data, providerID)
++      if (entries.length === 0) return { switched: false, exhausted: false } as RotateResult
++      const currentKey = current?.type === "api" ? current.key : undefined
++      const untried = currentKey ? entries.filter((e) => e.key !== currentKey) : entries
++      if (untried.length === 0) {
++        yield* resetToMain(providerID)
++        return { switched: false, exhausted: true } as RotateResult
++      }
++      const entry = untried[0]
++      const idx = entries.indexOf(entry)
++      const poolEntry = entries[idx]
++      if (current?.type === "api" && !getMain(data, providerID)) {
++        data._main = { ...((data._main as Record<string, string>) ?? {}), [providerID]: current.key }
++      }
++      const newMain: Auth.Info = { type: "api", key: poolEntry.key }
++      yield* authService.set(providerID, newMain)
++      if (current?.type === "api") {
++        entries[idx] = { key: current.key }
++      } else {
++        entries.splice(idx, 1)
++      }
++      if (entries.length === 0) {
++        delete data[providerID]
++      } else {
++        data[providerID] = entries
++      }
++      yield* writePool(fsys, data)
++      return { switched: true, label: poolEntry.label, exhausted: false } as RotateResult
++    })
++
++    return { list, add, remove, switch: switch_, count, resetToMain, rotate }
 +  }),
 +)
 +
@@ -1715,3 +1658,148 @@ index b784886..9d1f4dc 100644
        Command.defaultLayer,
        Config.defaultLayer,
        File.defaultLayer,
+
+diff --git a/packages/opencode/src/session/message-v2.ts b/packages/opencode/src/session/message-v2.ts
+index 68157f5..e601829 100644
+--- a/packages/opencode/src/session/message-v2.ts
++++ b/packages/opencode/src/session/message-v2.ts
+@@ -100,6 +100,7 @@ export const TextPart = Schema.Struct({
+   text: Schema.String,
+   synthetic: Schema.optional(Schema.Boolean),
+   ignored: Schema.optional(Schema.Boolean),
++  internalContinue: Schema.optional(Schema.Boolean),
+   time: Schema.optional(
+     Schema.Struct({
+       start: NonNegativeInt,
+@@ -701,7 +702,7 @@ export const toModelMessagesEffect = Effect.fnUntraced(function* (
+       }
+       for (const part of msg.parts) {
+         // User message parts should never be empty
+-        if (part.type === "text" && !part.ignored && part.text !== "")
++        if (part.type === "text" && !part.ignored && !part.internalContinue && part.text !== "")
+           userMessage.parts.push({
+             type: "text",
+             text: part.text,
+diff --git a/packages/opencode/src/session/processor.ts b/packages/opencode/src/session/processor.ts
+index a287c3b..5907ad3 100644
+--- a/packages/opencode/src/session/processor.ts
++++ b/packages/opencode/src/session/processor.ts
+@@ -7,6 +7,7 @@ import { Config } from "@/config/config"
+ import { Permission } from "@/permission"
+ import { Plugin } from "@/plugin"
+ import { Snapshot } from "@/snapshot"
++import * as AuthPool from "@/auth/pool"
+ import * as Session from "./session"
+ import { LLM } from "./llm"
+ import { MessageV2 } from "./message-v2"
+@@ -101,6 +102,7 @@ export const layer = Layer.effect(
+     const image = yield* Image.Service
+     const events = yield* EventV2Bridge.Service
+     const flags = yield* RuntimeFlags.Service
++    const pool = yield* AuthPool.Service
+ 
+     const create = Effect.fn("SessionProcessor.create")(function* (input: Input) {
+       // Pre-capture snapshot before the LLM stream starts. The AI SDK
+@@ -812,6 +814,9 @@ export const layer = Layer.effect(
+                 provider: input.model.providerID,
+                 parse,
+                 set: (info) => {
++                  const poolRotate = info.action?.reason === "account_rate_limit"
++                    ? pool.rotate(info.action.provider)
++                    : Effect.succeed({ switched: false, exhausted: false } as AuthPool.RotateResult)
+                   // TODO(v2): Temporary dual-write while migrating session messages to v2 events.
+                   const event = flags.experimentalEventSystem
+                     ? events.publish(SessionEvent.Retried, {
+@@ -824,16 +829,27 @@ export const layer = Layer.effect(
+                         timestamp: DateTime.makeUnsafe(Date.now()),
+                       })
+                     : Effect.void
+-                  return event.pipe(
+-                    Effect.andThen(
+-                      status.set(ctx.sessionID, {
+-                        type: "retry",
+-                        attempt: info.attempt,
+-                        message: info.message,
+-                        action: info.action,
+-                        next: info.next,
+-                      }),
+-                    ),
++                  return poolRotate.pipe(
++                    Effect.andThen((rotated) => {
++                      if (rotated.switched) {
++                        ;(streamInput.user as any).__internalContinue = true
++                      }
++                      return event.pipe(
++                        Effect.andThen(
++                          status.set(ctx.sessionID, {
++                            type: "retry",
++                            attempt: info.attempt,
++                            message: info.message,
++                            action: info.action,
++                            next: info.next,
++                            poolSwitch: rotated.switched
++                              ? { provider: info.action!.provider, label: rotated.label }
++                              : undefined,
++                            poolExhausted: rotated.exhausted || undefined,
++                          }),
++                        ),
++                      )
++                    }),
+                   )
+                 },
+               }),
+@@ -873,6 +889,7 @@ export const defaultLayer = Layer.suspend(() =>
+     Layer.provide(SessionSummary.defaultLayer),
+     Layer.provide(SessionStatus.defaultLayer),
+     Layer.provide(Image.defaultLayer),
++    Layer.provide(AuthPool.defaultLayer),
+     Layer.provide(Bus.layer),
+     Layer.provide(Config.defaultLayer),
+     Layer.provide(RuntimeFlags.defaultLayer),
+diff --git a/packages/opencode/src/session/prompt.ts b/packages/opencode/src/session/prompt.ts
+index 22fe4d8..a854efb 100644
+--- a/packages/opencode/src/session/prompt.ts
++++ b/packages/opencode/src/session/prompt.ts
+@@ -1454,6 +1454,24 @@ export const layer = Layer.effect(
+               toolChoice: format.type === "json_schema" ? "required" : undefined,
+             })
+ 
++            // If a key rotation happened during processing, inject a display-only
++            // internalContinue part (stripped from AI messages, shown as "API key switched" in UI)
++            if ((lastUser as any).__internalContinue) {
++              delete (lastUser as any).__internalContinue
++              const msg = msgs.find((m) => m.info.id === lastUser.id)
++              if (msg) {
++                msg.parts.push({
++                  id: PartID.ascending(),
++                  messageID: lastUser.id,
++                  sessionID: lastUser.sessionID,
++                  type: "text",
++                  text: "",
++                  synthetic: true,
++                  internalContinue: true,
++                })
++              }
++            }
++
+             if (structured !== undefined) {
+               handle.message.structured = structured
+               handle.message.finish = handle.message.finish ?? "stop"
+diff --git a/packages/opencode/src/session/status.ts b/packages/opencode/src/session/status.ts
+index 089559e..8b4885b 100644
+--- a/packages/opencode/src/session/status.ts
++++ b/packages/opencode/src/session/status.ts
+@@ -24,6 +24,13 @@ export const Info = Schema.Union([
+       }),
+     ),
+     next: NonNegativeInt,
++    poolSwitch: Schema.optional(
++      Schema.Struct({
++        provider: Schema.String,
++        label: Schema.optional(Schema.String),
++      }),
++    ),
++    poolExhausted: Schema.optional(Schema.Boolean),
+   }),
+   Schema.Struct({
+     type: Schema.Literal("busy"),
