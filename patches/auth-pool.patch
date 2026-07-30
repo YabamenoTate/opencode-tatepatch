@@ -2028,7 +2028,7 @@ index 68157f5..e601829 100644
              type: "text",
              text: part.text,
 diff --git a/packages/opencode/src/session/processor.ts b/packages/opencode/src/session/processor.ts
-index a287c3b..c393044 100644
+index a287c3b..c1a2786 100644
 --- a/packages/opencode/src/session/processor.ts
 +++ b/packages/opencode/src/session/processor.ts
 @@ -7,6 +7,8 @@ import { Config } from "@/config/config"
@@ -2040,17 +2040,18 @@ index a287c3b..c393044 100644
  import * as Session from "./session"
  import { LLM } from "./llm"
  import { MessageV2 } from "./message-v2"
-@@ -32,6 +34,9 @@ import { Usage, type LLMEvent } from "@opencode-ai/llm"
+@@ -32,6 +34,10 @@ import { Usage, type LLMEvent } from "@opencode-ai/llm"
  const DOOM_LOOP_THRESHOLD = 3
  const log = Log.create({ service: "session.processor" })
  
 +// Session-level auth key overrides (auto-rotation only affects session, not global auth)
 +const sessionAuthKeys = new Map<string, Record<string, string>>()
++const shownExhaustion = new Set<string>()
 +
  export type Result = "compact" | "stop" | "continue"
  
  export interface Handle {
-@@ -101,6 +106,8 @@ export const layer = Layer.effect(
+@@ -101,6 +107,8 @@ export const layer = Layer.effect(
      const image = yield* Image.Service
      const events = yield* EventV2Bridge.Service
      const flags = yield* RuntimeFlags.Service
@@ -2059,7 +2060,7 @@ index a287c3b..c393044 100644
  
      const create = Effect.fn("SessionProcessor.create")(function* (input: Input) {
        // Pre-capture snapshot before the LLM stream starts. The AI SDK
-@@ -782,6 +789,12 @@ export const layer = Layer.effect(
+@@ -782,6 +790,12 @@ export const layer = Layer.effect(
          ctx.needsCompaction = false
          ctx.shouldBreak = (yield* config.get()).experimental?.continue_loop_on_deny !== true
  
@@ -2072,7 +2073,7 @@ index a287c3b..c393044 100644
          return yield* Effect.gen(function* () {
            yield* Effect.gen(function* () {
              ctx.currentText = undefined
-@@ -812,6 +825,19 @@ export const layer = Layer.effect(
+@@ -812,6 +826,19 @@ export const layer = Layer.effect(
                  provider: input.model.providerID,
                  parse,
                  set: (info) => {
@@ -2092,7 +2093,7 @@ index a287c3b..c393044 100644
                    // TODO(v2): Temporary dual-write while migrating session messages to v2 events.
                    const event = flags.experimentalEventSystem
                      ? events.publish(SessionEvent.Retried, {
-@@ -824,16 +850,35 @@ export const layer = Layer.effect(
+@@ -824,16 +851,46 @@ export const layer = Layer.effect(
                          timestamp: DateTime.makeUnsafe(Date.now()),
                        })
                      : Effect.void
@@ -2118,6 +2119,18 @@ index a287c3b..c393044 100644
 +                      if (rotated.switched) {
 +                        ;(streamInput.user as any).__internalContinue = true
 +                      }
++                      const exhKey = `${ctx.sessionID}:${input.model.providerID}`
++                      if (rotated.exhausted) {
++                        if (!shownExhaustion.has(exhKey)) {
++                          // First exhaustion 竊・show "Rate limit exceeded" to user,
++                          // then silently poll in the background for new/recovered keys
++                          shownExhaustion.add(exhKey)
++                        } else {
++                          ;(streamInput.user as any).__internalContinue = true
++                        }
++                      } else {
++                        shownExhaustion.delete(exhKey)
++                      }
 +                      return event.pipe(
 +                        Effect.andThen(
 +                          status.set(ctx.sessionID, {
@@ -2132,13 +2145,12 @@ index a287c3b..c393044 100644
 +                            poolExhausted: rotated.exhausted || undefined,
 +                          }),
 +                        ),
-+                        Effect.andThen(() => !rotated.exhausted),
 +                      )
 +                    }),
                    )
                  },
                }),
-@@ -873,6 +918,7 @@ export const defaultLayer = Layer.suspend(() =>
+@@ -873,6 +930,7 @@ export const defaultLayer = Layer.suspend(() =>
      Layer.provide(SessionSummary.defaultLayer),
      Layer.provide(SessionStatus.defaultLayer),
      Layer.provide(Image.defaultLayer),
@@ -2176,7 +2188,7 @@ index 22fe4d8..a854efb 100644
                handle.message.structured = structured
                handle.message.finish = handle.message.finish ?? "stop"
 diff --git a/packages/opencode/src/session/retry.ts b/packages/opencode/src/session/retry.ts
-index 463bc27..1d42e57 100644
+index 463bc27..56a089f 100644
 --- a/packages/opencode/src/session/retry.ts
 +++ b/packages/opencode/src/session/retry.ts
 @@ -6,8 +6,7 @@ import { isRecord } from "@/util/record"
@@ -2233,30 +2245,6 @@ index 463bc27..1d42e57 100644
      }
      return { message: error.data.message.includes("Overloaded") ? "Provider is overloaded" : error.data.message }
    }
-@@ -175,7 +148,7 @@ function parseJSON(value: unknown) {
- export function policy(opts: {
-   provider: string
-   parse: (error: unknown) => Err
--  set: (input: { attempt: number; message: string; action?: Retryable["action"]; next: number }) => Effect.Effect<void>
-+  set: (input: { attempt: number; message: string; action?: Retryable["action"]; next: number }) => Effect.Effect<boolean | void>
- }) {
-   return Schedule.fromStepWithMetadata(
-     Effect.succeed((meta: Schedule.InputMetadata<unknown>) => {
-@@ -185,12 +158,13 @@ export function policy(opts: {
-       return Effect.gen(function* () {
-         const wait = delay(meta.attempt, MessageV2.APIError.isInstance(error) ? error : undefined)
-         const now = yield* Clock.currentTimeMillis
--        yield* opts.set({
-+        const shouldContinue = yield* opts.set({
-           attempt: meta.attempt,
-           message: retry.message,
-           action: retry.action,
-           next: now + wait,
-         })
-+        if (shouldContinue === false) return Cause.done(meta.attempt)
-         return [meta.attempt, Duration.millis(wait)] as [number, Duration.Duration]
-       })
-     }),
 diff --git a/packages/opencode/src/session/status.ts b/packages/opencode/src/session/status.ts
 index 089559e..8b4885b 100644
 --- a/packages/opencode/src/session/status.ts
