@@ -415,177 +415,109 @@ index 1570da0..ad2462f 100644
      if (!session && isNewSession) {
        const created = await client.session
 diff --git a/packages/app/src/i18n/ar.ts b/packages/app/src/i18n/ar.ts
-index 5d12402..ad55560 100644
+index 5d12402..c581446 100644
 --- a/packages/app/src/i18n/ar.ts
 +++ b/packages/app/src/i18n/ar.ts
 @@ -142,6 +142,10 @@ export const dict = {
-   "provider.connect.oauth.auto.confirmationCode": "ﾘｱﾙ・ｲ ﾘｧﾙ・ｪﾘ｣ﾙ・韓ｯ",
-   "provider.connect.toast.connected.title": "ﾘｪﾙ・ﾘｪﾙ畏ｵﾙ館・{{provider}}",
-   "provider.connect.toast.connected.description": "ﾙ・・ｧﾘｰﾘｬ {{provider}} ﾙ・ｪﾘｧﾘｭﾘｩ ﾘｧﾙ・｢ﾙ・ﾙ・・ｧﾘｳﾘｪﾘｮﾘｯﾘｧﾙ・",
-+  "provider.connect.accounts": "ﾘｭﾘｳﾘｧﾘｨﾘｧﾘｪ {{provider}}",
-+  "provider.connect.mainAccount": "ﾘｧﾙ・ｭﾘｳﾘｧﾘｨ ﾘｧﾙ・ｱﾘｦﾙ韓ｳﾙ・,
-+  "provider.connect.noAccounts": "ﾙ・ｧ ﾘｪﾙ畏ｬﾘｯ ﾘｭﾘｳﾘｧﾘｨﾘｧﾘｪ ﾘｨﾘｹﾘｯ",
-+  "provider.connect.setMainAccount": "ﾘｪﾘｹﾙ館館・ﾙ・ｭﾘｳﾘｧﾘｨ ﾘｱﾘｦﾙ韓ｳﾙ・,
-   "provider.custom.title": "ﾙ・異・ｱ ﾙ・ｮﾘｵﾘｵ",
-   "provider.custom.description.prefix": "ﾘｪﾙ・異館・ﾙ・異・ｱ ﾙ・ｪﾙ畏ｧﾙ・・ﾙ・ｹ OpenAI. ﾘｱﾘｧﾘｬﾘｹ ",
-   "provider.custom.description.link": "ﾙ畏ｫﾘｧﾘｦﾙ・ﾘｪﾙ・異館・ﾘｧﾙ・・異・ｱ",
-@@ -255,6 +259,7 @@ export const dict = {
-   "prompt.context.removeActiveFile": "ﾘ･ﾘｲﾘｧﾙ・ｩ ﾘｧﾙ・・・・ﾘｧﾙ・・ｴﾘｷ ﾙ・・ﾘｧﾙ・ｳﾙ韓ｧﾙ・,
-   "prompt.context.removeFile": "ﾘ･ﾘｲﾘｧﾙ・ｩ ﾘｧﾙ・・・・ﾙ・・ﾘｧﾙ・ｳﾙ韓ｧﾙ・,
-   "prompt.action.attachFile": "ﾘ･ﾘｱﾙ・ｧﾙ・ﾙ・・・,
-+  "prompt.action.enterNewline": "u200FEnter ﾙ・ｳﾘｷﾘｱ ﾘｬﾘｯﾙ韓ｯ",
-   "prompt.attachment.remove": "ﾘ･ﾘｲﾘｧﾙ・ｩ ﾘｧﾙ・・ｱﾙ・・,
-   "prompt.action.send": "ﾘ･ﾘｱﾘｳﾘｧﾙ・,
-   "prompt.action.stop": "ﾘｪﾙ異ほ・,
-@@ -503,7 +508,7 @@ export const dict = {
-   "session.share.popover.title": "ﾙ・ｴﾘｱ ﾘｹﾙ・・ﾘｧﾙ・異韓ｨ",
-   "session.share.popover.description.shared": "ﾙ・ｰﾙ・ﾘｧﾙ・ｬﾙ・ｳﾘｩ ﾘｹﾘｧﾙ・ｩ ﾘｹﾙ・・ﾘｧﾙ・異韓ｨ. ﾙ館・・・ﾙ・｣ﾙ・ﾘｴﾘｮﾘｵ ﾙ・ｯﾙ館・ﾘｧﾙ・ｱﾘｧﾘｨﾘｷ ﾘｧﾙ・畏ｵﾙ異・ﾘ･ﾙ・館・ｧ.",
-   "session.share.popover.description.unshared": "ﾘｴﾘｧﾘｱﾙ・ﾘｧﾙ・ｬﾙ・ｳﾘｩ ﾘｹﾙ・・筋ｧ ﾘｹﾙ・・ﾘｧﾙ・異韓ｨ. ﾘｳﾘｪﾙ・異・ﾙ・ｪﾘｧﾘｭﾘｩ ﾙ・｣ﾙ・ﾘｴﾘｮﾘｵ ﾙ・ｯﾙ館・ﾘｧﾙ・ｱﾘｧﾘｨﾘｷ.",
--  "session.share.action.share": "ﾙ・ｴﾘｧﾘｱﾙ・ｩ",
-+  "session.share.action.share": "ﾘｪﾘｵﾘｯﾙ韓ｱ",
-   "session.share.action.publish": "ﾙ・ｴﾘｱ",
-   "session.share.action.publishing": "ﾘｬﾘｧﾘｱﾙ・ﾘｧﾙ・・ｴﾘｱ...",
-   "session.share.action.unpublish": "ﾘ･ﾙ・ｺﾘｧﾘ｡ ﾘｧﾙ・・ｴﾘｱ",
-@@ -529,6 +534,8 @@ export const dict = {
-   "common.reset": "ﾘ･ﾘｹﾘｧﾘｯﾘｩ ﾘｪﾘｹﾙ館館・,
-   "common.archive": "ﾘ｣ﾘｱﾘｴﾙ・ｩ",
-   "common.delete": "ﾘｭﾘｰﾙ・,
-+  "common.add": "ﾘ･ﾘｶﾘｧﾙ・ｩ",
-+  "common.done": "ﾘｪﾙ・,
-   "common.close": "ﾘ･ﾘｺﾙ・ｧﾙ・,
-   "common.edit": "ﾘｪﾘｭﾘｱﾙ韓ｱ",
-   "common.loadMore": "ﾘｪﾘｭﾙ・館・ﾘｧﾙ・・ｲﾙ韓ｯ",
+   "provider.connect.oauth.auto.confirmationCode": "رمز التأكيد",
+   "provider.connect.toast.connected.title": "تم توصيل {{provider}}",
+   "provider.connect.toast.connected.description": "نماذج {{provider}} متاحة الآن للاستخدام.",
++  "provider.connect.accounts": "حسابات {{provider}}",
++  "provider.connect.mainAccount": "الحساب الرئيسي",
++  "provider.connect.noAccounts": "لا توجد حسابات بعد",
++  "provider.connect.setMainAccount": "تعيين كحساب رئيسي",
+   "provider.custom.title": "موفر مخصص",
+   "provider.custom.description.prefix": "تكوين موفر متوافق مع OpenAI. راجع ",
+   "provider.custom.description.link": "وثائق تكوين الموفر",
+@@ -529,6 +533,8 @@ export const dict = {
+   "common.reset": "إعادة تعيين",
+   "common.archive": "أرشفة",
+   "common.delete": "حذف",
++  "common.add": "إضافة",
++  "common.done": "تم",
+   "common.close": "إغلاق",
+   "common.edit": "تحرير",
+   "common.loadMore": "تحميل المزيد",
 diff --git a/packages/app/src/i18n/br.ts b/packages/app/src/i18n/br.ts
-index 7c6965e..b564968 100644
+index 7c6965e..9548d1f 100644
 --- a/packages/app/src/i18n/br.ts
 +++ b/packages/app/src/i18n/br.ts
 @@ -142,6 +142,10 @@ export const dict = {
-   "provider.connect.oauth.auto.confirmationCode": "Cﾃｳdigo de confirmaﾃｧﾃ｣o",
+   "provider.connect.oauth.auto.confirmationCode": "Código de confirmação",
    "provider.connect.toast.connected.title": "{{provider}} conectado",
-   "provider.connect.toast.connected.description": "Modelos do {{provider}} agora estﾃ｣o disponﾃｭveis para uso.",
+   "provider.connect.toast.connected.description": "Modelos do {{provider}} agora estão disponíveis para uso.",
 +  "provider.connect.accounts": "Contas {{provider}}",
 +  "provider.connect.mainAccount": "Conta principal",
 +  "provider.connect.noAccounts": "Nenhuma conta ainda",
 +  "provider.connect.setMainAccount": "Definir como conta principal",
    "provider.custom.title": "Provedor personalizado",
-   "provider.custom.description.prefix": "Configure um provedor compatﾃｭvel com OpenAI. Veja a ",
-   "provider.custom.description.link": "documentaﾃｧﾃ｣o de configuraﾃｧﾃ｣o do provedor",
-@@ -255,6 +259,7 @@ export const dict = {
-   "prompt.context.removeActiveFile": "Remover arquivo ativo do contexto",
-   "prompt.context.removeFile": "Remover arquivo do contexto",
-   "prompt.action.attachFile": "Anexar arquivo",
-+  "prompt.action.enterNewline": "Enter para nova linha",
-   "prompt.attachment.remove": "Remover anexo",
-   "prompt.action.send": "Enviar",
-   "prompt.action.stop": "Parar",
-@@ -509,7 +514,7 @@ export const dict = {
-     "Esta sessﾃ｣o ﾃｩ pﾃｺblica na web. Estﾃ｡ acessﾃｭvel para qualquer pessoa com o link.",
-   "session.share.popover.description.unshared":
-     "Compartilhar sessﾃ｣o publicamente na web. Estarﾃ｡ acessﾃｭvel para qualquer pessoa com o link.",
--  "session.share.action.share": "Compartilhar",
-+  "session.share.action.share": "Exportar",
-   "session.share.action.publish": "Publicar",
-   "session.share.action.publishing": "Publicando...",
-   "session.share.action.unpublish": "Cancelar publicaﾃｧﾃ｣o",
-@@ -536,6 +541,8 @@ export const dict = {
+   "provider.custom.description.prefix": "Configure um provedor compatível com OpenAI. Veja a ",
+   "provider.custom.description.link": "documentação de configuração do provedor",
+@@ -536,6 +540,8 @@ export const dict = {
    "common.reset": "Redefinir",
    "common.archive": "Arquivar",
    "common.delete": "Excluir",
 +  "common.add": "Adicionar",
-+  "common.done": "Concluﾃｭdo",
++  "common.done": "Concluído",
    "common.close": "Fechar",
    "common.edit": "Editar",
    "common.loadMore": "Carregar mais",
 diff --git a/packages/app/src/i18n/bs.ts b/packages/app/src/i18n/bs.ts
-index 201b6ed..f97a3ed 100644
+index 201b6ed..0d9b853 100644
 --- a/packages/app/src/i18n/bs.ts
 +++ b/packages/app/src/i18n/bs.ts
 @@ -154,6 +154,10 @@ export const dict = {
    "provider.connect.oauth.auto.confirmationCode": "Kod za potvrdu",
    "provider.connect.toast.connected.title": "{{provider}} povezan",
-   "provider.connect.toast.connected.description": "{{provider}} modeli su sada dostupni za koriﾅ｡tenje.",
-+  "provider.connect.accounts": "{{provider}} raﾄ講ni",
-+  "provider.connect.mainAccount": "Glavni raﾄ講n",
-+  "provider.connect.noAccounts": "Joﾅ｡ nema raﾄ講na",
-+  "provider.connect.setMainAccount": "Postavi kao glavni raﾄ講n",
+   "provider.connect.toast.connected.description": "{{provider}} modeli su sada dostupni za korištenje.",
++  "provider.connect.accounts": "{{provider}} računi",
++  "provider.connect.mainAccount": "Glavni račun",
++  "provider.connect.noAccounts": "Još nema računa",
++  "provider.connect.setMainAccount": "Postavi kao glavni račun",
  
-   "provider.custom.title": "Prilagoﾄ粗ni provajder",
-   "provider.custom.description.prefix": "Konfiguriﾅ｡i OpenAI-kompatibilnog provajdera. Pogledaj ",
-@@ -275,6 +279,7 @@ export const dict = {
-   "prompt.context.removeActiveFile": "Ukloni aktivnu datoteku iz konteksta",
-   "prompt.context.removeFile": "Ukloni datoteku iz konteksta",
-   "prompt.action.attachFile": "Priloﾅｾi datoteku",
-+  "prompt.action.enterNewline": "Enter za novi red",
-   "prompt.attachment.remove": "Ukloni prilog",
-   "prompt.action.send": "Poﾅ｡alji",
-   "prompt.action.stop": "Zaustavi",
-@@ -566,7 +571,7 @@ export const dict = {
-   "session.share.popover.title": "Objavi na webu",
-   "session.share.popover.description.shared": "Ova sesija je javna na webu. Dostupna je svima koji imaju link.",
-   "session.share.popover.description.unshared": "Podijeli sesiju javno na webu. Biﾄ㌃ dostupna svima koji imaju link.",
--  "session.share.action.share": "Podijeli",
-+  "session.share.action.share": "Izvoz",
-   "session.share.action.publish": "Objavi",
-   "session.share.action.publishing": "Objavljivanje...",
-   "session.share.action.unpublish": "Poniﾅ｡ti objavu",
-@@ -596,6 +601,8 @@ export const dict = {
+   "provider.custom.title": "Prilagođeni provajder",
+   "provider.custom.description.prefix": "Konfiguriši OpenAI-kompatibilnog provajdera. Pogledaj ",
+@@ -596,6 +600,8 @@ export const dict = {
    "common.reset": "Resetuj",
    "common.archive": "Arhiviraj",
-   "common.delete": "Izbriﾅ｡i",
+   "common.delete": "Izbriši",
 +  "common.add": "Dodaj",
 +  "common.done": "Gotovo",
    "common.close": "Zatvori",
    "common.edit": "Uredi",
-   "common.loadMore": "Uﾄ絞taj joﾅ｡",
+   "common.loadMore": "Učitaj još",
 diff --git a/packages/app/src/i18n/da.ts b/packages/app/src/i18n/da.ts
-index d52aca8..18aea7f 100644
+index d52aca8..31d1ed9 100644
 --- a/packages/app/src/i18n/da.ts
 +++ b/packages/app/src/i18n/da.ts
 @@ -154,6 +154,10 @@ export const dict = {
-   "provider.connect.oauth.auto.confirmationCode": "Bekrﾃｦftelseskode",
+   "provider.connect.oauth.auto.confirmationCode": "Bekræftelseskode",
    "provider.connect.toast.connected.title": "{{provider}} forbundet",
-   "provider.connect.toast.connected.description": "{{provider}} modeller er nu tilgﾃｦngelige.",
+   "provider.connect.toast.connected.description": "{{provider}} modeller er nu tilgængelige.",
 +  "provider.connect.accounts": "{{provider}}-konti",
-+  "provider.connect.mainAccount": "Primﾃｦr konto",
++  "provider.connect.mainAccount": "Primær konto",
 +  "provider.connect.noAccounts": "Ingen konti endnu",
-+  "provider.connect.setMainAccount": "Angiv som primﾃｦr konto",
++  "provider.connect.setMainAccount": "Angiv som primær konto",
  
    "provider.custom.title": "Brugerdefineret udbyder",
    "provider.custom.description.prefix": "Konfigurer en OpenAI-kompatibel udbyder. Se ",
-@@ -273,6 +277,7 @@ export const dict = {
-   "prompt.context.removeActiveFile": "Fjern aktiv fil fra kontekst",
-   "prompt.context.removeFile": "Fjern fil fra kontekst",
-   "prompt.action.attachFile": "Vedhﾃｦft fil",
-+  "prompt.action.enterNewline": "Enter for ny linje",
-   "prompt.attachment.remove": "Fjern vedhﾃｦftning",
-   "prompt.action.send": "Send",
-   "prompt.action.stop": "Stop",
-@@ -563,7 +568,7 @@ export const dict = {
-     "Denne session er offentlig pﾃ･ nettet. Den er tilgﾃｦngelig for alle med linket.",
-   "session.share.popover.description.unshared":
-     "Del session offentligt pﾃ･ nettet. Den vil vﾃｦre tilgﾃｦngelig for alle med linket.",
--  "session.share.action.share": "Del",
-+  "session.share.action.share": "Eksporter",
-   "session.share.action.publish": "Udgiv",
-   "session.share.action.publishing": "Udgiver...",
-   "session.share.action.unpublish": "Afpublicer",
-@@ -592,6 +597,8 @@ export const dict = {
+@@ -592,6 +596,8 @@ export const dict = {
    "common.reset": "Nulstil",
-   "common.archive": "Arkivﾃｩr",
+   "common.archive": "Arkivér",
    "common.delete": "Slet",
-+  "common.add": "Tilfﾃｸj",
-+  "common.done": "Fﾃｦrdig",
++  "common.add": "Tilføj",
++  "common.done": "Færdig",
    "common.close": "Luk",
    "common.edit": "Rediger",
-   "common.loadMore": "Indlﾃｦs flere",
+   "common.loadMore": "Indlæs flere",
 diff --git a/packages/app/src/i18n/de.ts b/packages/app/src/i18n/de.ts
-index 4d5a649..2ca8e7b 100644
+index 4d5a649..b75667a 100644
 --- a/packages/app/src/i18n/de.ts
 +++ b/packages/app/src/i18n/de.ts
 @@ -146,6 +146,10 @@ export const dict = {
-   "provider.connect.oauth.auto.confirmationCode": "Bestﾃ､tigungscode",
+   "provider.connect.oauth.auto.confirmationCode": "Bestätigungscode",
    "provider.connect.toast.connected.title": "{{provider}} verbunden",
-   "provider.connect.toast.connected.description": "{{provider}} Modelle sind jetzt verfﾃｼgbar.",
+   "provider.connect.toast.connected.description": "{{provider}} Modelle sind jetzt verfügbar.",
 +  "provider.connect.accounts": "{{provider}}-Konten",
 +  "provider.connect.mainAccount": "Hauptkonto",
 +  "provider.connect.noAccounts": "Noch keine Konten",
@@ -593,34 +525,17 @@ index 4d5a649..2ca8e7b 100644
    "provider.custom.title": "Benutzerdefinierter Anbieter",
    "provider.custom.description.prefix": "Konfigurieren Sie einen OpenAI-kompatiblen Anbieter. Siehe die ",
    "provider.custom.description.link": "Anbieter-Konfigurationsdokumente",
-@@ -260,6 +264,7 @@ export const dict = {
-   "prompt.context.removeActiveFile": "Aktive Datei aus dem Kontext entfernen",
-   "prompt.context.removeFile": "Datei aus dem Kontext entfernen",
-   "prompt.action.attachFile": "Datei anhﾃ､ngen",
-+  "prompt.action.enterNewline": "Enter fﾃｼr neue Zeile",
-   "prompt.attachment.remove": "Anhang entfernen",
-   "prompt.action.send": "Senden",
-   "prompt.action.stop": "Stopp",
-@@ -517,7 +522,7 @@ export const dict = {
-     "Diese Sitzung ist ﾃｶffentlich im Web. Sie ist fﾃｼr jeden mit dem Link zugﾃ､nglich.",
-   "session.share.popover.description.unshared":
-     "Sitzung ﾃｶffentlich im Web teilen. Sie wird fﾃｼr jeden mit dem Link zugﾃ､nglich sein.",
--  "session.share.action.share": "Teilen",
-+  "session.share.action.share": "Exportieren",
-   "session.share.action.publish": "Verﾃｶffentlichen",
-   "session.share.action.publishing": "Verﾃｶffentliche...",
-   "session.share.action.unpublish": "Verﾃｶffentlichung aufheben",
-@@ -544,6 +549,8 @@ export const dict = {
-   "common.reset": "Zurﾃｼcksetzen",
+@@ -544,6 +548,8 @@ export const dict = {
+   "common.reset": "Zurücksetzen",
    "common.archive": "Archivieren",
-   "common.delete": "Lﾃｶschen",
-+  "common.add": "Hinzufﾃｼgen",
+   "common.delete": "Löschen",
++  "common.add": "Hinzufügen",
 +  "common.done": "Fertig",
-   "common.close": "Schlieﾃ歹n",
+   "common.close": "Schließen",
    "common.edit": "Bearbeiten",
    "common.loadMore": "Mehr laden",
 diff --git a/packages/app/src/i18n/en.ts b/packages/app/src/i18n/en.ts
-index 29f662f..3bf53c6 100644
+index 29f662f..bfe4282 100644
 --- a/packages/app/src/i18n/en.ts
 +++ b/packages/app/src/i18n/en.ts
 @@ -157,6 +157,10 @@ export const dict = {
@@ -634,24 +549,7 @@ index 29f662f..3bf53c6 100644
  
    "provider.custom.title": "Custom provider",
    "provider.custom.description.prefix": "Configure an OpenAI-compatible provider. See the ",
-@@ -281,6 +285,7 @@ export const dict = {
-   "prompt.context.removeActiveFile": "Remove active file from context",
-   "prompt.context.removeFile": "Remove file from context",
-   "prompt.action.attachFile": "Add files",
-+  "prompt.action.enterNewline": "Enter for newline",
-   "prompt.attachment.remove": "Remove attachment",
-   "prompt.action.send": "Send",
-   "prompt.action.stop": "Stop",
-@@ -631,7 +636,7 @@ export const dict = {
-     "This session is public on the web. It is accessible to anyone with the link.",
-   "session.share.popover.description.unshared":
-     "Share session publicly on the web. It will be accessible to anyone with the link.",
--  "session.share.action.share": "Share",
-+  "session.share.action.share": "Export",
-   "session.share.action.publish": "Publish",
-   "session.share.action.publishing": "Publishing...",
-   "session.share.action.unpublish": "Unpublish",
-@@ -663,6 +668,8 @@ export const dict = {
+@@ -663,6 +667,8 @@ export const dict = {
    "common.reset": "Reset",
    "common.archive": "Archive",
    "common.delete": "Delete",
@@ -661,202 +559,117 @@ index 29f662f..3bf53c6 100644
    "common.edit": "Edit",
    "common.loadMore": "Load more",
 diff --git a/packages/app/src/i18n/es.ts b/packages/app/src/i18n/es.ts
-index b71fe03..9fcb260 100644
+index b71fe03..f0e0f61 100644
 --- a/packages/app/src/i18n/es.ts
 +++ b/packages/app/src/i18n/es.ts
 @@ -154,6 +154,10 @@ export const dict = {
-   "provider.connect.oauth.auto.confirmationCode": "Cﾃｳdigo de confirmaciﾃｳn",
+   "provider.connect.oauth.auto.confirmationCode": "Código de confirmación",
    "provider.connect.toast.connected.title": "{{provider}} conectado",
-   "provider.connect.toast.connected.description": "Los modelos de {{provider}} ahora estﾃ｡n disponibles para usar.",
+   "provider.connect.toast.connected.description": "Los modelos de {{provider}} ahora están disponibles para usar.",
 +  "provider.connect.accounts": "Cuentas de {{provider}}",
 +  "provider.connect.mainAccount": "Cuenta principal",
-+  "provider.connect.noAccounts": "Aﾃｺn no hay cuentas",
++  "provider.connect.noAccounts": "Aún no hay cuentas",
 +  "provider.connect.setMainAccount": "Establecer como cuenta principal",
  
    "provider.custom.title": "Proveedor personalizado",
    "provider.custom.description.prefix": "Configurar un proveedor compatible con OpenAI. Ver la ",
-@@ -274,6 +278,7 @@ export const dict = {
-   "prompt.context.removeActiveFile": "Eliminar archivo activo del contexto",
-   "prompt.context.removeFile": "Eliminar archivo del contexto",
-   "prompt.action.attachFile": "Adjuntar archivo",
-+  "prompt.action.enterNewline": "Enter para nueva lﾃｭnea",
-   "prompt.attachment.remove": "Eliminar adjunto",
-   "prompt.action.send": "Enviar",
-   "prompt.action.stop": "Detener",
-@@ -569,7 +574,7 @@ export const dict = {
-     "Esta sesiﾃｳn es pﾃｺblica en la web. Es accesible para cualquiera con el enlace.",
-   "session.share.popover.description.unshared":
-     "Compartir sesiﾃｳn pﾃｺblicamente en la web. Serﾃ｡ accesible para cualquiera con el enlace.",
--  "session.share.action.share": "Compartir",
-+  "session.share.action.share": "Exportar",
-   "session.share.action.publish": "Publicar",
-   "session.share.action.publishing": "Publicando...",
-   "session.share.action.unpublish": "Despublicar",
-@@ -599,6 +604,8 @@ export const dict = {
+@@ -599,6 +603,8 @@ export const dict = {
    "common.reset": "Restablecer",
    "common.archive": "Archivar",
    "common.delete": "Eliminar",
-+  "common.add": "Aﾃｱadir",
++  "common.add": "Añadir",
 +  "common.done": "Hecho",
    "common.close": "Cerrar",
    "common.edit": "Editar",
-   "common.loadMore": "Cargar mﾃ｡s",
+   "common.loadMore": "Cargar más",
 diff --git a/packages/app/src/i18n/fr.ts b/packages/app/src/i18n/fr.ts
-index 385dbdd..a97239f 100644
+index 385dbdd..3666d58 100644
 --- a/packages/app/src/i18n/fr.ts
 +++ b/packages/app/src/i18n/fr.ts
 @@ -142,6 +142,10 @@ export const dict = {
    "provider.connect.oauth.auto.confirmationCode": "Code de confirmation",
-   "provider.connect.toast.connected.title": "{{provider}} connectﾃｩ",
-   "provider.connect.toast.connected.description": "Les modﾃｨles {{provider}} sont maintenant disponibles.",
+   "provider.connect.toast.connected.title": "{{provider}} connecté",
+   "provider.connect.toast.connected.description": "Les modèles {{provider}} sont maintenant disponibles.",
 +  "provider.connect.accounts": "Comptes {{provider}}",
 +  "provider.connect.mainAccount": "Compte principal",
 +  "provider.connect.noAccounts": "Aucun compte pour l'instant",
-+  "provider.connect.setMainAccount": "Dﾃｩfinir comme compte principal",
-   "provider.custom.title": "Fournisseur personnalisﾃｩ",
++  "provider.connect.setMainAccount": "Définir comme compte principal",
+   "provider.custom.title": "Fournisseur personnalisé",
    "provider.custom.description.prefix": "Configurer un fournisseur compatible OpenAI. Voir la ",
    "provider.custom.description.link": "doc de config fournisseur",
-@@ -255,6 +259,7 @@ export const dict = {
-   "prompt.context.removeActiveFile": "Retirer le fichier actif du contexte",
-   "prompt.context.removeFile": "Retirer le fichier du contexte",
-   "prompt.action.attachFile": "Joindre un fichier",
-+  "prompt.action.enterNewline": "Entrﾃｩe pour nouvelle ligne",
-   "prompt.attachment.remove": "Supprimer la piﾃｨce jointe",
-   "prompt.action.send": "Envoyer",
-   "prompt.action.stop": "Arrﾃｪter",
-@@ -514,7 +519,7 @@ export const dict = {
-     "Cette session est publique sur le web. Elle est accessible ﾃ toute personne disposant du lien.",
-   "session.share.popover.description.unshared":
-     "Partager la session publiquement sur le web. Elle sera accessible ﾃ toute personne disposant du lien.",
--  "session.share.action.share": "Partager",
-+  "session.share.action.share": "Exporter",
-   "session.share.action.publish": "Publier",
-   "session.share.action.publishing": "Publication...",
-   "session.share.action.unpublish": "Dﾃｩpublier",
-@@ -541,6 +546,8 @@ export const dict = {
-   "common.reset": "Rﾃｩinitialiser",
+@@ -541,6 +545,8 @@ export const dict = {
+   "common.reset": "Réinitialiser",
    "common.archive": "Archiver",
    "common.delete": "Supprimer",
 +  "common.add": "Ajouter",
-+  "common.done": "Terminﾃｩ",
++  "common.done": "Terminé",
    "common.close": "Fermer",
    "common.edit": "Modifier",
    "common.loadMore": "Charger plus",
 diff --git a/packages/app/src/i18n/ja.ts b/packages/app/src/i18n/ja.ts
-index 34ac398..56ef876 100644
+index 34ac398..707c29f 100644
 --- a/packages/app/src/i18n/ja.ts
 +++ b/packages/app/src/i18n/ja.ts
 @@ -141,6 +141,10 @@ export const dict = {
-   "provider.connect.oauth.auto.confirmationCode": "遒ｺ隱阪さ繝ｼ繝・,
-   "provider.connect.toast.connected.title": "{{provider}}縺梧磁邯壹＆繧後∪縺励◆",
-   "provider.connect.toast.connected.description": "{{provider}}繝｢繝・Ν縺御ｽｿ逕ｨ蜿ｯ閭ｽ縺ｫ縺ｪ繧翫∪縺励◆縲・,
-+  "provider.connect.accounts": "{{provider}}縺ｮ繧｢繧ｫ繧ｦ繝ｳ繝・,
-+  "provider.connect.mainAccount": "繝｡繧､繝ｳ繧｢繧ｫ繧ｦ繝ｳ繝・,
-+  "provider.connect.noAccounts": "繧｢繧ｫ繧ｦ繝ｳ繝医′縺ｾ縺縺ゅｊ縺ｾ縺帙ｓ",
-+  "provider.connect.setMainAccount": "繝｡繧､繝ｳ繧｢繧ｫ繧ｦ繝ｳ繝医↓險ｭ螳・,
-   "provider.custom.title": "繧ｫ繧ｹ繧ｿ繝繝励Ο繝舌う繝繝ｼ",
-   "provider.custom.description.prefix": "OpenAI莠呈鋤縺ｮ繝励Ο繝舌う繝繝ｼ繧定ｨｭ螳壹＠縺ｾ縺吶りｩｳ邏ｰ縺ｯ",
-   "provider.custom.description.link": "繝励Ο繝舌う繝繝ｼ險ｭ螳壹ラ繧ｭ繝･繝｡繝ｳ繝・,
-@@ -254,6 +258,7 @@ export const dict = {
-   "prompt.context.removeActiveFile": "繧ｳ繝ｳ繝・く繧ｹ繝医°繧峨い繧ｯ繝・ぅ繝悶↑繝輔ぃ繧､繝ｫ繧貞炎髯､",
-   "prompt.context.removeFile": "繧ｳ繝ｳ繝・く繧ｹ繝医°繧峨ヵ繧｡繧､繝ｫ繧貞炎髯､",
-   "prompt.action.attachFile": "繝輔ぃ繧､繝ｫ繧呈ｷｻ莉・,
-+  "prompt.action.enterNewline": "Enter縺ｧ謾ｹ陦・,
-   "prompt.attachment.remove": "豺ｻ莉倥ヵ繧｡繧､繝ｫ繧貞炎髯､",
-   "prompt.action.send": "騾∽ｿ｡",
-   "prompt.action.stop": "蛛懈ｭ｢",
-@@ -506,7 +511,7 @@ export const dict = {
-     "縺薙・繧ｻ繝・す繝ｧ繝ｳ縺ｯ繧ｦ繧ｧ繝悶〒蜈ｬ髢九＆繧後※縺・∪縺吶ゅΜ繝ｳ繧ｯ繧堤衍縺｣縺ｦ縺・ｋ莠ｺ縺ｪ繧芽ｪｰ縺ｧ繧ゅい繧ｯ繧ｻ繧ｹ縺ｧ縺阪∪縺吶・,
-   "session.share.popover.description.unshared":
-     "繧ｻ繝・す繝ｧ繝ｳ繧偵え繧ｧ繝悶〒蜈ｬ髢九＠縺ｾ縺吶ゅΜ繝ｳ繧ｯ繧堤衍縺｣縺ｦ縺・ｋ莠ｺ縺ｪ繧芽ｪｰ縺ｧ繧ゅい繧ｯ繧ｻ繧ｹ縺ｧ縺阪ｋ繧医≧縺ｫ縺ｪ繧翫∪縺吶・,
--  "session.share.action.share": "蜈ｱ譛・,
-+  "session.share.action.share": "繧ｨ繧ｯ繧ｹ繝昴・繝・,
-   "session.share.action.publish": "蜈ｬ髢・,
-   "session.share.action.publishing": "蜈ｬ髢倶ｸｭ...",
-   "session.share.action.unpublish": "髱槫・髢九↓縺吶ｋ",
-@@ -533,6 +538,8 @@ export const dict = {
-   "common.reset": "繝ｪ繧ｻ繝・ヨ",
-   "common.archive": "繧｢繝ｼ繧ｫ繧､繝・,
-   "common.delete": "蜑企勁",
-+  "common.add": "霑ｽ蜉",
-+  "common.done": "螳御ｺ・,
-   "common.close": "髢峨§繧・,
-   "common.edit": "邱ｨ髮・,
-   "common.loadMore": "縺輔ｉ縺ｫ隱ｭ縺ｿ霎ｼ繧",
+   "provider.connect.oauth.auto.confirmationCode": "確認コード",
+   "provider.connect.toast.connected.title": "{{provider}}が接続されました",
+   "provider.connect.toast.connected.description": "{{provider}}モデルが使用可能になりました。",
++  "provider.connect.accounts": "{{provider}}のアカウント",
++  "provider.connect.mainAccount": "メインアカウント",
++  "provider.connect.noAccounts": "アカウントがまだありません",
++  "provider.connect.setMainAccount": "メインアカウントに設定",
+   "provider.custom.title": "カスタムプロバイダー",
+   "provider.custom.description.prefix": "OpenAI互換のプロバイダーを設定します。詳細は",
+   "provider.custom.description.link": "プロバイダー設定ドキュメント",
+@@ -533,6 +537,8 @@ export const dict = {
+   "common.reset": "リセット",
+   "common.archive": "アーカイブ",
+   "common.delete": "削除",
++  "common.add": "追加",
++  "common.done": "完了",
+   "common.close": "閉じる",
+   "common.edit": "編集",
+   "common.loadMore": "さらに読み込む",
 diff --git a/packages/app/src/i18n/ko.ts b/packages/app/src/i18n/ko.ts
-index f1926f3..0ef1961 100644
+index f1926f3..95a0ce7 100644
 --- a/packages/app/src/i18n/ko.ts
 +++ b/packages/app/src/i18n/ko.ts
 @@ -141,6 +141,10 @@ export const dict = {
-   "provider.connect.oauth.auto.confirmationCode": "嶹菩攤 ・罷糖",
-   "provider.connect.toast.connected.title": "{{provider}} ・ｰ・ｰ・ｨ",
-   "provider.connect.toast.connected.description": "・ｴ・・{{provider}} ・ｨ・ｸ・・・ｬ・ｩ﨑 ・・・溢慣・壱共.",
-+  "provider.connect.accounts": "{{provider}} ・・・,
-+  "provider.connect.mainAccount": "・ｰ・ｸ ・・・,
-+  "provider.connect.noAccounts": "・・ｧ・・・・・・搆",
-+  "provider.connect.setMainAccount": "・ｰ・ｸ ・・菩愍・・・､・・,
-   "provider.custom.title": "・ｬ・ｩ・・・・・・ｵ・餓梵",
-   "provider.custom.description.prefix": "OpenAI 嶸ｸ嶹・・ｵ・餓梵・ｼ ・ｬ・ｱ﨑ｩ・壱共. ",
-   "provider.custom.description.link": "・ｵ・餓梵 ・ｬ・ｱ ・ｸ・・,
-@@ -254,6 +258,7 @@ export const dict = {
-   "prompt.context.removeActiveFile": "・ｨ奛作侃孖ｸ・川・ 嶹懍┳ 甯護攵 ・懋ｱｰ",
-   "prompt.context.removeFile": "・ｨ奛作侃孖ｸ・川・ 甯護攵 ・懋ｱｰ",
-   "prompt.action.attachFile": "甯護攵 ・ｨ・",
-+  "prompt.action.enterNewline": "Enter・・・・ｰ緋ｿ・,
-   "prompt.attachment.remove": "・ｨ・ 甯護攵 ・懋ｱｰ",
-   "prompt.action.send": "・・・",
-   "prompt.action.stop": "・卓ｧ",
-@@ -503,7 +508,7 @@ export const dict = {
-   "session.share.popover.description.shared": "・ｴ ・ｸ・們捩 ・ｹ・・・ｵ・罹据・溢慣・壱共. ・・〓・ ・壱株 ・・ｵｬ・・・｡・ｸ・､﨑 ・・・溢慣・壱共.",
-   "session.share.popover.description.unshared":
-     "・ｸ・們揆 ・ｹ・・・ｵ・懍・愍・・・ｵ・﨑ｩ・壱共. ・・〓・ ・壱株 ・・ｵｬ・・・｡・ｸ・､﨑 ・・・溢慣・壱共.",
--  "session.share.action.share": "・ｵ・",
-+  "session.share.action.share": "・ｴ・ｴ・ｴ・ｰ",
-   "session.share.action.publish": "・護亨",
-   "session.share.action.publishing": "・護亨 ・・..",
-   "session.share.action.unpublish": "・護亨 ・ｨ・・,
-@@ -530,6 +535,8 @@ export const dict = {
-   "common.reset": "・一ｸｰ嶹・,
-   "common.archive": "・ｴ・",
-   "common.delete": "・ｭ・・,
-+  "common.add": "・緋ｰ",
-+  "common.done": "・・｣・,
-   "common.close": "・ｫ・ｰ",
-   "common.edit": "寬ｸ・・,
-   "common.loadMore": "・・・壱洳・､・ｰ",
+   "provider.connect.oauth.auto.confirmationCode": "확인 코드",
+   "provider.connect.toast.connected.title": "{{provider}} 연결됨",
+   "provider.connect.toast.connected.description": "이제 {{provider}} 모델을 사용할 수 있습니다.",
++  "provider.connect.accounts": "{{provider}} 계정",
++  "provider.connect.mainAccount": "기본 계정",
++  "provider.connect.noAccounts": "아직 계정 없음",
++  "provider.connect.setMainAccount": "기본 계정으로 설정",
+   "provider.custom.title": "사용자 지정 공급자",
+   "provider.custom.description.prefix": "OpenAI 호환 공급자를 구성합니다. ",
+   "provider.custom.description.link": "공급자 구성 문서",
+@@ -530,6 +534,8 @@ export const dict = {
+   "common.reset": "초기화",
+   "common.archive": "보관",
+   "common.delete": "삭제",
++  "common.add": "추가",
++  "common.done": "완료",
+   "common.close": "닫기",
+   "common.edit": "편집",
+   "common.loadMore": "더 불러오기",
 diff --git a/packages/app/src/i18n/no.ts b/packages/app/src/i18n/no.ts
-index b4adebd..4a3a565 100644
+index b4adebd..00ade66 100644
 --- a/packages/app/src/i18n/no.ts
 +++ b/packages/app/src/i18n/no.ts
 @@ -157,6 +157,10 @@ export const dict = {
    "provider.connect.oauth.auto.confirmationCode": "Bekreftelseskode",
    "provider.connect.toast.connected.title": "{{provider}} tilkoblet",
-   "provider.connect.toast.connected.description": "{{provider}}-modeller er nﾃ･ tilgjengelige.",
+   "provider.connect.toast.connected.description": "{{provider}}-modeller er nå tilgjengelige.",
 +  "provider.connect.accounts": "{{provider}}-kontoer",
 +  "provider.connect.mainAccount": "Hovedkonto",
-+  "provider.connect.noAccounts": "Ingen kontoer ennﾃ･",
++  "provider.connect.noAccounts": "Ingen kontoer ennå",
 +  "provider.connect.setMainAccount": "Sett som hovedkonto",
  
-   "provider.custom.title": "Egendefinert leverandﾃｸr",
-   "provider.custom.description.prefix": "Konfigurer en OpenAI-kompatibel leverandﾃｸr. Se ",
-@@ -277,6 +281,7 @@ export const dict = {
-   "prompt.context.removeActiveFile": "Fjern aktiv fil fra kontekst",
-   "prompt.context.removeFile": "Fjern fil fra kontekst",
-   "prompt.action.attachFile": "Legg ved fil",
-+  "prompt.action.enterNewline": "Enter for ny linje",
-   "prompt.attachment.remove": "Fjern vedlegg",
-   "prompt.action.send": "Send",
-   "prompt.action.stop": "Stopp",
-@@ -569,7 +574,7 @@ export const dict = {
-     "Denne sesjonen er offentlig pﾃ･ nettet. Den er tilgjengelig for alle med lenken.",
-   "session.share.popover.description.unshared":
-     "Del sesjonen offentlig pﾃ･ nettet. Den vil vﾃｦre tilgjengelig for alle med lenken.",
--  "session.share.action.share": "Del",
-+  "session.share.action.share": "Eksporter",
-   "session.share.action.publish": "Publiser",
-   "session.share.action.publishing": "Publiserer...",
-   "session.share.action.unpublish": "Avpubliser",
-@@ -599,6 +604,8 @@ export const dict = {
+   "provider.custom.title": "Egendefinert leverandør",
+   "provider.custom.description.prefix": "Konfigurer en OpenAI-kompatibel leverandør. Se ",
+@@ -599,6 +603,8 @@ export const dict = {
    "common.reset": "Tilbakestill",
    "common.archive": "Arkiver",
    "common.delete": "Slett",
@@ -866,292 +679,173 @@ index b4adebd..4a3a565 100644
    "common.edit": "Rediger",
    "common.loadMore": "Last flere",
 diff --git a/packages/app/src/i18n/pl.ts b/packages/app/src/i18n/pl.ts
-index 02637e5..cd6221e 100644
+index 02637e5..45af55d 100644
 --- a/packages/app/src/i18n/pl.ts
 +++ b/packages/app/src/i18n/pl.ts
 @@ -142,6 +142,10 @@ export const dict = {
-   "provider.connect.oauth.auto.confirmationCode": "Kod potwierdzajﾄ・y",
-   "provider.connect.toast.connected.title": "Poﾅて・zono {{provider}}",
-   "provider.connect.toast.connected.description": "Modele {{provider}} sﾄ・teraz dostﾄ冪ne do uﾅｼycia.",
+   "provider.connect.oauth.auto.confirmationCode": "Kod potwierdzający",
+   "provider.connect.toast.connected.title": "Połączono {{provider}}",
+   "provider.connect.toast.connected.description": "Modele {{provider}} są teraz dostępne do użycia.",
 +  "provider.connect.accounts": "Konta {{provider}}",
-+  "provider.connect.mainAccount": "Konto gﾅづｳwne",
++  "provider.connect.mainAccount": "Konto główne",
 +  "provider.connect.noAccounts": "Brak kont jeszcze",
-+  "provider.connect.setMainAccount": "Ustaw jako konto gﾅづｳwne",
++  "provider.connect.setMainAccount": "Ustaw jako konto główne",
    "provider.custom.title": "Dostawca niestandardowy",
-   "provider.custom.description.prefix": "Skonfiguruj dostawcﾄ・zgodnego z OpenAI. Zobacz ",
-   "provider.custom.description.link": "dokumentacjﾄ・konfiguracji dostawcy",
-@@ -256,6 +260,7 @@ export const dict = {
-   "prompt.context.removeActiveFile": "Usuﾅ・aktywny plik z kontekstu",
-   "prompt.context.removeFile": "Usuﾅ・plik z kontekstu",
-   "prompt.action.attachFile": "Zaﾅて・z plik",
-+  "prompt.action.enterNewline": "Enter = nowa linia",
-   "prompt.attachment.remove": "Usuﾅ・zaﾅて・znik",
-   "prompt.action.send": "Wyﾅ嬪ij",
-   "prompt.action.stop": "Zatrzymaj",
-@@ -507,7 +512,7 @@ export const dict = {
-     "Ta sesja jest publiczna w sieci. Jest dostﾄ冪na dla kaﾅｼdego, kto posiada link.",
-   "session.share.popover.description.unshared":
-     "Udostﾄ冪nij sesjﾄ・publicznie w sieci. Bﾄ囘zie dostﾄ冪na dla kaﾅｼdego, kto posiada link.",
--  "session.share.action.share": "Udostﾄ冪nij",
-+  "session.share.action.share": "Eksport",
-   "session.share.action.publish": "Opublikuj",
-   "session.share.action.publishing": "Publikowanie...",
-   "session.share.action.unpublish": "Cofnij publikacjﾄ・,
-@@ -534,6 +539,8 @@ export const dict = {
+   "provider.custom.description.prefix": "Skonfiguruj dostawcę zgodnego z OpenAI. Zobacz ",
+   "provider.custom.description.link": "dokumentację konfiguracji dostawcy",
+@@ -534,6 +538,8 @@ export const dict = {
    "common.reset": "Resetuj",
    "common.archive": "Archiwizuj",
-   "common.delete": "Usuﾅ・,
+   "common.delete": "Usuń",
 +  "common.add": "Dodaj",
 +  "common.done": "Gotowe",
    "common.close": "Zamknij",
    "common.edit": "Edytuj",
-   "common.loadMore": "ZaﾅＢduj wiﾄ冂ej",
+   "common.loadMore": "Załaduj więcej",
 diff --git a/packages/app/src/i18n/ru.ts b/packages/app/src/i18n/ru.ts
-index a965acf..8a7b4fc 100644
+index a965acf..5bb3950 100644
 --- a/packages/app/src/i18n/ru.ts
 +++ b/packages/app/src/i18n/ru.ts
 @@ -154,6 +154,10 @@ export const dict = {
-   "provider.connect.oauth.auto.confirmationCode": "ﾐ墟ｾﾐｴ ﾐｿﾐｾﾐｴﾑひｲﾐｵﾑﾐｶﾐｴﾐｵﾐｽﾐｸﾑ・,
-   "provider.connect.toast.connected.title": "{{provider}} ﾐｿﾐｾﾐｴﾐｺﾐｻﾑ紗・岱ｽ",
-   "provider.connect.toast.connected.description": "ﾐ慴ｾﾐｴﾐｵﾐｻﾐｸ {{provider}} ﾑひｵﾐｿﾐｵﾑﾑ・ﾐｴﾐｾﾑ・びσｿﾐｽﾑ・",
-+  "provider.connect.accounts": "ﾐ籍ｺﾐｺﾐｰﾑσｽﾑび・{{provider}}",
-+  "provider.connect.mainAccount": "ﾐ樮・ｽﾐｾﾐｲﾐｽﾐｾﾐｹ ﾐｰﾐｺﾐｺﾐｰﾑσｽﾑ・,
-+  "provider.connect.noAccounts": "ﾐ篇禾・ﾐｽﾐｵﾑ・ﾐｰﾐｺﾐｺﾐｰﾑσｽﾑひｾﾐｲ",
-+  "provider.connect.setMainAccount": "ﾐ｡ﾐｴﾐｵﾐｻﾐｰﾑび・ﾐｾﾑ・ｽﾐｾﾐｲﾐｽﾑ巾ｼ ﾐｰﾐｺﾐｺﾐｰﾑσｽﾑひｾﾐｼ",
+   "provider.connect.oauth.auto.confirmationCode": "Код подтверждения",
+   "provider.connect.toast.connected.title": "{{provider}} подключён",
+   "provider.connect.toast.connected.description": "Модели {{provider}} теперь доступны.",
++  "provider.connect.accounts": "Аккаунты {{provider}}",
++  "provider.connect.mainAccount": "Основной аккаунт",
++  "provider.connect.noAccounts": "Ещё нет аккаунтов",
++  "provider.connect.setMainAccount": "Сделать основным аккаунтом",
  
-   "provider.custom.title": "ﾐ渙ｾﾐｻﾑ糊ｷﾐｾﾐｲﾐｰﾑひｵﾐｻﾑ袴・ｺﾐｸﾐｹ ﾐｿﾑﾐｾﾐｲﾐｰﾐｹﾐｴﾐｵﾑ",
-   "provider.custom.description.prefix": "ﾐ斷ｰﾑ・びﾐｾﾐｹﾑひｵ OpenAI-ﾑ・ｾﾐｲﾐｼﾐｵﾑ・ひｸﾐｼﾐｾﾐｳﾐｾ ﾐｿﾑﾐｾﾐｲﾐｰﾐｹﾐｴﾐｵﾑﾐｰ. ﾐ｡ﾐｼ. ",
-@@ -274,6 +278,7 @@ export const dict = {
-   "prompt.context.removeActiveFile": "ﾐ｣ﾐｴﾐｰﾐｻﾐｸﾑび・ﾐｰﾐｺﾑひｸﾐｲﾐｽﾑ巾ｹ ﾑ・ｰﾐｹﾐｻ ﾐｸﾐｷ ﾐｺﾐｾﾐｽﾑひｵﾐｺﾑ・ひｰ",
-   "prompt.context.removeFile": "ﾐ｣ﾐｴﾐｰﾐｻﾐｸﾑび・ﾑ・ｰﾐｹﾐｻ ﾐｸﾐｷ ﾐｺﾐｾﾐｽﾑひｵﾐｺﾑ・ひｰ",
-   "prompt.action.attachFile": "ﾐ湲ﾐｸﾐｺﾑﾐｵﾐｿﾐｸﾑび・ﾑ・ｰﾐｹﾐｻ",
-+  "prompt.action.enterNewline": "Enter 竊ｵ",
-   "prompt.attachment.remove": "ﾐ｣ﾐｴﾐｰﾐｻﾐｸﾑび・ﾐｲﾐｻﾐｾﾐｶﾐｵﾐｽﾐｸﾐｵ",
-   "prompt.action.send": "ﾐ樮ひｿﾑﾐｰﾐｲﾐｸﾑび・,
-   "prompt.action.stop": "ﾐ樮・ひｰﾐｽﾐｾﾐｲﾐｸﾑび・,
-@@ -566,7 +571,7 @@ export const dict = {
-     "ﾐｭﾑひｰ ﾑ・ｵﾑ・・ｸﾑ・ﾐｾﾐｱﾑ禍ｵﾐｴﾐｾﾑ・びσｿﾐｽﾐｰ. ﾐ頒ｾﾑ・びσｿ ﾐｺ ﾐｽﾐｵﾐｹ ﾐｼﾐｾﾐｶﾐｵﾑ・ﾐｿﾐｾﾐｻﾑτ・ｸﾑび・ﾐｻﾑ社ｱﾐｾﾐｹ, ﾑ・ﾐｺﾐｾﾐｳﾐｾ ﾐｵﾑ・び・ﾑ・・巾ｻﾐｺﾐｰ.",
-   "session.share.popover.description.unshared":
-     "ﾐ榧ｿﾑσｱﾐｻﾐｸﾐｺﾑσｹﾑひｵ ﾑ・ｵﾑ・・ｸﾑ・ﾐｲ ﾐｸﾐｽﾑひｵﾑﾐｽﾐｵﾑひｵ. ﾐ頒ｾﾑ・びσｿ ﾐｺ ﾐｽﾐｵﾐｹ ﾑ・ｼﾐｾﾐｶﾐｵﾑ・ﾐｿﾐｾﾐｻﾑτ・ｸﾑび・ﾐｻﾑ社ｱﾐｾﾐｹ, ﾑ・ﾐｺﾐｾﾐｳﾐｾ ﾐｵﾑ・び・ﾑ・・巾ｻﾐｺﾐｰ.",
--  "session.share.action.share": "ﾐ渙ｾﾐｴﾐｵﾐｻﾐｸﾑび袴・・,
-+  "session.share.action.share": "ﾐｭﾐｺﾑ・ｿﾐｾﾑﾑ・,
-   "session.share.action.publish": "ﾐ榧ｿﾑσｱﾐｻﾐｸﾐｺﾐｾﾐｲﾐｰﾑび・,
-   "session.share.action.publishing": "ﾐ湲σｱﾐｻﾐｸﾐｺﾐｰﾑ・ｸﾑ・..",
-   "session.share.action.unpublish": "ﾐ樮ひｼﾐｵﾐｽﾐｸﾑび・ﾐｿﾑσｱﾐｻﾐｸﾐｺﾐｰﾑ・ｸﾑ・,
-@@ -596,6 +601,8 @@ export const dict = {
-   "common.reset": "ﾐ｡ﾐｱﾑﾐｾﾑ・ｸﾑび・,
-   "common.archive": "ﾐ績ﾑ・ｸﾐｲﾐｸﾑﾐｾﾐｲﾐｰﾑび・,
-   "common.delete": "ﾐ｣ﾐｴﾐｰﾐｻﾐｸﾑび・,
-+  "common.add": "ﾐ頒ｾﾐｱﾐｰﾐｲﾐｸﾑび・,
-+  "common.done": "ﾐ寅ｾﾑひｾﾐｲﾐｾ",
-   "common.close": "ﾐ厘ｰﾐｺﾑﾑ錦び・,
-   "common.edit": "ﾐﾐｵﾐｴﾐｰﾐｺﾑひｸﾑﾐｾﾐｲﾐｰﾑび・,
-   "common.loadMore": "ﾐ厘ｰﾐｳﾑﾑσｷﾐｸﾑび・ﾐｵﾑ禾・,
+   "provider.custom.title": "Пользовательский провайдер",
+   "provider.custom.description.prefix": "Настройте OpenAI-совместимого провайдера. См. ",
+@@ -596,6 +600,8 @@ export const dict = {
+   "common.reset": "Сбросить",
+   "common.archive": "Архивировать",
+   "common.delete": "Удалить",
++  "common.add": "Добавить",
++  "common.done": "Готово",
+   "common.close": "Закрыть",
+   "common.edit": "Редактировать",
+   "common.loadMore": "Загрузить ещё",
 diff --git a/packages/app/src/i18n/th.ts b/packages/app/src/i18n/th.ts
-index 00df86a..f1cfb05 100644
+index 00df86a..18f45fe 100644
 --- a/packages/app/src/i18n/th.ts
 +++ b/packages/app/src/i18n/th.ts
 @@ -154,6 +154,10 @@ export const dict = {
-   "provider.connect.oauth.auto.confirmationCode": "犧｣犧ｫ犧ｱ犧ｪ犧｢犧ｷ犧吭ｸ｢犧ｱ犧・,
-   "provider.connect.toast.connected.title": "{{provider}} 犧伶ｸｵ犹謂ｹ犧癌ｸｷ犹謂ｸｭ犧｡犧歩ｹ謂ｸｭ犹≒ｸ･犹霞ｸｧ",
-   "provider.connect.toast.connected.description": "犹もｸ｡犹犧扉ｸ･ {{provider}} 犧樅ｸ｣犹霞ｸｭ犧｡犹・ｸ癌ｹ霞ｸ・ｸｲ犧吭ｹ≒ｸ･犹霞ｸｧ",
-+  "provider.connect.accounts": "犧壟ｸｱ犧財ｸ癌ｸｵ {{provider}}",
-+  "provider.connect.mainAccount": "犧壟ｸｱ犧財ｸ癌ｸｵ犧ｫ犧･犧ｱ犧・,
-+  "provider.connect.noAccounts": "犧｢犧ｱ犧・ｹ・ｸ｡犹謂ｸ｡犧ｵ犧壟ｸｱ犧財ｸ癌ｸｵ",
-+  "provider.connect.setMainAccount": "犧歩ｸｱ犹霞ｸ・ｹ犧巵ｹ・ｸ吭ｸ壟ｸｱ犧財ｸ癌ｸｵ犧ｫ犧･犧ｱ犧・,
+   "provider.connect.oauth.auto.confirmationCode": "รหัสยืนยัน",
+   "provider.connect.toast.connected.title": "{{provider}} ที่เชื่อมต่อแล้ว",
+   "provider.connect.toast.connected.description": "โมเดล {{provider}} พร้อมใช้งานแล้ว",
++  "provider.connect.accounts": "บัญชี {{provider}}",
++  "provider.connect.mainAccount": "บัญชีหลัก",
++  "provider.connect.noAccounts": "ยังไม่มีบัญชี",
++  "provider.connect.setMainAccount": "ตั้งเป็นบัญชีหลัก",
  
-   "provider.custom.title": "犧憫ｸｹ犹霞ｹ・ｸｫ犹霞ｸ壟ｸ｣犧ｴ犧≒ｸｲ犧｣犧伶ｸｵ犹謂ｸ≒ｸｳ犧ｫ犧吭ｸ扉ｹ犧ｭ犧・,
-   "provider.custom.description.prefix": "犧≒ｸｳ犧ｫ犧吭ｸ扉ｸ・ｹ謂ｸｲ犧憫ｸｹ犹霞ｹ・ｸｫ犹霞ｸ壟ｸ｣犧ｴ犧≒ｸｲ犧｣犧伶ｸｵ犹謂ｹ犧もｹ霞ｸｲ犧≒ｸｱ犧吭ｹ・ｸ扉ｹ霞ｸ≒ｸｱ犧・OpenAI 犧扉ｸｹ ",
-@@ -274,6 +278,7 @@ export const dict = {
-   "prompt.context.removeActiveFile": "犹犧ｭ犧ｲ犹・ｸ游ｸ･犹呉ｸ伶ｸｵ犹謂ｹ・ｸ癌ｹ霞ｸ・ｸｲ犧吭ｸｭ犧｢犧ｹ犹謂ｸｭ犧ｭ犧≒ｸ謂ｸｲ犧≒ｸ壟ｸ｣犧ｴ犧壟ｸ・,
-   "prompt.context.removeFile": "犹犧ｭ犧ｲ犹・ｸ游ｸ･犹呉ｸｭ犧ｭ犧≒ｸ謂ｸｲ犧≒ｸ壟ｸ｣犧ｴ犧壟ｸ・,
-   "prompt.action.attachFile": "犹≒ｸ吭ｸ壟ｹ・ｸ游ｸ･犹・,
-+  "prompt.action.enterNewline": "Enter 犧ｪ犧ｳ犧ｫ犧｣犧ｱ犧壟ｸもｸｶ犹霞ｸ吭ｸ壟ｸ｣犧｣犧伶ｸｱ犧扉ｹ・ｸｫ犧｡犹・,
-   "prompt.attachment.remove": "犹犧ｭ犧ｲ犹・ｸ游ｸ･犹呉ｹ≒ｸ吭ｸ壟ｸｭ犧ｭ犧・,
-   "prompt.action.send": "犧ｪ犹謂ｸ・,
-   "prompt.action.stop": "犧ｫ犧｢犧ｸ犧・,
-@@ -561,7 +566,7 @@ export const dict = {
-   "session.share.popover.title": "犹犧憫ｸ｢犹≒ｸ樅ｸ｣犹謂ｸ壟ｸ吭ｹ犧ｧ犹・ｸ・,
-   "session.share.popover.description.shared": "犹犧金ｸｪ犧癌ｸｱ犧吭ｸ吭ｸｵ犹霞ｹ犧巵ｹ・ｸ吭ｸｪ犧ｲ犧倨ｸｲ犧｣犧内ｸｰ犧壟ｸ吭ｹ犧ｧ犹・ｸ・犧ｪ犧ｲ犧｡犧ｲ犧｣犧籾ｹ犧もｹ霞ｸｲ犧籾ｸｶ犧・ｹ・ｸ扉ｹ霞ｹもｸ扉ｸ｢犧憫ｸｹ犹霞ｸ伶ｸｵ犹謂ｸ｡犧ｵ犧･犧ｴ犧・ｸ≒ｹ・,
-   "session.share.popover.description.unshared": "犹≒ｸ癌ｸ｣犹呉ｹ犧金ｸｪ犧癌ｸｱ犧吭ｸｪ犧ｲ犧倨ｸｲ犧｣犧内ｸｰ犧壟ｸ吭ｹ犧ｧ犹・ｸ・犧謂ｸｰ犹犧もｹ霞ｸｲ犧籾ｸｶ犧・ｹ・ｸ扉ｹ霞ｹもｸ扉ｸ｢犧憫ｸｹ犹霞ｸ伶ｸｵ犹謂ｸ｡犧ｵ犧･犧ｴ犧・ｸ≒ｹ・,
--  "session.share.action.share": "犹≒ｸ癌ｸ｣犹・,
-+  "session.share.action.share": "犧ｪ犹謂ｸ・ｸｭ犧ｭ犧・,
-   "session.share.action.publish": "犹犧憫ｸ｢犹≒ｸ樅ｸ｣犹・,
-   "session.share.action.publishing": "犧≒ｸｳ犧･犧ｱ犧・ｹ犧憫ｸ｢犹≒ｸ樅ｸ｣犹・..",
-   "session.share.action.unpublish": "犧｢犧≒ｹ犧･犧ｴ犧≒ｸ≒ｸｲ犧｣犹犧憫ｸ｢犹≒ｸ樅ｸ｣犹・,
-@@ -590,6 +595,8 @@ export const dict = {
-   "common.reset": "犧｣犧ｵ犹犧金ｹ・ｸ・,
-   "common.archive": "犧謂ｸｱ犧扉ｹ犧≒ｹ・ｸ・,
-   "common.delete": "犧･犧・,
-+  "common.add": "犹犧樅ｸｴ犹謂ｸ｡",
-+  "common.done": "犹犧ｪ犧｣犹・ｸ謂ｸｪ犧ｴ犹霞ｸ・,
-   "common.close": "犧巵ｸｴ犧・,
-   "common.edit": "犹≒ｸ≒ｹ霞ｹ・ｸ・,
-   "common.loadMore": "犹もｸｫ犧･犧扉ｹ犧樅ｸｴ犹謂ｸ｡犹犧歩ｸｴ犧｡",
+   "provider.custom.title": "ผู้ให้บริการที่กำหนดเอง",
+   "provider.custom.description.prefix": "กำหนดค่าผู้ให้บริการที่เข้ากันได้กับ OpenAI ดู ",
+@@ -590,6 +594,8 @@ export const dict = {
+   "common.reset": "รีเซ็ต",
+   "common.archive": "จัดเก็บ",
+   "common.delete": "ลบ",
++  "common.add": "เพิ่ม",
++  "common.done": "เสร็จสิ้น",
+   "common.close": "ปิด",
+   "common.edit": "แก้ไข",
+   "common.loadMore": "โหลดเพิ่มเติม",
 diff --git a/packages/app/src/i18n/tr.ts b/packages/app/src/i18n/tr.ts
-index 27a6e03..f4ce71f 100644
+index 27a6e03..f10b914 100644
 --- a/packages/app/src/i18n/tr.ts
 +++ b/packages/app/src/i18n/tr.ts
 @@ -158,6 +158,10 @@ export const dict = {
    "provider.connect.oauth.auto.confirmationCode": "Onay kodu",
-   "provider.connect.toast.connected.title": "{{provider}} baﾄ殕andﾄｱ",
-   "provider.connect.toast.connected.description": "{{provider}} modelleri artﾄｱk kullanﾄｱmda.",
-+  "provider.connect.accounts": "{{provider}} Hesaplarﾄｱ",
+   "provider.connect.toast.connected.title": "{{provider}} bağlandı",
+   "provider.connect.toast.connected.description": "{{provider}} modelleri artık kullanımda.",
++  "provider.connect.accounts": "{{provider}} Hesapları",
 +  "provider.connect.mainAccount": "Ana Hesap",
-+  "provider.connect.noAccounts": "Henﾃｼz hesap yok",
++  "provider.connect.noAccounts": "Henüz hesap yok",
 +  "provider.connect.setMainAccount": "Ana hesap olarak ayarla",
  
-   "provider.custom.title": "ﾃ奔el saﾄ殕ayﾄｱcﾄｱ",
-   "provider.custom.description.prefix": "OpenAI uyumlu bir saﾄ殕ayﾄｱcﾄｱ yapﾄｱlandﾄｱrﾄｱn. ",
-@@ -279,6 +283,7 @@ export const dict = {
-   "prompt.context.removeActiveFile": "Aktif dosyayﾄｱ baﾄ殕amdan ﾃｧﾄｱkar",
-   "prompt.context.removeFile": "Dosyayﾄｱ baﾄ殕amdan ﾃｧﾄｱkar",
-   "prompt.action.attachFile": "Dosya ekle",
-+  "prompt.action.enterNewline": "Enter ile yeni satﾄｱr",
-   "prompt.attachment.remove": "Eki kaldﾄｱr",
-   "prompt.action.send": "Gﾃｶnder",
-   "prompt.action.stop": "Durdur",
-@@ -572,7 +577,7 @@ export const dict = {
-   "session.share.popover.description.shared": "Bu oturum web'de herkese aﾃｧﾄｱktﾄｱr. Baﾄ殕antﾄｱya sahip herkes eriﾅ歹bilir.",
-   "session.share.popover.description.unshared":
-     "Oturumu web'de herkese aﾃｧﾄｱk olarak paylaﾅ淨ｱn. Baﾄ殕antﾄｱya sahip herkes eriﾅ歹bilecek.",
--  "session.share.action.share": "Paylaﾅ・,
-+  "session.share.action.share": "Dﾄｱﾅ歛 aktar",
-   "session.share.action.publish": "Yayﾄｱnla",
-   "session.share.action.publishing": "Yayﾄｱnlanﾄｱyor...",
-   "session.share.action.unpublish": "Yayﾄｱndan kaldﾄｱr",
-@@ -602,6 +607,8 @@ export const dict = {
-   "common.reset": "Sﾄｱfﾄｱrla",
-   "common.archive": "Arﾅ殃vle",
+   "provider.custom.title": "Özel sağlayıcı",
+   "provider.custom.description.prefix": "OpenAI uyumlu bir sağlayıcı yapılandırın. ",
+@@ -602,6 +606,8 @@ export const dict = {
+   "common.reset": "Sıfırla",
+   "common.archive": "Arşivle",
    "common.delete": "Sil",
 +  "common.add": "Ekle",
 +  "common.done": "Tamam",
    "common.close": "Kapat",
-   "common.edit": "Dﾃｼzenle",
-   "common.loadMore": "Daha fazla yﾃｼkle",
+   "common.edit": "Düzenle",
+   "common.loadMore": "Daha fazla yükle",
 diff --git a/packages/app/src/i18n/uk.ts b/packages/app/src/i18n/uk.ts
-index 948c9a6..7585597 100644
+index 948c9a6..f6880e3 100644
 --- a/packages/app/src/i18n/uk.ts
 +++ b/packages/app/src/i18n/uk.ts
 @@ -157,6 +157,10 @@ export const dict = {
-   "provider.connect.oauth.auto.confirmationCode": "ﾐ墟ｾﾐｴ ﾐｿﾑ孟ｴﾑひｲﾐｵﾑﾐｴﾐｶﾐｵﾐｽﾐｽﾑ・,
-   "provider.connect.toast.connected.title": "{{provider}} ﾐｿﾑ孟ｴﾐｺﾐｻﾑ紗・ｵﾐｽﾐｾ",
-   "provider.connect.toast.connected.description": "ﾐ慴ｾﾐｴﾐｵﾐｻﾑ・{{provider}} ﾑひｵﾐｿﾐｵﾑ ﾐｴﾐｾﾑ・びσｿﾐｽﾑ・ﾐｴﾐｻﾑ・ﾐｲﾐｸﾐｺﾐｾﾑﾐｸﾑ・ひｰﾐｽﾐｽﾑ・",
-+  "provider.connect.accounts": "ﾐ籍ｺﾐｰﾑσｽﾑひｸ {{provider}}",
-+  "provider.connect.mainAccount": "ﾐ樮・ｽﾐｾﾐｲﾐｽﾐｸﾐｹ ﾐｰﾐｺﾐｰﾑσｽﾑ・,
-+  "provider.connect.noAccounts": "ﾐｩﾐｵ ﾐｽﾐｵﾐｼﾐｰﾑ・ﾐｰﾐｺﾐｰﾑσｽﾑび孟ｲ",
-+  "provider.connect.setMainAccount": "ﾐ林ﾐｾﾐｱﾐｸﾑひｸ ﾐｾﾑ・ｽﾐｾﾐｲﾐｽﾐｸﾐｼ ﾐｰﾐｺﾐｰﾑσｽﾑひｾﾐｼ",
+   "provider.connect.oauth.auto.confirmationCode": "Код підтвердження",
+   "provider.connect.toast.connected.title": "{{provider}} підключено",
+   "provider.connect.toast.connected.description": "Моделі {{provider}} тепер доступні для використання.",
++  "provider.connect.accounts": "Акаунти {{provider}}",
++  "provider.connect.mainAccount": "Основний акаунт",
++  "provider.connect.noAccounts": "Ще немає акаунтів",
++  "provider.connect.setMainAccount": "Зробити основним акаунтом",
  
-   "provider.custom.title": "ﾐ墟ｾﾑﾐｸﾑ・びσｲﾐｰﾑ・糊ｺﾐｸﾐｹ ﾐｿﾑﾐｾﾐｲﾐｰﾐｹﾐｴﾐｵﾑ",
-   "provider.custom.description.prefix": "ﾐ斷ｰﾐｻﾐｰﾑ尉びσｹﾑひｵ ﾐｿﾑﾐｾﾐｲﾐｰﾐｹﾐｴﾐｵﾑﾐｰ, ﾑ・σｼﾑ毛・ｽﾐｾﾐｳﾐｾ ﾐｷ OpenAI. ﾐ渙ｵﾑﾐｵﾐｳﾐｻﾑ紹ｽﾑ袴ひｵ ",
-@@ -281,6 +285,7 @@ export const dict = {
-   "prompt.context.removeActiveFile": "ﾐ漬ｸﾐｴﾐｰﾐｻﾐｸﾑひｸ ﾐｰﾐｺﾑひｸﾐｲﾐｽﾐｸﾐｹ ﾑ・ｰﾐｹﾐｻ ﾐｷ ﾐｺﾐｾﾐｽﾑひｵﾐｺﾑ・び・,
-   "prompt.context.removeFile": "ﾐ漬ｸﾐｴﾐｰﾐｻﾐｸﾑひｸ ﾑ・ｰﾐｹﾐｻ ﾐｷ ﾐｺﾐｾﾐｽﾑひｵﾐｺﾑ・び・,
-   "prompt.action.attachFile": "ﾐ頒ｾﾐｴﾐｰﾑひｸ ﾑ・ｰﾐｹﾐｻﾐｸ",
-+  "prompt.action.enterNewline": "Enter 竊ｵ",
-   "prompt.attachment.remove": "ﾐ漬ｸﾐｴﾐｰﾐｻﾐｸﾑひｸ ﾐｲﾐｺﾐｻﾐｰﾐｴﾐｵﾐｽﾐｽﾑ・,
-   "prompt.action.send": "ﾐ斷ｰﾐｴﾑ毛・ｻﾐｰﾑひｸ",
-   "prompt.action.stop": "ﾐ林σｿﾐｸﾐｽﾐｸﾑひｸ",
-@@ -620,7 +625,7 @@ export const dict = {
-     "ﾐｦﾑ・ﾑ・ｵﾑ・毛・ﾑ・ﾐｿﾑσｱﾐｻﾑ毛・ｽﾐｾﾑ・ﾐｲ ﾑ孟ｽﾑひｵﾑﾐｽﾐｵﾑび・ ﾐ漬ｾﾐｽﾐｰ ﾐｴﾐｾﾑ・びσｿﾐｽﾐｰ ﾐｱﾑσｴﾑ・ﾐｺﾐｾﾐｼﾑ・ﾐｷﾐｰ ﾐｿﾐｾﾑ・ｸﾐｻﾐｰﾐｽﾐｽﾑ紹ｼ.",
-   "session.share.popover.description.unshared":
-     "ﾐ榧ｿﾑσｱﾐｻﾑ孟ｺﾑσｹﾑひｵ ﾑ・ｵﾑ・毛・ﾐｿﾑσｱﾐｻﾑ毛・ｽﾐｾ ﾐｲ ﾑ孟ｽﾑひｵﾑﾐｽﾐｵﾑび・ ﾐ漬ｾﾐｽﾐｰ ﾐｱﾑσｴﾐｵ ﾐｴﾐｾﾑ・びσｿﾐｽﾐｰ ﾐｱﾑσｴﾑ・ﾐｺﾐｾﾐｼﾑ・ﾐｷﾐｰ ﾐｿﾐｾﾑ・ｸﾐｻﾐｰﾐｽﾐｽﾑ紹ｼ.",
--  "session.share.action.share": "ﾐ渙ｾﾐｴﾑ孟ｻﾐｸﾑひｸﾑ・・,
-+  "session.share.action.share": "ﾐ片ｺﾑ・ｿﾐｾﾑﾑ・,
-   "session.share.action.publish": "ﾐ榧ｿﾑσｱﾐｻﾑ孟ｺﾑσｲﾐｰﾑひｸ",
-   "session.share.action.publishing": "ﾐ湲σｱﾐｻﾑ孟ｺﾐｰﾑ・毛・..",
-   "session.share.action.unpublish": "ﾐ｡ﾐｺﾐｰﾑ・σｲﾐｰﾑひｸ ﾐｿﾑσｱﾐｻﾑ孟ｺﾐｰﾑ・毛・,
-@@ -652,6 +657,8 @@ export const dict = {
-   "common.reset": "ﾐ｡ﾐｺﾐｸﾐｽﾑτひｸ",
-   "common.archive": "ﾐ績ﾑ・孟ｲﾑσｲﾐｰﾑひｸ",
-   "common.delete": "ﾐ漬ｸﾐｴﾐｰﾐｻﾐｸﾑひｸ",
-+  "common.add": "ﾐ頒ｾﾐｴﾐｰﾑひｸ",
-+  "common.done": "ﾐ寅ｾﾑひｾﾐｲﾐｾ",
-   "common.close": "ﾐ厘ｰﾐｺﾑﾐｸﾑひｸ",
-   "common.edit": "ﾐﾐｵﾐｴﾐｰﾐｳﾑσｲﾐｰﾑひｸ",
-   "common.loadMore": "ﾐ厘ｰﾐｲﾐｰﾐｽﾑひｰﾐｶﾐｸﾑひｸ ﾐｱﾑ孟ｻﾑ袴威ｵ",
+   "provider.custom.title": "Користувацький провайдер",
+   "provider.custom.description.prefix": "Налаштуйте провайдера, сумісного з OpenAI. Перегляньте ",
+@@ -652,6 +656,8 @@ export const dict = {
+   "common.reset": "Скинути",
+   "common.archive": "Архівувати",
+   "common.delete": "Видалити",
++  "common.add": "Додати",
++  "common.done": "Готово",
+   "common.close": "Закрити",
+   "common.edit": "Редагувати",
+   "common.loadMore": "Завантажити більше",
 diff --git a/packages/app/src/i18n/zh.ts b/packages/app/src/i18n/zh.ts
-index f5c962a..e5375c7 100644
+index f5c962a..fce58ae 100644
 --- a/packages/app/src/i18n/zh.ts
 +++ b/packages/app/src/i18n/zh.ts
 @@ -176,6 +176,10 @@ export const dict = {
-   "provider.connect.oauth.auto.confirmationCode": "遑ｮ隶､遐・,
-   "provider.connect.toast.connected.title": "{{provider}} 蟾ｲ霑樊磁",
-   "provider.connect.toast.connected.description": "邇ｰ蝨ｨ蜿ｯ莉･菴ｿ逕ｨ {{provider}} 讓｡蝙倶ｺ・・,
-+  "provider.connect.accounts": "{{provider}} 雍ｦ蜿ｷ",
-+  "provider.connect.mainAccount": "荳ｻ雍ｦ蜿ｷ",
-+  "provider.connect.noAccounts": "證よ裏雍ｦ蜿ｷ",
-+  "provider.connect.setMainAccount": "隶ｾ荳ｺ荳ｻ雍ｦ蜿ｷ",
+   "provider.connect.oauth.auto.confirmationCode": "确认码",
+   "provider.connect.toast.connected.title": "{{provider}} 已连接",
+   "provider.connect.toast.connected.description": "现在可以使用 {{provider}} 模型了。",
++  "provider.connect.accounts": "{{provider}} 账号",
++  "provider.connect.mainAccount": "主账号",
++  "provider.connect.noAccounts": "暂无账号",
++  "provider.connect.setMainAccount": "设为主账号",
  
-   "provider.custom.title": "閾ｪ螳壻ｹ画署萓帛膚",
-   "provider.custom.description.prefix": "驟咲ｽｮ荳・OpenAI 蜈ｼ螳ｹ逧・署萓帛膚縲りｯｷ譟･逵・,
-@@ -294,6 +298,7 @@ export const dict = {
-   "prompt.context.removeActiveFile": "莉惹ｸ贋ｸ区枚遘ｻ髯､豢ｻ蜉ｨ譁・ｻｶ",
-   "prompt.context.removeFile": "莉惹ｸ贋ｸ区枚遘ｻ髯､譁・ｻｶ",
-   "prompt.action.attachFile": "髯・刈譁・ｻｶ",
-+  "prompt.action.enterNewline": "Enter 謐｢陦・,
-   "prompt.attachment.remove": "遘ｻ髯､髯・ｻｶ",
-   "prompt.action.send": "蜿鷹・,
-   "prompt.action.stop": "蛛懈ｭ｢",
-@@ -567,7 +572,7 @@ export const dict = {
-   "session.share.popover.title": "蜿大ｸ・芦鄂鷹｡ｵ",
-   "session.share.popover.description.shared": "豁､莨夊ｯ晏ｷｲ蝨ｨ鄂鷹｡ｵ荳雁・蠑縲ゆｻｻ菴墓凶譛蛾得謗･逧・ｺｺ驛ｽ蜿ｯ莉･隶ｿ髣ｮ縲・,
-   "session.share.popover.description.unshared": "蝨ｨ鄂鷹｡ｵ荳雁・蠑蛻・ｺｫ豁､莨夊ｯ昴ゆｻｻ菴墓凶譛蛾得謗･逧・ｺｺ驛ｽ蜿ｯ莉･隶ｿ髣ｮ縲・,
--  "session.share.action.share": "蛻・ｺｫ",
-+  "session.share.action.share": "蟇ｼ蜃ｺ",
-   "session.share.action.publish": "蜿大ｸ・,
-   "session.share.action.publishing": "豁｣蝨ｨ蜿大ｸ・..",
-   "session.share.action.unpublish": "蜿匁ｶ亥書蟶・,
-@@ -597,6 +602,8 @@ export const dict = {
-   "common.reset": "驥咲ｽｮ",
-   "common.archive": "蠖呈｡｣",
-   "common.delete": "蛻髯､",
-+  "common.add": "豺ｻ蜉",
-+  "common.done": "螳梧・",
-   "common.close": "蜈ｳ髣ｭ",
-   "common.edit": "郛冶ｾ・,
-   "common.loadMore": "蜉霓ｽ譖ｴ螟・,
+   "provider.custom.title": "自定义提供商",
+   "provider.custom.description.prefix": "配置与 OpenAI 兼容的提供商。请查看",
+@@ -597,6 +601,8 @@ export const dict = {
+   "common.reset": "重置",
+   "common.archive": "归档",
+   "common.delete": "删除",
++  "common.add": "添加",
++  "common.done": "完成",
+   "common.close": "关闭",
+   "common.edit": "编辑",
+   "common.loadMore": "加载更多",
 diff --git a/packages/app/src/i18n/zht.ts b/packages/app/src/i18n/zht.ts
-index edd6f7b..9609b3a 100644
+index edd6f7b..3db590f 100644
 --- a/packages/app/src/i18n/zht.ts
 +++ b/packages/app/src/i18n/zht.ts
 @@ -155,6 +155,10 @@ export const dict = {
-   "provider.connect.oauth.auto.confirmationCode": "遒ｺ隱咲｢ｼ",
-   "provider.connect.toast.connected.title": "{{provider}} 蟾ｲ騾｣邱・,
-   "provider.connect.toast.connected.description": "迴ｾ蝨ｨ蜿ｯ莉･菴ｿ逕ｨ {{provider}} 讓｡蝙倶ｺ・・,
-+  "provider.connect.accounts": "{{provider}} 蟶ｳ謌ｶ",
-+  "provider.connect.mainAccount": "荳ｻ隕∝ｸｳ謌ｶ",
-+  "provider.connect.noAccounts": "蟆夂┌蟶ｳ謌ｶ",
-+  "provider.connect.setMainAccount": "險ｭ轤ｺ荳ｻ隕∝ｸｳ謌ｶ",
+   "provider.connect.oauth.auto.confirmationCode": "確認碼",
+   "provider.connect.toast.connected.title": "{{provider}} 已連線",
+   "provider.connect.toast.connected.description": "現在可以使用 {{provider}} 模型了。",
++  "provider.connect.accounts": "{{provider}} 帳戶",
++  "provider.connect.mainAccount": "主要帳戶",
++  "provider.connect.noAccounts": "尚無帳戶",
++  "provider.connect.setMainAccount": "設為主要帳戶",
  
-   "provider.custom.title": "閾ｪ險よ署萓帛膚",
-   "provider.custom.description.prefix": "險ｭ螳夊・ OpenAI 逶ｸ螳ｹ逧・署萓帛膚縲りｫ句純髢ｱ",
-@@ -274,6 +278,7 @@ export const dict = {
-   "prompt.context.removeActiveFile": "蠕樔ｸ贋ｸ区枚遘ｻ髯､逶ｮ蜑肴ｪ疲｡・,
-   "prompt.context.removeFile": "蠕樔ｸ贋ｸ区枚遘ｻ髯､讙疲｡・,
-   "prompt.action.attachFile": "髯・刈讙疲｡・,
-+  "prompt.action.enterNewline": "Enter 謠幄｡・,
-   "prompt.attachment.remove": "遘ｻ髯､髯・ｻｶ",
-   "prompt.action.send": "蛯ｳ騾・,
-   "prompt.action.stop": "蛛懈ｭ｢",
-@@ -557,7 +562,7 @@ export const dict = {
-   "session.share.popover.title": "逋ｼ菴亥芦邯ｲ鬆・,
-   "session.share.popover.description.shared": "豁､蟾･菴憺嚴谿ｵ蟾ｲ蝨ｨ邯ｲ鬆∽ｸ雁・髢九ゆｻｻ菴墓刀譛蛾｣邨千噪莠ｺ驛ｽ蜿ｯ莉･蟄伜叙縲・,
-   "session.share.popover.description.unshared": "蝨ｨ邯ｲ鬆∽ｸ雁・髢句・莠ｫ豁､蟾･菴憺嚴谿ｵ縲ゆｻｻ菴墓刀譛蛾｣邨千噪莠ｺ驛ｽ蜿ｯ莉･蟄伜叙縲・,
--  "session.share.action.share": "蛻・ｺｫ",
-+  "session.share.action.share": "蛹ｯ蜃ｺ",
-   "session.share.action.publish": "逋ｼ菴・,
-   "session.share.action.publishing": "豁｣蝨ｨ逋ｼ菴・..",
-   "session.share.action.unpublish": "蜿匁ｶ育匸菴・,
-@@ -586,6 +591,8 @@ export const dict = {
-   "common.reset": "驥崎ｨｭ",
-   "common.archive": "蟆∝ｭ・,
-   "common.delete": "蛻ｪ髯､",
-+  "common.add": "譁ｰ蠅・,
-+  "common.done": "螳梧・",
-   "common.close": "髣憺哩",
-   "common.edit": "邱ｨ霈ｯ",
-   "common.loadMore": "霈牙・譖ｴ螟・,
+   "provider.custom.title": "自訂提供商",
+   "provider.custom.description.prefix": "設定與 OpenAI 相容的提供商。請參閱",
+@@ -586,6 +590,8 @@ export const dict = {
+   "common.reset": "重設",
+   "common.archive": "封存",
+   "common.delete": "刪除",
++  "common.add": "新增",
++  "common.done": "完成",
+   "common.close": "關閉",
+   "common.edit": "編輯",
+   "common.loadMore": "載入更多",
 diff --git a/packages/app/src/pages/session.tsx b/packages/app/src/pages/session.tsx
 index 312b5c3..3c4750a 100644
 --- a/packages/app/src/pages/session.tsx
@@ -1840,16 +1534,17 @@ index 33e6a8e..db7db49 100644
          query: LogQuery,
          payload: LogInput,
 diff --git a/packages/opencode/src/server/routes/instance/httpapi/handlers/control.ts b/packages/opencode/src/server/routes/instance/httpapi/handlers/control.ts
-index e1ede22..f6ea641 100644
+index e1ede22..94791bb 100644
 --- a/packages/opencode/src/server/routes/instance/httpapi/handlers/control.ts
 +++ b/packages/opencode/src/server/routes/instance/httpapi/handlers/control.ts
-@@ -1,25 +1,82 @@
+@@ -1,25 +1,84 @@
  import { Auth } from "@/auth"
 +import * as AuthPool from "@/auth/pool"
  import { ProviderID } from "@/provider/schema"
 +import * as InstanceState from "@/effect/instance-state"
  import * as Log from "@opencode-ai/core/util/log"
  import { Effect } from "effect"
++import { clearProviderPoolExhaustion } from "@/session/processor"
  import { HttpApiBuilder } from "effect/unstable/httpapi"
  import { RootHttpApi } from "../api"
  import { LogInput } from "../groups/control"
@@ -1892,6 +1587,7 @@ index e1ede22..f6ea641 100644
 +      payload: { key: string; label?: string }
 +    }) {
 +      yield* pool.add(ctx.params.providerID, { key: ctx.payload.key, label: ctx.payload.label })
++      clearProviderPoolExhaustion(ctx.params.providerID)
 +      return true
 +    })
 +
@@ -1926,7 +1622,7 @@ index e1ede22..f6ea641 100644
        return true
      })
  
-@@ -29,6 +86,19 @@ export const controlHandlers = HttpApiBuilder.group(RootHttpApi, "control", (han
+@@ -29,6 +88,19 @@ export const controlHandlers = HttpApiBuilder.group(RootHttpApi, "control", (han
        return true
      })
  
@@ -1947,42 +1643,6 @@ index e1ede22..f6ea641 100644
 +  if (key.length <= 12) return key.slice(0, 4) + "..."
 +  return key.slice(0, 8) + "..." + key.slice(-4)
 +}
-diff --git a/packages/opencode/src/server/routes/instance/httpapi/server.ts b/packages/opencode/src/server/routes/instance/httpapi/server.ts
-index 45a71a7..9d1f4dc 100644
---- a/packages/opencode/src/server/routes/instance/httpapi/server.ts
-+++ b/packages/opencode/src/server/routes/instance/httpapi/server.ts
-@@ -13,6 +13,7 @@ import { AppFileSystem } from "@opencode-ai/core/filesystem"
- import { Account } from "@/account/account"
- import { Agent } from "@/agent/agent"
- import { Auth } from "@/auth"
-+import * as AuthPool from "@/auth/pool"
- import { Bus } from "@/bus"
- import { Config } from "@/config/config"
- import { Command } from "@/command"
-@@ -69,6 +70,7 @@ import { EventApi } from "./groups/event"
- import { PtyConnectApi } from "./groups/pty"
- import { eventHandlers } from "./handlers/event"
- import { configHandlers } from "./handlers/config"
-+import { persistHandlers } from "./handlers/persist"
- import { controlHandlers } from "./handlers/control"
- import { experimentalHandlers } from "./handlers/experimental"
- import { fileHandlers } from "./handlers/file"
-@@ -137,6 +139,7 @@ const instanceApiRoutes = HttpApiBuilder.layer(InstanceHttpApi).pipe(
-     fileHandlers,
-     instanceHandlers,
-     mcpHandlers,
-+    persistHandlers,
-     projectHandlers,
-     ptyHandlers,
-     questionHandlers,
-@@ -196,6 +199,7 @@ export function createRoutes(
-       Account.defaultLayer,
-       Agent.defaultLayer,
-       Auth.defaultLayer,
-+      AuthPool.defaultLayer,
-       Command.defaultLayer,
-       Config.defaultLayer,
-       File.defaultLayer,
 diff --git a/packages/opencode/src/session/llm.ts b/packages/opencode/src/session/llm.ts
 index ea2efc9..531f1f0 100644
 --- a/packages/opencode/src/session/llm.ts
@@ -2028,7 +1688,7 @@ index 68157f5..e601829 100644
              type: "text",
              text: part.text,
 diff --git a/packages/opencode/src/session/processor.ts b/packages/opencode/src/session/processor.ts
-index a287c3b..c1a2786 100644
+index a287c3b..cf60db0 100644
 --- a/packages/opencode/src/session/processor.ts
 +++ b/packages/opencode/src/session/processor.ts
 @@ -7,6 +7,8 @@ import { Config } from "@/config/config"
@@ -2040,7 +1700,7 @@ index a287c3b..c1a2786 100644
  import * as Session from "./session"
  import { LLM } from "./llm"
  import { MessageV2 } from "./message-v2"
-@@ -32,6 +34,10 @@ import { Usage, type LLMEvent } from "@opencode-ai/llm"
+@@ -32,6 +34,21 @@ import { Usage, type LLMEvent } from "@opencode-ai/llm"
  const DOOM_LOOP_THRESHOLD = 3
  const log = Log.create({ service: "session.processor" })
  
@@ -2048,10 +1708,21 @@ index a287c3b..c1a2786 100644
 +const sessionAuthKeys = new Map<string, Record<string, string>>()
 +const shownExhaustion = new Set<string>()
 +
++export function clearProviderPoolExhaustion(providerID: string) {
++  for (const keys of sessionAuthKeys.values()) {
++    delete keys[providerID]
++  }
++  for (const key of shownExhaustion) {
++    if (key.endsWith(`:${providerID}`)) {
++      shownExhaustion.delete(key)
++    }
++  }
++}
++
  export type Result = "compact" | "stop" | "continue"
  
  export interface Handle {
-@@ -101,6 +107,8 @@ export const layer = Layer.effect(
+@@ -101,6 +118,8 @@ export const layer = Layer.effect(
      const image = yield* Image.Service
      const events = yield* EventV2Bridge.Service
      const flags = yield* RuntimeFlags.Service
@@ -2060,7 +1731,7 @@ index a287c3b..c1a2786 100644
  
      const create = Effect.fn("SessionProcessor.create")(function* (input: Input) {
        // Pre-capture snapshot before the LLM stream starts. The AI SDK
-@@ -782,6 +790,12 @@ export const layer = Layer.effect(
+@@ -782,6 +801,12 @@ export const layer = Layer.effect(
          ctx.needsCompaction = false
          ctx.shouldBreak = (yield* config.get()).experimental?.continue_loop_on_deny !== true
  
@@ -2073,7 +1744,7 @@ index a287c3b..c1a2786 100644
          return yield* Effect.gen(function* () {
            yield* Effect.gen(function* () {
              ctx.currentText = undefined
-@@ -812,6 +826,19 @@ export const layer = Layer.effect(
+@@ -812,6 +837,19 @@ export const layer = Layer.effect(
                  provider: input.model.providerID,
                  parse,
                  set: (info) => {
@@ -2093,7 +1764,7 @@ index a287c3b..c1a2786 100644
                    // TODO(v2): Temporary dual-write while migrating session messages to v2 events.
                    const event = flags.experimentalEventSystem
                      ? events.publish(SessionEvent.Retried, {
-@@ -824,16 +851,46 @@ export const layer = Layer.effect(
+@@ -824,16 +862,46 @@ export const layer = Layer.effect(
                          timestamp: DateTime.makeUnsafe(Date.now()),
                        })
                      : Effect.void
@@ -2122,7 +1793,7 @@ index a287c3b..c1a2786 100644
 +                      const exhKey = `${ctx.sessionID}:${input.model.providerID}`
 +                      if (rotated.exhausted) {
 +                        if (!shownExhaustion.has(exhKey)) {
-+                          // First exhaustion 竊・show "Rate limit exceeded" to user,
++                          // First exhaustion → show "Rate limit exceeded" to user,
 +                          // then silently poll in the background for new/recovered keys
 +                          shownExhaustion.add(exhKey)
 +                        } else {
@@ -2150,7 +1821,7 @@ index a287c3b..c1a2786 100644
                    )
                  },
                }),
-@@ -873,6 +930,7 @@ export const defaultLayer = Layer.suspend(() =>
+@@ -873,6 +941,7 @@ export const defaultLayer = Layer.suspend(() =>
      Layer.provide(SessionSummary.defaultLayer),
      Layer.provide(SessionStatus.defaultLayer),
      Layer.provide(Image.defaultLayer),
@@ -2187,64 +1858,6 @@ index 22fe4d8..a854efb 100644
              if (structured !== undefined) {
                handle.message.structured = structured
                handle.message.finish = handle.message.finish ?? "stop"
-diff --git a/packages/opencode/src/session/retry.ts b/packages/opencode/src/session/retry.ts
-index 463bc27..56a089f 100644
---- a/packages/opencode/src/session/retry.ts
-+++ b/packages/opencode/src/session/retry.ts
-@@ -6,8 +6,7 @@ import { isRecord } from "@/util/record"
- 
- export type Err = ReturnType<NamedError["toObject"]>
- 
--export const GO_UPSELL_MESSAGE = "Free usage exceeded, subscribe to Go"
--export const GO_UPSELL_URL = "https://opencode.ai/go"
-+
- export type RetryReason = "free_tier_limit" | "account_rate_limit" | (string & {})
- 
- export type Retryable = {
-@@ -72,22 +71,8 @@ export function retryable(error: Err, provider: string) {
-     // 5xx errors are transient server failures and should always be retried,
-     // even when the provider SDK doesn't explicitly mark them as retryable.
-     if (!error.data.isRetryable && !(status !== undefined && status >= 500)) return undefined
--    if (error.data.responseBody?.includes("FreeUsageLimitError")) {
--      return {
--        message: GO_UPSELL_MESSAGE,
--        action: {
--          reason: "free_tier_limit",
--          provider,
--          title: "Free limit reached",
--          message: "Subscribe to OpenCode Go for reliable access to the best open-source models, starting at $5/month.",
--          label: "subscribe",
--          link: GO_UPSELL_URL,
--        },
--      }
--    }
-     if (error.data.responseBody?.includes("GoUsageLimitError")) {
-       const body = parseJSON(error.data.responseBody)
--      const workspace = str(body?.metadata?.workspace)
-       const limitName = str(body?.metadata?.limitName)
-       const retryAfter = num(error.data.responseHeaders?.["retry-after"])
-       const resetIn = iife(() => {
-@@ -104,19 +89,7 @@ export function retryable(error: Err, provider: string) {
-       })
- 
-       const message = `${limitName ? `${limitName} usage limit` : "Usage limit"} reached. It will reset in ${resetIn}. To continue using this model now, enable usage from your available balance`
--
--      const link = `https://opencode.ai/workspace/${workspace}/go`
--      return {
--        message: `${message} - ${link}`,
--        action: {
--          reason: "account_rate_limit",
--          provider,
--          title: "Go limit reached",
--          message,
--          label: "open settings",
--          link,
--        },
--      }
-+      return { message, action: { reason: "account_rate_limit", provider, title: "Go limit reached", message, label: "open settings" } }
-     }
-     return { message: error.data.message.includes("Overloaded") ? "Provider is overloaded" : error.data.message }
-   }
 diff --git a/packages/opencode/src/session/status.ts b/packages/opencode/src/session/status.ts
 index 089559e..8b4885b 100644
 --- a/packages/opencode/src/session/status.ts
