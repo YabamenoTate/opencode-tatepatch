@@ -1,8 +1,8 @@
 diff --git a/packages/app/src/components/dialog-connect-provider.tsx b/packages/app/src/components/dialog-connect-provider.tsx
-index a0ccc16..270d935 100644
+index a0ccc16..01ecdd5 100644
 --- a/packages/app/src/components/dialog-connect-provider.tsx
 +++ b/packages/app/src/components/dialog-connect-provider.tsx
-@@ -9,13 +9,25 @@ import { ProviderIcon } from "@opencode-ai/ui/provider-icon"
+@@ -9,13 +9,21 @@ import { ProviderIcon } from "@opencode-ai/ui/provider-icon"
  import { Spinner } from "@opencode-ai/ui/spinner"
  import { TextField } from "@opencode-ai/ui/text-field"
  import { showToast } from "@opencode-ai/ui/toast"
@@ -18,18 +18,14 @@ index a0ccc16..270d935 100644
 +import { authTokenFromCredentials } from "@/utils/server"
 +
 +interface PoolEntry {
-+  key: string
++  key_hash: string
++  key_masked: string
 +  label?: string
-+}
-+
-+function maskKey(key: string): string {
-+  if (key.length <= 12) return key.slice(0, 4) + "..."
-+  return key.slice(0, 8) + "..." + key.slice(-4)
 +}
  
  export function DialogConnectProvider(props: { provider: string }) {
    const dialog = useDialog()
-@@ -65,7 +77,7 @@ export function DialogConnectProvider(props: { provider: string }) {
+@@ -65,7 +73,7 @@ export function DialogConnectProvider(props: { provider: string }) {
    const [store, setStore] = createStore({
      methodIndex: undefined as undefined | number,
      authorization: undefined as undefined | ProviderAuthAuthorization,
@@ -38,7 +34,7 @@ index a0ccc16..270d935 100644
      error: undefined as string | undefined,
    })
  
-@@ -76,6 +88,7 @@ export function DialogConnectProvider(props: { provider: string }) {
+@@ -76,6 +84,7 @@ export function DialogConnectProvider(props: { provider: string }) {
      | { type: "auth.pending" }
      | { type: "auth.complete"; authorization: ProviderAuthAuthorization }
      | { type: "auth.error"; error: string }
@@ -46,7 +42,7 @@ index a0ccc16..270d935 100644
  
    function dispatch(action: Action) {
      setStore(
-@@ -110,6 +123,11 @@ export function DialogConnectProvider(props: { provider: string }) {
+@@ -110,6 +119,11 @@ export function DialogConnectProvider(props: { provider: string }) {
            draft.error = undefined
            return
          }
@@ -58,7 +54,7 @@ index a0ccc16..270d935 100644
          draft.state = "error"
          draft.error = action.error
        }),
-@@ -329,6 +347,66 @@ export function DialogConnectProvider(props: { provider: string }) {
+@@ -329,6 +343,74 @@ export function DialogConnectProvider(props: { provider: string }) {
      }
    })
  
@@ -95,8 +91,12 @@ index a0ccc16..270d935 100644
 +    setManageView("loading")
 +  }
 +
-+  async function removePoolKey(index: number) {
-+    const res = await poolFetch(`/auth/${encodeURIComponent(props.provider)}/pool/${index}`, { method: "DELETE" })
++  async function removePoolKey(keyHash: string) {
++    const res = await poolFetch(`/auth/${encodeURIComponent(props.provider)}/pool/remove`, {
++      method: "POST",
++      headers: { "Content-Type": "application/json" },
++      body: JSON.stringify({ key_hash: keyHash }),
++    })
 +    if (!res.ok) {
 +      showToast({ variant: "error", title: language.t("common.requestFailed") })
 +      return
@@ -104,8 +104,12 @@ index a0ccc16..270d935 100644
 +    setManageView("loading")
 +  }
 +
-+  async function switchPoolKey(index: number) {
-+    const res = await poolFetch(`/auth/${encodeURIComponent(props.provider)}/pool/switch/${index}`, { method: "POST" })
++  async function switchPoolKey(keyHash: string) {
++    const res = await poolFetch(`/auth/${encodeURIComponent(props.provider)}/pool/switch`, {
++      method: "POST",
++      headers: { "Content-Type": "application/json" },
++      body: JSON.stringify({ key_hash: keyHash }),
++    })
 +    if (!res.ok) {
 +      showToast({ variant: "error", title: language.t("common.requestFailed") })
 +      return
@@ -125,7 +129,7 @@ index a0ccc16..270d935 100644
    async function complete() {
      await serverSDK.client.global.dispose()
      dialog.close()
-@@ -356,6 +434,201 @@ export function DialogConnectProvider(props: { provider: string }) {
+@@ -356,6 +438,201 @@ export function DialogConnectProvider(props: { provider: string }) {
      all()
    }
  
@@ -252,7 +256,7 @@ index a0ccc16..270d935 100644
 +                    <div class="flex items-center gap-2 min-w-0">
 +                      <Icon name="circle-check" class="text-icon-success-base size-4 shrink-0" />
 +                      <span class="text-14-regular text-text-strong truncate font-mono text-xs">
-+                        {maskKey(mainEntry()!.key)}
++                        {mainEntry()!.key_masked}
 +                      </span>
 +                      {mainEntry()!.label ? (
 +                        <span class="text-12-regular text-text-weak">{mainEntry()!.label}</span>
@@ -280,15 +284,15 @@ index a0ccc16..270d935 100644
 +                {poolEntries().map((entry, i) => (
 +                  <div
 +                    class="flex items-center justify-between gap-2 p-2 rounded-md bg-surface-stronger-base border border-border-weak-base cursor-pointer hover:bg-surface-stronger-hover"
-+                    onClick={() => void switchPoolKey(i)}
++                    onClick={() => void switchPoolKey(entry.key_hash)}
 +                    role="button"
 +                    tabIndex={0}
-+                    onKeyDown={(e) => { if (e.key === "Enter") void switchPoolKey(i) }}
++                    onKeyDown={(e) => { if (e.key === "Enter") void switchPoolKey(entry.key_hash) }}
 +                  >
 +                    <div class="flex items-center gap-2 min-w-0">
 +                      <Icon name="arrow-swap" class="text-icon-base size-4 shrink-0" />
 +                      <span class="text-14-regular text-text-strong truncate font-mono text-xs">
-+                        {maskKey(entry.key)}
++                        {entry.key_masked}
 +                      </span>
 +                      {entry.label ? (
 +                        <span class="text-12-regular text-text-weak">{entry.label}</span>
@@ -299,7 +303,7 @@ index a0ccc16..270d935 100644
 +                        size="small"
 +                        variant="ghost"
 +                        icon="trash"
-+                        onClick={(e: MouseEvent) => { e.stopPropagation(); void removePoolKey(i) }}
++                        onClick={(e: MouseEvent) => { e.stopPropagation(); void removePoolKey(entry.key_hash) }}
 +                        title={language.t("common.delete")}
 +                      />
 +                    </div>
@@ -327,7 +331,7 @@ index a0ccc16..270d935 100644
    function MethodSelection() {
      return (
        <>
-@@ -414,7 +687,7 @@ export function DialogConnectProvider(props: { provider: string }) {
+@@ -414,7 +691,7 @@ export function DialogConnectProvider(props: { provider: string }) {
            key: apiKey,
          },
        })
@@ -336,7 +340,7 @@ index a0ccc16..270d935 100644
      }
  
      return (
-@@ -573,6 +846,11 @@ export function DialogConnectProvider(props: { provider: string }) {
+@@ -573,6 +850,11 @@ export function DialogConnectProvider(props: { provider: string }) {
      )
    }
  
@@ -348,7 +352,7 @@ index a0ccc16..270d935 100644
    return (
      <Dialog
        title={
-@@ -608,6 +886,9 @@ export function DialogConnectProvider(props: { provider: string }) {
+@@ -608,6 +890,9 @@ export function DialogConnectProvider(props: { provider: string }) {
                    </div>
                  </div>
                </Match>
@@ -411,109 +415,177 @@ index 1570da0..ad2462f 100644
      if (!session && isNewSession) {
        const created = await client.session
 diff --git a/packages/app/src/i18n/ar.ts b/packages/app/src/i18n/ar.ts
-index 5d12402..c581446 100644
+index 5d12402..ad55560 100644
 --- a/packages/app/src/i18n/ar.ts
 +++ b/packages/app/src/i18n/ar.ts
 @@ -142,6 +142,10 @@ export const dict = {
-   "provider.connect.oauth.auto.confirmationCode": "رمز التأكيد",
-   "provider.connect.toast.connected.title": "تم توصيل {{provider}}",
-   "provider.connect.toast.connected.description": "نماذج {{provider}} متاحة الآن للاستخدام.",
-+  "provider.connect.accounts": "حسابات {{provider}}",
-+  "provider.connect.mainAccount": "الحساب الرئيسي",
-+  "provider.connect.noAccounts": "لا توجد حسابات بعد",
-+  "provider.connect.setMainAccount": "تعيين كحساب رئيسي",
-   "provider.custom.title": "موفر مخصص",
-   "provider.custom.description.prefix": "تكوين موفر متوافق مع OpenAI. راجع ",
-   "provider.custom.description.link": "وثائق تكوين الموفر",
-@@ -529,6 +533,8 @@ export const dict = {
-   "common.reset": "إعادة تعيين",
-   "common.archive": "أرشفة",
-   "common.delete": "حذف",
-+  "common.add": "إضافة",
-+  "common.done": "تم",
-   "common.close": "إغلاق",
-   "common.edit": "تحرير",
-   "common.loadMore": "تحميل المزيد",
+   "provider.connect.oauth.auto.confirmationCode": "ﾘｱﾙ・ｲ ﾘｧﾙ・ｪﾘ｣ﾙ・韓ｯ",
+   "provider.connect.toast.connected.title": "ﾘｪﾙ・ﾘｪﾙ畏ｵﾙ館・{{provider}}",
+   "provider.connect.toast.connected.description": "ﾙ・・ｧﾘｰﾘｬ {{provider}} ﾙ・ｪﾘｧﾘｭﾘｩ ﾘｧﾙ・｢ﾙ・ﾙ・・ｧﾘｳﾘｪﾘｮﾘｯﾘｧﾙ・",
++  "provider.connect.accounts": "ﾘｭﾘｳﾘｧﾘｨﾘｧﾘｪ {{provider}}",
++  "provider.connect.mainAccount": "ﾘｧﾙ・ｭﾘｳﾘｧﾘｨ ﾘｧﾙ・ｱﾘｦﾙ韓ｳﾙ・,
++  "provider.connect.noAccounts": "ﾙ・ｧ ﾘｪﾙ畏ｬﾘｯ ﾘｭﾘｳﾘｧﾘｨﾘｧﾘｪ ﾘｨﾘｹﾘｯ",
++  "provider.connect.setMainAccount": "ﾘｪﾘｹﾙ館館・ﾙ・ｭﾘｳﾘｧﾘｨ ﾘｱﾘｦﾙ韓ｳﾙ・,
+   "provider.custom.title": "ﾙ・異・ｱ ﾙ・ｮﾘｵﾘｵ",
+   "provider.custom.description.prefix": "ﾘｪﾙ・異館・ﾙ・異・ｱ ﾙ・ｪﾙ畏ｧﾙ・・ﾙ・ｹ OpenAI. ﾘｱﾘｧﾘｬﾘｹ ",
+   "provider.custom.description.link": "ﾙ畏ｫﾘｧﾘｦﾙ・ﾘｪﾙ・異館・ﾘｧﾙ・・異・ｱ",
+@@ -255,6 +259,7 @@ export const dict = {
+   "prompt.context.removeActiveFile": "ﾘ･ﾘｲﾘｧﾙ・ｩ ﾘｧﾙ・・・・ﾘｧﾙ・・ｴﾘｷ ﾙ・・ﾘｧﾙ・ｳﾙ韓ｧﾙ・,
+   "prompt.context.removeFile": "ﾘ･ﾘｲﾘｧﾙ・ｩ ﾘｧﾙ・・・・ﾙ・・ﾘｧﾙ・ｳﾙ韓ｧﾙ・,
+   "prompt.action.attachFile": "ﾘ･ﾘｱﾙ・ｧﾙ・ﾙ・・・,
++  "prompt.action.enterNewline": "u200FEnter ﾙ・ｳﾘｷﾘｱ ﾘｬﾘｯﾙ韓ｯ",
+   "prompt.attachment.remove": "ﾘ･ﾘｲﾘｧﾙ・ｩ ﾘｧﾙ・・ｱﾙ・・,
+   "prompt.action.send": "ﾘ･ﾘｱﾘｳﾘｧﾙ・,
+   "prompt.action.stop": "ﾘｪﾙ異ほ・,
+@@ -503,7 +508,7 @@ export const dict = {
+   "session.share.popover.title": "ﾙ・ｴﾘｱ ﾘｹﾙ・・ﾘｧﾙ・異韓ｨ",
+   "session.share.popover.description.shared": "ﾙ・ｰﾙ・ﾘｧﾙ・ｬﾙ・ｳﾘｩ ﾘｹﾘｧﾙ・ｩ ﾘｹﾙ・・ﾘｧﾙ・異韓ｨ. ﾙ館・・・ﾙ・｣ﾙ・ﾘｴﾘｮﾘｵ ﾙ・ｯﾙ館・ﾘｧﾙ・ｱﾘｧﾘｨﾘｷ ﾘｧﾙ・畏ｵﾙ異・ﾘ･ﾙ・館・ｧ.",
+   "session.share.popover.description.unshared": "ﾘｴﾘｧﾘｱﾙ・ﾘｧﾙ・ｬﾙ・ｳﾘｩ ﾘｹﾙ・・筋ｧ ﾘｹﾙ・・ﾘｧﾙ・異韓ｨ. ﾘｳﾘｪﾙ・異・ﾙ・ｪﾘｧﾘｭﾘｩ ﾙ・｣ﾙ・ﾘｴﾘｮﾘｵ ﾙ・ｯﾙ館・ﾘｧﾙ・ｱﾘｧﾘｨﾘｷ.",
+-  "session.share.action.share": "ﾙ・ｴﾘｧﾘｱﾙ・ｩ",
++  "session.share.action.share": "ﾘｪﾘｵﾘｯﾙ韓ｱ",
+   "session.share.action.publish": "ﾙ・ｴﾘｱ",
+   "session.share.action.publishing": "ﾘｬﾘｧﾘｱﾙ・ﾘｧﾙ・・ｴﾘｱ...",
+   "session.share.action.unpublish": "ﾘ･ﾙ・ｺﾘｧﾘ｡ ﾘｧﾙ・・ｴﾘｱ",
+@@ -529,6 +534,8 @@ export const dict = {
+   "common.reset": "ﾘ･ﾘｹﾘｧﾘｯﾘｩ ﾘｪﾘｹﾙ館館・,
+   "common.archive": "ﾘ｣ﾘｱﾘｴﾙ・ｩ",
+   "common.delete": "ﾘｭﾘｰﾙ・,
++  "common.add": "ﾘ･ﾘｶﾘｧﾙ・ｩ",
++  "common.done": "ﾘｪﾙ・,
+   "common.close": "ﾘ･ﾘｺﾙ・ｧﾙ・,
+   "common.edit": "ﾘｪﾘｭﾘｱﾙ韓ｱ",
+   "common.loadMore": "ﾘｪﾘｭﾙ・館・ﾘｧﾙ・・ｲﾙ韓ｯ",
 diff --git a/packages/app/src/i18n/br.ts b/packages/app/src/i18n/br.ts
-index 7c6965e..9548d1f 100644
+index 7c6965e..b564968 100644
 --- a/packages/app/src/i18n/br.ts
 +++ b/packages/app/src/i18n/br.ts
 @@ -142,6 +142,10 @@ export const dict = {
-   "provider.connect.oauth.auto.confirmationCode": "Código de confirmação",
+   "provider.connect.oauth.auto.confirmationCode": "Cﾃｳdigo de confirmaﾃｧﾃ｣o",
    "provider.connect.toast.connected.title": "{{provider}} conectado",
-   "provider.connect.toast.connected.description": "Modelos do {{provider}} agora estão disponíveis para uso.",
+   "provider.connect.toast.connected.description": "Modelos do {{provider}} agora estﾃ｣o disponﾃｭveis para uso.",
 +  "provider.connect.accounts": "Contas {{provider}}",
 +  "provider.connect.mainAccount": "Conta principal",
 +  "provider.connect.noAccounts": "Nenhuma conta ainda",
 +  "provider.connect.setMainAccount": "Definir como conta principal",
    "provider.custom.title": "Provedor personalizado",
-   "provider.custom.description.prefix": "Configure um provedor compatível com OpenAI. Veja a ",
-   "provider.custom.description.link": "documentação de configuração do provedor",
-@@ -536,6 +540,8 @@ export const dict = {
+   "provider.custom.description.prefix": "Configure um provedor compatﾃｭvel com OpenAI. Veja a ",
+   "provider.custom.description.link": "documentaﾃｧﾃ｣o de configuraﾃｧﾃ｣o do provedor",
+@@ -255,6 +259,7 @@ export const dict = {
+   "prompt.context.removeActiveFile": "Remover arquivo ativo do contexto",
+   "prompt.context.removeFile": "Remover arquivo do contexto",
+   "prompt.action.attachFile": "Anexar arquivo",
++  "prompt.action.enterNewline": "Enter para nova linha",
+   "prompt.attachment.remove": "Remover anexo",
+   "prompt.action.send": "Enviar",
+   "prompt.action.stop": "Parar",
+@@ -509,7 +514,7 @@ export const dict = {
+     "Esta sessﾃ｣o ﾃｩ pﾃｺblica na web. Estﾃ｡ acessﾃｭvel para qualquer pessoa com o link.",
+   "session.share.popover.description.unshared":
+     "Compartilhar sessﾃ｣o publicamente na web. Estarﾃ｡ acessﾃｭvel para qualquer pessoa com o link.",
+-  "session.share.action.share": "Compartilhar",
++  "session.share.action.share": "Exportar",
+   "session.share.action.publish": "Publicar",
+   "session.share.action.publishing": "Publicando...",
+   "session.share.action.unpublish": "Cancelar publicaﾃｧﾃ｣o",
+@@ -536,6 +541,8 @@ export const dict = {
    "common.reset": "Redefinir",
    "common.archive": "Arquivar",
    "common.delete": "Excluir",
 +  "common.add": "Adicionar",
-+  "common.done": "Concluído",
++  "common.done": "Concluﾃｭdo",
    "common.close": "Fechar",
    "common.edit": "Editar",
    "common.loadMore": "Carregar mais",
 diff --git a/packages/app/src/i18n/bs.ts b/packages/app/src/i18n/bs.ts
-index 201b6ed..0d9b853 100644
+index 201b6ed..f97a3ed 100644
 --- a/packages/app/src/i18n/bs.ts
 +++ b/packages/app/src/i18n/bs.ts
 @@ -154,6 +154,10 @@ export const dict = {
    "provider.connect.oauth.auto.confirmationCode": "Kod za potvrdu",
    "provider.connect.toast.connected.title": "{{provider}} povezan",
-   "provider.connect.toast.connected.description": "{{provider}} modeli su sada dostupni za korištenje.",
-+  "provider.connect.accounts": "{{provider}} računi",
-+  "provider.connect.mainAccount": "Glavni račun",
-+  "provider.connect.noAccounts": "Još nema računa",
-+  "provider.connect.setMainAccount": "Postavi kao glavni račun",
+   "provider.connect.toast.connected.description": "{{provider}} modeli su sada dostupni za koriﾅ｡tenje.",
++  "provider.connect.accounts": "{{provider}} raﾄ講ni",
++  "provider.connect.mainAccount": "Glavni raﾄ講n",
++  "provider.connect.noAccounts": "Joﾅ｡ nema raﾄ講na",
++  "provider.connect.setMainAccount": "Postavi kao glavni raﾄ講n",
  
-   "provider.custom.title": "Prilagođeni provajder",
-   "provider.custom.description.prefix": "Konfiguriši OpenAI-kompatibilnog provajdera. Pogledaj ",
-@@ -596,6 +600,8 @@ export const dict = {
+   "provider.custom.title": "Prilagoﾄ粗ni provajder",
+   "provider.custom.description.prefix": "Konfiguriﾅ｡i OpenAI-kompatibilnog provajdera. Pogledaj ",
+@@ -275,6 +279,7 @@ export const dict = {
+   "prompt.context.removeActiveFile": "Ukloni aktivnu datoteku iz konteksta",
+   "prompt.context.removeFile": "Ukloni datoteku iz konteksta",
+   "prompt.action.attachFile": "Priloﾅｾi datoteku",
++  "prompt.action.enterNewline": "Enter za novi red",
+   "prompt.attachment.remove": "Ukloni prilog",
+   "prompt.action.send": "Poﾅ｡alji",
+   "prompt.action.stop": "Zaustavi",
+@@ -566,7 +571,7 @@ export const dict = {
+   "session.share.popover.title": "Objavi na webu",
+   "session.share.popover.description.shared": "Ova sesija je javna na webu. Dostupna je svima koji imaju link.",
+   "session.share.popover.description.unshared": "Podijeli sesiju javno na webu. Biﾄ㌃ dostupna svima koji imaju link.",
+-  "session.share.action.share": "Podijeli",
++  "session.share.action.share": "Izvoz",
+   "session.share.action.publish": "Objavi",
+   "session.share.action.publishing": "Objavljivanje...",
+   "session.share.action.unpublish": "Poniﾅ｡ti objavu",
+@@ -596,6 +601,8 @@ export const dict = {
    "common.reset": "Resetuj",
    "common.archive": "Arhiviraj",
-   "common.delete": "Izbriši",
+   "common.delete": "Izbriﾅ｡i",
 +  "common.add": "Dodaj",
 +  "common.done": "Gotovo",
    "common.close": "Zatvori",
    "common.edit": "Uredi",
-   "common.loadMore": "Učitaj još",
+   "common.loadMore": "Uﾄ絞taj joﾅ｡",
 diff --git a/packages/app/src/i18n/da.ts b/packages/app/src/i18n/da.ts
-index d52aca8..31d1ed9 100644
+index d52aca8..18aea7f 100644
 --- a/packages/app/src/i18n/da.ts
 +++ b/packages/app/src/i18n/da.ts
 @@ -154,6 +154,10 @@ export const dict = {
-   "provider.connect.oauth.auto.confirmationCode": "Bekræftelseskode",
+   "provider.connect.oauth.auto.confirmationCode": "Bekrﾃｦftelseskode",
    "provider.connect.toast.connected.title": "{{provider}} forbundet",
-   "provider.connect.toast.connected.description": "{{provider}} modeller er nu tilgængelige.",
+   "provider.connect.toast.connected.description": "{{provider}} modeller er nu tilgﾃｦngelige.",
 +  "provider.connect.accounts": "{{provider}}-konti",
-+  "provider.connect.mainAccount": "Primær konto",
++  "provider.connect.mainAccount": "Primﾃｦr konto",
 +  "provider.connect.noAccounts": "Ingen konti endnu",
-+  "provider.connect.setMainAccount": "Angiv som primær konto",
++  "provider.connect.setMainAccount": "Angiv som primﾃｦr konto",
  
    "provider.custom.title": "Brugerdefineret udbyder",
    "provider.custom.description.prefix": "Konfigurer en OpenAI-kompatibel udbyder. Se ",
-@@ -592,6 +596,8 @@ export const dict = {
+@@ -273,6 +277,7 @@ export const dict = {
+   "prompt.context.removeActiveFile": "Fjern aktiv fil fra kontekst",
+   "prompt.context.removeFile": "Fjern fil fra kontekst",
+   "prompt.action.attachFile": "Vedhﾃｦft fil",
++  "prompt.action.enterNewline": "Enter for ny linje",
+   "prompt.attachment.remove": "Fjern vedhﾃｦftning",
+   "prompt.action.send": "Send",
+   "prompt.action.stop": "Stop",
+@@ -563,7 +568,7 @@ export const dict = {
+     "Denne session er offentlig pﾃ･ nettet. Den er tilgﾃｦngelig for alle med linket.",
+   "session.share.popover.description.unshared":
+     "Del session offentligt pﾃ･ nettet. Den vil vﾃｦre tilgﾃｦngelig for alle med linket.",
+-  "session.share.action.share": "Del",
++  "session.share.action.share": "Eksporter",
+   "session.share.action.publish": "Udgiv",
+   "session.share.action.publishing": "Udgiver...",
+   "session.share.action.unpublish": "Afpublicer",
+@@ -592,6 +597,8 @@ export const dict = {
    "common.reset": "Nulstil",
-   "common.archive": "Arkivér",
+   "common.archive": "Arkivﾃｩr",
    "common.delete": "Slet",
-+  "common.add": "Tilføj",
-+  "common.done": "Færdig",
++  "common.add": "Tilfﾃｸj",
++  "common.done": "Fﾃｦrdig",
    "common.close": "Luk",
    "common.edit": "Rediger",
-   "common.loadMore": "Indlæs flere",
+   "common.loadMore": "Indlﾃｦs flere",
 diff --git a/packages/app/src/i18n/de.ts b/packages/app/src/i18n/de.ts
-index 4d5a649..b75667a 100644
+index 4d5a649..2ca8e7b 100644
 --- a/packages/app/src/i18n/de.ts
 +++ b/packages/app/src/i18n/de.ts
 @@ -146,6 +146,10 @@ export const dict = {
-   "provider.connect.oauth.auto.confirmationCode": "Bestätigungscode",
+   "provider.connect.oauth.auto.confirmationCode": "Bestﾃ､tigungscode",
    "provider.connect.toast.connected.title": "{{provider}} verbunden",
-   "provider.connect.toast.connected.description": "{{provider}} Modelle sind jetzt verfügbar.",
+   "provider.connect.toast.connected.description": "{{provider}} Modelle sind jetzt verfﾃｼgbar.",
 +  "provider.connect.accounts": "{{provider}}-Konten",
 +  "provider.connect.mainAccount": "Hauptkonto",
 +  "provider.connect.noAccounts": "Noch keine Konten",
@@ -521,17 +593,34 @@ index 4d5a649..b75667a 100644
    "provider.custom.title": "Benutzerdefinierter Anbieter",
    "provider.custom.description.prefix": "Konfigurieren Sie einen OpenAI-kompatiblen Anbieter. Siehe die ",
    "provider.custom.description.link": "Anbieter-Konfigurationsdokumente",
-@@ -544,6 +548,8 @@ export const dict = {
-   "common.reset": "Zurücksetzen",
+@@ -260,6 +264,7 @@ export const dict = {
+   "prompt.context.removeActiveFile": "Aktive Datei aus dem Kontext entfernen",
+   "prompt.context.removeFile": "Datei aus dem Kontext entfernen",
+   "prompt.action.attachFile": "Datei anhﾃ､ngen",
++  "prompt.action.enterNewline": "Enter fﾃｼr neue Zeile",
+   "prompt.attachment.remove": "Anhang entfernen",
+   "prompt.action.send": "Senden",
+   "prompt.action.stop": "Stopp",
+@@ -517,7 +522,7 @@ export const dict = {
+     "Diese Sitzung ist ﾃｶffentlich im Web. Sie ist fﾃｼr jeden mit dem Link zugﾃ､nglich.",
+   "session.share.popover.description.unshared":
+     "Sitzung ﾃｶffentlich im Web teilen. Sie wird fﾃｼr jeden mit dem Link zugﾃ､nglich sein.",
+-  "session.share.action.share": "Teilen",
++  "session.share.action.share": "Exportieren",
+   "session.share.action.publish": "Verﾃｶffentlichen",
+   "session.share.action.publishing": "Verﾃｶffentliche...",
+   "session.share.action.unpublish": "Verﾃｶffentlichung aufheben",
+@@ -544,6 +549,8 @@ export const dict = {
+   "common.reset": "Zurﾃｼcksetzen",
    "common.archive": "Archivieren",
-   "common.delete": "Löschen",
-+  "common.add": "Hinzufügen",
+   "common.delete": "Lﾃｶschen",
++  "common.add": "Hinzufﾃｼgen",
 +  "common.done": "Fertig",
-   "common.close": "Schließen",
+   "common.close": "Schlieﾃ歹n",
    "common.edit": "Bearbeiten",
    "common.loadMore": "Mehr laden",
 diff --git a/packages/app/src/i18n/en.ts b/packages/app/src/i18n/en.ts
-index 29f662f..bfe4282 100644
+index 29f662f..3bf53c6 100644
 --- a/packages/app/src/i18n/en.ts
 +++ b/packages/app/src/i18n/en.ts
 @@ -157,6 +157,10 @@ export const dict = {
@@ -545,7 +634,24 @@ index 29f662f..bfe4282 100644
  
    "provider.custom.title": "Custom provider",
    "provider.custom.description.prefix": "Configure an OpenAI-compatible provider. See the ",
-@@ -663,6 +667,8 @@ export const dict = {
+@@ -281,6 +285,7 @@ export const dict = {
+   "prompt.context.removeActiveFile": "Remove active file from context",
+   "prompt.context.removeFile": "Remove file from context",
+   "prompt.action.attachFile": "Add files",
++  "prompt.action.enterNewline": "Enter for newline",
+   "prompt.attachment.remove": "Remove attachment",
+   "prompt.action.send": "Send",
+   "prompt.action.stop": "Stop",
+@@ -631,7 +636,7 @@ export const dict = {
+     "This session is public on the web. It is accessible to anyone with the link.",
+   "session.share.popover.description.unshared":
+     "Share session publicly on the web. It will be accessible to anyone with the link.",
+-  "session.share.action.share": "Share",
++  "session.share.action.share": "Export",
+   "session.share.action.publish": "Publish",
+   "session.share.action.publishing": "Publishing...",
+   "session.share.action.unpublish": "Unpublish",
+@@ -663,6 +668,8 @@ export const dict = {
    "common.reset": "Reset",
    "common.archive": "Archive",
    "common.delete": "Delete",
@@ -555,117 +661,202 @@ index 29f662f..bfe4282 100644
    "common.edit": "Edit",
    "common.loadMore": "Load more",
 diff --git a/packages/app/src/i18n/es.ts b/packages/app/src/i18n/es.ts
-index b71fe03..f0e0f61 100644
+index b71fe03..9fcb260 100644
 --- a/packages/app/src/i18n/es.ts
 +++ b/packages/app/src/i18n/es.ts
 @@ -154,6 +154,10 @@ export const dict = {
-   "provider.connect.oauth.auto.confirmationCode": "Código de confirmación",
+   "provider.connect.oauth.auto.confirmationCode": "Cﾃｳdigo de confirmaciﾃｳn",
    "provider.connect.toast.connected.title": "{{provider}} conectado",
-   "provider.connect.toast.connected.description": "Los modelos de {{provider}} ahora están disponibles para usar.",
+   "provider.connect.toast.connected.description": "Los modelos de {{provider}} ahora estﾃ｡n disponibles para usar.",
 +  "provider.connect.accounts": "Cuentas de {{provider}}",
 +  "provider.connect.mainAccount": "Cuenta principal",
-+  "provider.connect.noAccounts": "Aún no hay cuentas",
++  "provider.connect.noAccounts": "Aﾃｺn no hay cuentas",
 +  "provider.connect.setMainAccount": "Establecer como cuenta principal",
  
    "provider.custom.title": "Proveedor personalizado",
    "provider.custom.description.prefix": "Configurar un proveedor compatible con OpenAI. Ver la ",
-@@ -599,6 +603,8 @@ export const dict = {
+@@ -274,6 +278,7 @@ export const dict = {
+   "prompt.context.removeActiveFile": "Eliminar archivo activo del contexto",
+   "prompt.context.removeFile": "Eliminar archivo del contexto",
+   "prompt.action.attachFile": "Adjuntar archivo",
++  "prompt.action.enterNewline": "Enter para nueva lﾃｭnea",
+   "prompt.attachment.remove": "Eliminar adjunto",
+   "prompt.action.send": "Enviar",
+   "prompt.action.stop": "Detener",
+@@ -569,7 +574,7 @@ export const dict = {
+     "Esta sesiﾃｳn es pﾃｺblica en la web. Es accesible para cualquiera con el enlace.",
+   "session.share.popover.description.unshared":
+     "Compartir sesiﾃｳn pﾃｺblicamente en la web. Serﾃ｡ accesible para cualquiera con el enlace.",
+-  "session.share.action.share": "Compartir",
++  "session.share.action.share": "Exportar",
+   "session.share.action.publish": "Publicar",
+   "session.share.action.publishing": "Publicando...",
+   "session.share.action.unpublish": "Despublicar",
+@@ -599,6 +604,8 @@ export const dict = {
    "common.reset": "Restablecer",
    "common.archive": "Archivar",
    "common.delete": "Eliminar",
-+  "common.add": "Añadir",
++  "common.add": "Aﾃｱadir",
 +  "common.done": "Hecho",
    "common.close": "Cerrar",
    "common.edit": "Editar",
-   "common.loadMore": "Cargar más",
+   "common.loadMore": "Cargar mﾃ｡s",
 diff --git a/packages/app/src/i18n/fr.ts b/packages/app/src/i18n/fr.ts
-index 385dbdd..3666d58 100644
+index 385dbdd..a97239f 100644
 --- a/packages/app/src/i18n/fr.ts
 +++ b/packages/app/src/i18n/fr.ts
 @@ -142,6 +142,10 @@ export const dict = {
    "provider.connect.oauth.auto.confirmationCode": "Code de confirmation",
-   "provider.connect.toast.connected.title": "{{provider}} connecté",
-   "provider.connect.toast.connected.description": "Les modèles {{provider}} sont maintenant disponibles.",
+   "provider.connect.toast.connected.title": "{{provider}} connectﾃｩ",
+   "provider.connect.toast.connected.description": "Les modﾃｨles {{provider}} sont maintenant disponibles.",
 +  "provider.connect.accounts": "Comptes {{provider}}",
 +  "provider.connect.mainAccount": "Compte principal",
 +  "provider.connect.noAccounts": "Aucun compte pour l'instant",
-+  "provider.connect.setMainAccount": "Définir comme compte principal",
-   "provider.custom.title": "Fournisseur personnalisé",
++  "provider.connect.setMainAccount": "Dﾃｩfinir comme compte principal",
+   "provider.custom.title": "Fournisseur personnalisﾃｩ",
    "provider.custom.description.prefix": "Configurer un fournisseur compatible OpenAI. Voir la ",
    "provider.custom.description.link": "doc de config fournisseur",
-@@ -541,6 +545,8 @@ export const dict = {
-   "common.reset": "Réinitialiser",
+@@ -255,6 +259,7 @@ export const dict = {
+   "prompt.context.removeActiveFile": "Retirer le fichier actif du contexte",
+   "prompt.context.removeFile": "Retirer le fichier du contexte",
+   "prompt.action.attachFile": "Joindre un fichier",
++  "prompt.action.enterNewline": "Entrﾃｩe pour nouvelle ligne",
+   "prompt.attachment.remove": "Supprimer la piﾃｨce jointe",
+   "prompt.action.send": "Envoyer",
+   "prompt.action.stop": "Arrﾃｪter",
+@@ -514,7 +519,7 @@ export const dict = {
+     "Cette session est publique sur le web. Elle est accessible ﾃ toute personne disposant du lien.",
+   "session.share.popover.description.unshared":
+     "Partager la session publiquement sur le web. Elle sera accessible ﾃ toute personne disposant du lien.",
+-  "session.share.action.share": "Partager",
++  "session.share.action.share": "Exporter",
+   "session.share.action.publish": "Publier",
+   "session.share.action.publishing": "Publication...",
+   "session.share.action.unpublish": "Dﾃｩpublier",
+@@ -541,6 +546,8 @@ export const dict = {
+   "common.reset": "Rﾃｩinitialiser",
    "common.archive": "Archiver",
    "common.delete": "Supprimer",
 +  "common.add": "Ajouter",
-+  "common.done": "Terminé",
++  "common.done": "Terminﾃｩ",
    "common.close": "Fermer",
    "common.edit": "Modifier",
    "common.loadMore": "Charger plus",
 diff --git a/packages/app/src/i18n/ja.ts b/packages/app/src/i18n/ja.ts
-index 34ac398..707c29f 100644
+index 34ac398..56ef876 100644
 --- a/packages/app/src/i18n/ja.ts
 +++ b/packages/app/src/i18n/ja.ts
 @@ -141,6 +141,10 @@ export const dict = {
-   "provider.connect.oauth.auto.confirmationCode": "確認コード",
-   "provider.connect.toast.connected.title": "{{provider}}が接続されました",
-   "provider.connect.toast.connected.description": "{{provider}}モデルが使用可能になりました。",
-+  "provider.connect.accounts": "{{provider}}のアカウント",
-+  "provider.connect.mainAccount": "メインアカウント",
-+  "provider.connect.noAccounts": "アカウントがまだありません",
-+  "provider.connect.setMainAccount": "メインアカウントに設定",
-   "provider.custom.title": "カスタムプロバイダー",
-   "provider.custom.description.prefix": "OpenAI互換のプロバイダーを設定します。詳細は",
-   "provider.custom.description.link": "プロバイダー設定ドキュメント",
-@@ -533,6 +537,8 @@ export const dict = {
-   "common.reset": "リセット",
-   "common.archive": "アーカイブ",
-   "common.delete": "削除",
-+  "common.add": "追加",
-+  "common.done": "完了",
-   "common.close": "閉じる",
-   "common.edit": "編集",
-   "common.loadMore": "さらに読み込む",
+   "provider.connect.oauth.auto.confirmationCode": "遒ｺ隱阪さ繝ｼ繝・,
+   "provider.connect.toast.connected.title": "{{provider}}縺梧磁邯壹＆繧後∪縺励◆",
+   "provider.connect.toast.connected.description": "{{provider}}繝｢繝・Ν縺御ｽｿ逕ｨ蜿ｯ閭ｽ縺ｫ縺ｪ繧翫∪縺励◆縲・,
++  "provider.connect.accounts": "{{provider}}縺ｮ繧｢繧ｫ繧ｦ繝ｳ繝・,
++  "provider.connect.mainAccount": "繝｡繧､繝ｳ繧｢繧ｫ繧ｦ繝ｳ繝・,
++  "provider.connect.noAccounts": "繧｢繧ｫ繧ｦ繝ｳ繝医′縺ｾ縺縺ゅｊ縺ｾ縺帙ｓ",
++  "provider.connect.setMainAccount": "繝｡繧､繝ｳ繧｢繧ｫ繧ｦ繝ｳ繝医↓險ｭ螳・,
+   "provider.custom.title": "繧ｫ繧ｹ繧ｿ繝繝励Ο繝舌う繝繝ｼ",
+   "provider.custom.description.prefix": "OpenAI莠呈鋤縺ｮ繝励Ο繝舌う繝繝ｼ繧定ｨｭ螳壹＠縺ｾ縺吶りｩｳ邏ｰ縺ｯ",
+   "provider.custom.description.link": "繝励Ο繝舌う繝繝ｼ險ｭ螳壹ラ繧ｭ繝･繝｡繝ｳ繝・,
+@@ -254,6 +258,7 @@ export const dict = {
+   "prompt.context.removeActiveFile": "繧ｳ繝ｳ繝・く繧ｹ繝医°繧峨い繧ｯ繝・ぅ繝悶↑繝輔ぃ繧､繝ｫ繧貞炎髯､",
+   "prompt.context.removeFile": "繧ｳ繝ｳ繝・く繧ｹ繝医°繧峨ヵ繧｡繧､繝ｫ繧貞炎髯､",
+   "prompt.action.attachFile": "繝輔ぃ繧､繝ｫ繧呈ｷｻ莉・,
++  "prompt.action.enterNewline": "Enter縺ｧ謾ｹ陦・,
+   "prompt.attachment.remove": "豺ｻ莉倥ヵ繧｡繧､繝ｫ繧貞炎髯､",
+   "prompt.action.send": "騾∽ｿ｡",
+   "prompt.action.stop": "蛛懈ｭ｢",
+@@ -506,7 +511,7 @@ export const dict = {
+     "縺薙・繧ｻ繝・す繝ｧ繝ｳ縺ｯ繧ｦ繧ｧ繝悶〒蜈ｬ髢九＆繧後※縺・∪縺吶ゅΜ繝ｳ繧ｯ繧堤衍縺｣縺ｦ縺・ｋ莠ｺ縺ｪ繧芽ｪｰ縺ｧ繧ゅい繧ｯ繧ｻ繧ｹ縺ｧ縺阪∪縺吶・,
+   "session.share.popover.description.unshared":
+     "繧ｻ繝・す繝ｧ繝ｳ繧偵え繧ｧ繝悶〒蜈ｬ髢九＠縺ｾ縺吶ゅΜ繝ｳ繧ｯ繧堤衍縺｣縺ｦ縺・ｋ莠ｺ縺ｪ繧芽ｪｰ縺ｧ繧ゅい繧ｯ繧ｻ繧ｹ縺ｧ縺阪ｋ繧医≧縺ｫ縺ｪ繧翫∪縺吶・,
+-  "session.share.action.share": "蜈ｱ譛・,
++  "session.share.action.share": "繧ｨ繧ｯ繧ｹ繝昴・繝・,
+   "session.share.action.publish": "蜈ｬ髢・,
+   "session.share.action.publishing": "蜈ｬ髢倶ｸｭ...",
+   "session.share.action.unpublish": "髱槫・髢九↓縺吶ｋ",
+@@ -533,6 +538,8 @@ export const dict = {
+   "common.reset": "繝ｪ繧ｻ繝・ヨ",
+   "common.archive": "繧｢繝ｼ繧ｫ繧､繝・,
+   "common.delete": "蜑企勁",
++  "common.add": "霑ｽ蜉",
++  "common.done": "螳御ｺ・,
+   "common.close": "髢峨§繧・,
+   "common.edit": "邱ｨ髮・,
+   "common.loadMore": "縺輔ｉ縺ｫ隱ｭ縺ｿ霎ｼ繧",
 diff --git a/packages/app/src/i18n/ko.ts b/packages/app/src/i18n/ko.ts
-index f1926f3..95a0ce7 100644
+index f1926f3..0ef1961 100644
 --- a/packages/app/src/i18n/ko.ts
 +++ b/packages/app/src/i18n/ko.ts
 @@ -141,6 +141,10 @@ export const dict = {
-   "provider.connect.oauth.auto.confirmationCode": "확인 코드",
-   "provider.connect.toast.connected.title": "{{provider}} 연결됨",
-   "provider.connect.toast.connected.description": "이제 {{provider}} 모델을 사용할 수 있습니다.",
-+  "provider.connect.accounts": "{{provider}} 계정",
-+  "provider.connect.mainAccount": "기본 계정",
-+  "provider.connect.noAccounts": "아직 계정 없음",
-+  "provider.connect.setMainAccount": "기본 계정으로 설정",
-   "provider.custom.title": "사용자 지정 공급자",
-   "provider.custom.description.prefix": "OpenAI 호환 공급자를 구성합니다. ",
-   "provider.custom.description.link": "공급자 구성 문서",
-@@ -530,6 +534,8 @@ export const dict = {
-   "common.reset": "초기화",
-   "common.archive": "보관",
-   "common.delete": "삭제",
-+  "common.add": "추가",
-+  "common.done": "완료",
-   "common.close": "닫기",
-   "common.edit": "편집",
-   "common.loadMore": "더 불러오기",
+   "provider.connect.oauth.auto.confirmationCode": "嶹菩攤 ・罷糖",
+   "provider.connect.toast.connected.title": "{{provider}} ・ｰ・ｰ・ｨ",
+   "provider.connect.toast.connected.description": "・ｴ・・{{provider}} ・ｨ・ｸ・・・ｬ・ｩ﨑 ・・・溢慣・壱共.",
++  "provider.connect.accounts": "{{provider}} ・・・,
++  "provider.connect.mainAccount": "・ｰ・ｸ ・・・,
++  "provider.connect.noAccounts": "・・ｧ・・・・・・搆",
++  "provider.connect.setMainAccount": "・ｰ・ｸ ・・菩愍・・・､・・,
+   "provider.custom.title": "・ｬ・ｩ・・・・・・ｵ・餓梵",
+   "provider.custom.description.prefix": "OpenAI 嶸ｸ嶹・・ｵ・餓梵・ｼ ・ｬ・ｱ﨑ｩ・壱共. ",
+   "provider.custom.description.link": "・ｵ・餓梵 ・ｬ・ｱ ・ｸ・・,
+@@ -254,6 +258,7 @@ export const dict = {
+   "prompt.context.removeActiveFile": "・ｨ奛作侃孖ｸ・川・ 嶹懍┳ 甯護攵 ・懋ｱｰ",
+   "prompt.context.removeFile": "・ｨ奛作侃孖ｸ・川・ 甯護攵 ・懋ｱｰ",
+   "prompt.action.attachFile": "甯護攵 ・ｨ・",
++  "prompt.action.enterNewline": "Enter・・・・ｰ緋ｿ・,
+   "prompt.attachment.remove": "・ｨ・ 甯護攵 ・懋ｱｰ",
+   "prompt.action.send": "・・・",
+   "prompt.action.stop": "・卓ｧ",
+@@ -503,7 +508,7 @@ export const dict = {
+   "session.share.popover.description.shared": "・ｴ ・ｸ・們捩 ・ｹ・・・ｵ・罹据・溢慣・壱共. ・・〓・ ・壱株 ・・ｵｬ・・・｡・ｸ・､﨑 ・・・溢慣・壱共.",
+   "session.share.popover.description.unshared":
+     "・ｸ・們揆 ・ｹ・・・ｵ・懍・愍・・・ｵ・﨑ｩ・壱共. ・・〓・ ・壱株 ・・ｵｬ・・・｡・ｸ・､﨑 ・・・溢慣・壱共.",
+-  "session.share.action.share": "・ｵ・",
++  "session.share.action.share": "・ｴ・ｴ・ｴ・ｰ",
+   "session.share.action.publish": "・護亨",
+   "session.share.action.publishing": "・護亨 ・・..",
+   "session.share.action.unpublish": "・護亨 ・ｨ・・,
+@@ -530,6 +535,8 @@ export const dict = {
+   "common.reset": "・一ｸｰ嶹・,
+   "common.archive": "・ｴ・",
+   "common.delete": "・ｭ・・,
++  "common.add": "・緋ｰ",
++  "common.done": "・・｣・,
+   "common.close": "・ｫ・ｰ",
+   "common.edit": "寬ｸ・・,
+   "common.loadMore": "・・・壱洳・､・ｰ",
 diff --git a/packages/app/src/i18n/no.ts b/packages/app/src/i18n/no.ts
-index b4adebd..00ade66 100644
+index b4adebd..4a3a565 100644
 --- a/packages/app/src/i18n/no.ts
 +++ b/packages/app/src/i18n/no.ts
 @@ -157,6 +157,10 @@ export const dict = {
    "provider.connect.oauth.auto.confirmationCode": "Bekreftelseskode",
    "provider.connect.toast.connected.title": "{{provider}} tilkoblet",
-   "provider.connect.toast.connected.description": "{{provider}}-modeller er nå tilgjengelige.",
+   "provider.connect.toast.connected.description": "{{provider}}-modeller er nﾃ･ tilgjengelige.",
 +  "provider.connect.accounts": "{{provider}}-kontoer",
 +  "provider.connect.mainAccount": "Hovedkonto",
-+  "provider.connect.noAccounts": "Ingen kontoer ennå",
++  "provider.connect.noAccounts": "Ingen kontoer ennﾃ･",
 +  "provider.connect.setMainAccount": "Sett som hovedkonto",
  
-   "provider.custom.title": "Egendefinert leverandør",
-   "provider.custom.description.prefix": "Konfigurer en OpenAI-kompatibel leverandør. Se ",
-@@ -599,6 +603,8 @@ export const dict = {
+   "provider.custom.title": "Egendefinert leverandﾃｸr",
+   "provider.custom.description.prefix": "Konfigurer en OpenAI-kompatibel leverandﾃｸr. Se ",
+@@ -277,6 +281,7 @@ export const dict = {
+   "prompt.context.removeActiveFile": "Fjern aktiv fil fra kontekst",
+   "prompt.context.removeFile": "Fjern fil fra kontekst",
+   "prompt.action.attachFile": "Legg ved fil",
++  "prompt.action.enterNewline": "Enter for ny linje",
+   "prompt.attachment.remove": "Fjern vedlegg",
+   "prompt.action.send": "Send",
+   "prompt.action.stop": "Stopp",
+@@ -569,7 +574,7 @@ export const dict = {
+     "Denne sesjonen er offentlig pﾃ･ nettet. Den er tilgjengelig for alle med lenken.",
+   "session.share.popover.description.unshared":
+     "Del sesjonen offentlig pﾃ･ nettet. Den vil vﾃｦre tilgjengelig for alle med lenken.",
+-  "session.share.action.share": "Del",
++  "session.share.action.share": "Eksporter",
+   "session.share.action.publish": "Publiser",
+   "session.share.action.publishing": "Publiserer...",
+   "session.share.action.unpublish": "Avpubliser",
+@@ -599,6 +604,8 @@ export const dict = {
    "common.reset": "Tilbakestill",
    "common.archive": "Arkiver",
    "common.delete": "Slett",
@@ -675,173 +866,292 @@ index b4adebd..00ade66 100644
    "common.edit": "Rediger",
    "common.loadMore": "Last flere",
 diff --git a/packages/app/src/i18n/pl.ts b/packages/app/src/i18n/pl.ts
-index 02637e5..45af55d 100644
+index 02637e5..cd6221e 100644
 --- a/packages/app/src/i18n/pl.ts
 +++ b/packages/app/src/i18n/pl.ts
 @@ -142,6 +142,10 @@ export const dict = {
-   "provider.connect.oauth.auto.confirmationCode": "Kod potwierdzający",
-   "provider.connect.toast.connected.title": "Połączono {{provider}}",
-   "provider.connect.toast.connected.description": "Modele {{provider}} są teraz dostępne do użycia.",
+   "provider.connect.oauth.auto.confirmationCode": "Kod potwierdzajﾄ・y",
+   "provider.connect.toast.connected.title": "Poﾅて・zono {{provider}}",
+   "provider.connect.toast.connected.description": "Modele {{provider}} sﾄ・teraz dostﾄ冪ne do uﾅｼycia.",
 +  "provider.connect.accounts": "Konta {{provider}}",
-+  "provider.connect.mainAccount": "Konto główne",
++  "provider.connect.mainAccount": "Konto gﾅづｳwne",
 +  "provider.connect.noAccounts": "Brak kont jeszcze",
-+  "provider.connect.setMainAccount": "Ustaw jako konto główne",
++  "provider.connect.setMainAccount": "Ustaw jako konto gﾅづｳwne",
    "provider.custom.title": "Dostawca niestandardowy",
-   "provider.custom.description.prefix": "Skonfiguruj dostawcę zgodnego z OpenAI. Zobacz ",
-   "provider.custom.description.link": "dokumentację konfiguracji dostawcy",
-@@ -534,6 +538,8 @@ export const dict = {
+   "provider.custom.description.prefix": "Skonfiguruj dostawcﾄ・zgodnego z OpenAI. Zobacz ",
+   "provider.custom.description.link": "dokumentacjﾄ・konfiguracji dostawcy",
+@@ -256,6 +260,7 @@ export const dict = {
+   "prompt.context.removeActiveFile": "Usuﾅ・aktywny plik z kontekstu",
+   "prompt.context.removeFile": "Usuﾅ・plik z kontekstu",
+   "prompt.action.attachFile": "Zaﾅて・z plik",
++  "prompt.action.enterNewline": "Enter = nowa linia",
+   "prompt.attachment.remove": "Usuﾅ・zaﾅて・znik",
+   "prompt.action.send": "Wyﾅ嬪ij",
+   "prompt.action.stop": "Zatrzymaj",
+@@ -507,7 +512,7 @@ export const dict = {
+     "Ta sesja jest publiczna w sieci. Jest dostﾄ冪na dla kaﾅｼdego, kto posiada link.",
+   "session.share.popover.description.unshared":
+     "Udostﾄ冪nij sesjﾄ・publicznie w sieci. Bﾄ囘zie dostﾄ冪na dla kaﾅｼdego, kto posiada link.",
+-  "session.share.action.share": "Udostﾄ冪nij",
++  "session.share.action.share": "Eksport",
+   "session.share.action.publish": "Opublikuj",
+   "session.share.action.publishing": "Publikowanie...",
+   "session.share.action.unpublish": "Cofnij publikacjﾄ・,
+@@ -534,6 +539,8 @@ export const dict = {
    "common.reset": "Resetuj",
    "common.archive": "Archiwizuj",
-   "common.delete": "Usuń",
+   "common.delete": "Usuﾅ・,
 +  "common.add": "Dodaj",
 +  "common.done": "Gotowe",
    "common.close": "Zamknij",
    "common.edit": "Edytuj",
-   "common.loadMore": "Załaduj więcej",
+   "common.loadMore": "ZaﾅＢduj wiﾄ冂ej",
 diff --git a/packages/app/src/i18n/ru.ts b/packages/app/src/i18n/ru.ts
-index a965acf..5bb3950 100644
+index a965acf..8a7b4fc 100644
 --- a/packages/app/src/i18n/ru.ts
 +++ b/packages/app/src/i18n/ru.ts
 @@ -154,6 +154,10 @@ export const dict = {
-   "provider.connect.oauth.auto.confirmationCode": "Код подтверждения",
-   "provider.connect.toast.connected.title": "{{provider}} подключён",
-   "provider.connect.toast.connected.description": "Модели {{provider}} теперь доступны.",
-+  "provider.connect.accounts": "Аккаунты {{provider}}",
-+  "provider.connect.mainAccount": "Основной аккаунт",
-+  "provider.connect.noAccounts": "Ещё нет аккаунтов",
-+  "provider.connect.setMainAccount": "Сделать основным аккаунтом",
+   "provider.connect.oauth.auto.confirmationCode": "ﾐ墟ｾﾐｴ ﾐｿﾐｾﾐｴﾑひｲﾐｵﾑﾐｶﾐｴﾐｵﾐｽﾐｸﾑ・,
+   "provider.connect.toast.connected.title": "{{provider}} ﾐｿﾐｾﾐｴﾐｺﾐｻﾑ紗・岱ｽ",
+   "provider.connect.toast.connected.description": "ﾐ慴ｾﾐｴﾐｵﾐｻﾐｸ {{provider}} ﾑひｵﾐｿﾐｵﾑﾑ・ﾐｴﾐｾﾑ・びσｿﾐｽﾑ・",
++  "provider.connect.accounts": "ﾐ籍ｺﾐｺﾐｰﾑσｽﾑび・{{provider}}",
++  "provider.connect.mainAccount": "ﾐ樮・ｽﾐｾﾐｲﾐｽﾐｾﾐｹ ﾐｰﾐｺﾐｺﾐｰﾑσｽﾑ・,
++  "provider.connect.noAccounts": "ﾐ篇禾・ﾐｽﾐｵﾑ・ﾐｰﾐｺﾐｺﾐｰﾑσｽﾑひｾﾐｲ",
++  "provider.connect.setMainAccount": "ﾐ｡ﾐｴﾐｵﾐｻﾐｰﾑび・ﾐｾﾑ・ｽﾐｾﾐｲﾐｽﾑ巾ｼ ﾐｰﾐｺﾐｺﾐｰﾑσｽﾑひｾﾐｼ",
  
-   "provider.custom.title": "Пользовательский провайдер",
-   "provider.custom.description.prefix": "Настройте OpenAI-совместимого провайдера. См. ",
-@@ -596,6 +600,8 @@ export const dict = {
-   "common.reset": "Сбросить",
-   "common.archive": "Архивировать",
-   "common.delete": "Удалить",
-+  "common.add": "Добавить",
-+  "common.done": "Готово",
-   "common.close": "Закрыть",
-   "common.edit": "Редактировать",
-   "common.loadMore": "Загрузить ещё",
+   "provider.custom.title": "ﾐ渙ｾﾐｻﾑ糊ｷﾐｾﾐｲﾐｰﾑひｵﾐｻﾑ袴・ｺﾐｸﾐｹ ﾐｿﾑﾐｾﾐｲﾐｰﾐｹﾐｴﾐｵﾑ",
+   "provider.custom.description.prefix": "ﾐ斷ｰﾑ・びﾐｾﾐｹﾑひｵ OpenAI-ﾑ・ｾﾐｲﾐｼﾐｵﾑ・ひｸﾐｼﾐｾﾐｳﾐｾ ﾐｿﾑﾐｾﾐｲﾐｰﾐｹﾐｴﾐｵﾑﾐｰ. ﾐ｡ﾐｼ. ",
+@@ -274,6 +278,7 @@ export const dict = {
+   "prompt.context.removeActiveFile": "ﾐ｣ﾐｴﾐｰﾐｻﾐｸﾑび・ﾐｰﾐｺﾑひｸﾐｲﾐｽﾑ巾ｹ ﾑ・ｰﾐｹﾐｻ ﾐｸﾐｷ ﾐｺﾐｾﾐｽﾑひｵﾐｺﾑ・ひｰ",
+   "prompt.context.removeFile": "ﾐ｣ﾐｴﾐｰﾐｻﾐｸﾑび・ﾑ・ｰﾐｹﾐｻ ﾐｸﾐｷ ﾐｺﾐｾﾐｽﾑひｵﾐｺﾑ・ひｰ",
+   "prompt.action.attachFile": "ﾐ湲ﾐｸﾐｺﾑﾐｵﾐｿﾐｸﾑび・ﾑ・ｰﾐｹﾐｻ",
++  "prompt.action.enterNewline": "Enter 竊ｵ",
+   "prompt.attachment.remove": "ﾐ｣ﾐｴﾐｰﾐｻﾐｸﾑび・ﾐｲﾐｻﾐｾﾐｶﾐｵﾐｽﾐｸﾐｵ",
+   "prompt.action.send": "ﾐ樮ひｿﾑﾐｰﾐｲﾐｸﾑび・,
+   "prompt.action.stop": "ﾐ樮・ひｰﾐｽﾐｾﾐｲﾐｸﾑび・,
+@@ -566,7 +571,7 @@ export const dict = {
+     "ﾐｭﾑひｰ ﾑ・ｵﾑ・・ｸﾑ・ﾐｾﾐｱﾑ禍ｵﾐｴﾐｾﾑ・びσｿﾐｽﾐｰ. ﾐ頒ｾﾑ・びσｿ ﾐｺ ﾐｽﾐｵﾐｹ ﾐｼﾐｾﾐｶﾐｵﾑ・ﾐｿﾐｾﾐｻﾑτ・ｸﾑび・ﾐｻﾑ社ｱﾐｾﾐｹ, ﾑ・ﾐｺﾐｾﾐｳﾐｾ ﾐｵﾑ・び・ﾑ・・巾ｻﾐｺﾐｰ.",
+   "session.share.popover.description.unshared":
+     "ﾐ榧ｿﾑσｱﾐｻﾐｸﾐｺﾑσｹﾑひｵ ﾑ・ｵﾑ・・ｸﾑ・ﾐｲ ﾐｸﾐｽﾑひｵﾑﾐｽﾐｵﾑひｵ. ﾐ頒ｾﾑ・びσｿ ﾐｺ ﾐｽﾐｵﾐｹ ﾑ・ｼﾐｾﾐｶﾐｵﾑ・ﾐｿﾐｾﾐｻﾑτ・ｸﾑび・ﾐｻﾑ社ｱﾐｾﾐｹ, ﾑ・ﾐｺﾐｾﾐｳﾐｾ ﾐｵﾑ・び・ﾑ・・巾ｻﾐｺﾐｰ.",
+-  "session.share.action.share": "ﾐ渙ｾﾐｴﾐｵﾐｻﾐｸﾑび袴・・,
++  "session.share.action.share": "ﾐｭﾐｺﾑ・ｿﾐｾﾑﾑ・,
+   "session.share.action.publish": "ﾐ榧ｿﾑσｱﾐｻﾐｸﾐｺﾐｾﾐｲﾐｰﾑび・,
+   "session.share.action.publishing": "ﾐ湲σｱﾐｻﾐｸﾐｺﾐｰﾑ・ｸﾑ・..",
+   "session.share.action.unpublish": "ﾐ樮ひｼﾐｵﾐｽﾐｸﾑび・ﾐｿﾑσｱﾐｻﾐｸﾐｺﾐｰﾑ・ｸﾑ・,
+@@ -596,6 +601,8 @@ export const dict = {
+   "common.reset": "ﾐ｡ﾐｱﾑﾐｾﾑ・ｸﾑび・,
+   "common.archive": "ﾐ績ﾑ・ｸﾐｲﾐｸﾑﾐｾﾐｲﾐｰﾑび・,
+   "common.delete": "ﾐ｣ﾐｴﾐｰﾐｻﾐｸﾑび・,
++  "common.add": "ﾐ頒ｾﾐｱﾐｰﾐｲﾐｸﾑび・,
++  "common.done": "ﾐ寅ｾﾑひｾﾐｲﾐｾ",
+   "common.close": "ﾐ厘ｰﾐｺﾑﾑ錦び・,
+   "common.edit": "ﾐﾐｵﾐｴﾐｰﾐｺﾑひｸﾑﾐｾﾐｲﾐｰﾑび・,
+   "common.loadMore": "ﾐ厘ｰﾐｳﾑﾑσｷﾐｸﾑび・ﾐｵﾑ禾・,
 diff --git a/packages/app/src/i18n/th.ts b/packages/app/src/i18n/th.ts
-index 00df86a..18f45fe 100644
+index 00df86a..f1cfb05 100644
 --- a/packages/app/src/i18n/th.ts
 +++ b/packages/app/src/i18n/th.ts
 @@ -154,6 +154,10 @@ export const dict = {
-   "provider.connect.oauth.auto.confirmationCode": "รหัสยืนยัน",
-   "provider.connect.toast.connected.title": "{{provider}} ที่เชื่อมต่อแล้ว",
-   "provider.connect.toast.connected.description": "โมเดล {{provider}} พร้อมใช้งานแล้ว",
-+  "provider.connect.accounts": "บัญชี {{provider}}",
-+  "provider.connect.mainAccount": "บัญชีหลัก",
-+  "provider.connect.noAccounts": "ยังไม่มีบัญชี",
-+  "provider.connect.setMainAccount": "ตั้งเป็นบัญชีหลัก",
+   "provider.connect.oauth.auto.confirmationCode": "犧｣犧ｫ犧ｱ犧ｪ犧｢犧ｷ犧吭ｸ｢犧ｱ犧・,
+   "provider.connect.toast.connected.title": "{{provider}} 犧伶ｸｵ犹謂ｹ犧癌ｸｷ犹謂ｸｭ犧｡犧歩ｹ謂ｸｭ犹≒ｸ･犹霞ｸｧ",
+   "provider.connect.toast.connected.description": "犹もｸ｡犹犧扉ｸ･ {{provider}} 犧樅ｸ｣犹霞ｸｭ犧｡犹・ｸ癌ｹ霞ｸ・ｸｲ犧吭ｹ≒ｸ･犹霞ｸｧ",
++  "provider.connect.accounts": "犧壟ｸｱ犧財ｸ癌ｸｵ {{provider}}",
++  "provider.connect.mainAccount": "犧壟ｸｱ犧財ｸ癌ｸｵ犧ｫ犧･犧ｱ犧・,
++  "provider.connect.noAccounts": "犧｢犧ｱ犧・ｹ・ｸ｡犹謂ｸ｡犧ｵ犧壟ｸｱ犧財ｸ癌ｸｵ",
++  "provider.connect.setMainAccount": "犧歩ｸｱ犹霞ｸ・ｹ犧巵ｹ・ｸ吭ｸ壟ｸｱ犧財ｸ癌ｸｵ犧ｫ犧･犧ｱ犧・,
  
-   "provider.custom.title": "ผู้ให้บริการที่กำหนดเอง",
-   "provider.custom.description.prefix": "กำหนดค่าผู้ให้บริการที่เข้ากันได้กับ OpenAI ดู ",
-@@ -590,6 +594,8 @@ export const dict = {
-   "common.reset": "รีเซ็ต",
-   "common.archive": "จัดเก็บ",
-   "common.delete": "ลบ",
-+  "common.add": "เพิ่ม",
-+  "common.done": "เสร็จสิ้น",
-   "common.close": "ปิด",
-   "common.edit": "แก้ไข",
-   "common.loadMore": "โหลดเพิ่มเติม",
+   "provider.custom.title": "犧憫ｸｹ犹霞ｹ・ｸｫ犹霞ｸ壟ｸ｣犧ｴ犧≒ｸｲ犧｣犧伶ｸｵ犹謂ｸ≒ｸｳ犧ｫ犧吭ｸ扉ｹ犧ｭ犧・,
+   "provider.custom.description.prefix": "犧≒ｸｳ犧ｫ犧吭ｸ扉ｸ・ｹ謂ｸｲ犧憫ｸｹ犹霞ｹ・ｸｫ犹霞ｸ壟ｸ｣犧ｴ犧≒ｸｲ犧｣犧伶ｸｵ犹謂ｹ犧もｹ霞ｸｲ犧≒ｸｱ犧吭ｹ・ｸ扉ｹ霞ｸ≒ｸｱ犧・OpenAI 犧扉ｸｹ ",
+@@ -274,6 +278,7 @@ export const dict = {
+   "prompt.context.removeActiveFile": "犹犧ｭ犧ｲ犹・ｸ游ｸ･犹呉ｸ伶ｸｵ犹謂ｹ・ｸ癌ｹ霞ｸ・ｸｲ犧吭ｸｭ犧｢犧ｹ犹謂ｸｭ犧ｭ犧≒ｸ謂ｸｲ犧≒ｸ壟ｸ｣犧ｴ犧壟ｸ・,
+   "prompt.context.removeFile": "犹犧ｭ犧ｲ犹・ｸ游ｸ･犹呉ｸｭ犧ｭ犧≒ｸ謂ｸｲ犧≒ｸ壟ｸ｣犧ｴ犧壟ｸ・,
+   "prompt.action.attachFile": "犹≒ｸ吭ｸ壟ｹ・ｸ游ｸ･犹・,
++  "prompt.action.enterNewline": "Enter 犧ｪ犧ｳ犧ｫ犧｣犧ｱ犧壟ｸもｸｶ犹霞ｸ吭ｸ壟ｸ｣犧｣犧伶ｸｱ犧扉ｹ・ｸｫ犧｡犹・,
+   "prompt.attachment.remove": "犹犧ｭ犧ｲ犹・ｸ游ｸ･犹呉ｹ≒ｸ吭ｸ壟ｸｭ犧ｭ犧・,
+   "prompt.action.send": "犧ｪ犹謂ｸ・,
+   "prompt.action.stop": "犧ｫ犧｢犧ｸ犧・,
+@@ -561,7 +566,7 @@ export const dict = {
+   "session.share.popover.title": "犹犧憫ｸ｢犹≒ｸ樅ｸ｣犹謂ｸ壟ｸ吭ｹ犧ｧ犹・ｸ・,
+   "session.share.popover.description.shared": "犹犧金ｸｪ犧癌ｸｱ犧吭ｸ吭ｸｵ犹霞ｹ犧巵ｹ・ｸ吭ｸｪ犧ｲ犧倨ｸｲ犧｣犧内ｸｰ犧壟ｸ吭ｹ犧ｧ犹・ｸ・犧ｪ犧ｲ犧｡犧ｲ犧｣犧籾ｹ犧もｹ霞ｸｲ犧籾ｸｶ犧・ｹ・ｸ扉ｹ霞ｹもｸ扉ｸ｢犧憫ｸｹ犹霞ｸ伶ｸｵ犹謂ｸ｡犧ｵ犧･犧ｴ犧・ｸ≒ｹ・,
+   "session.share.popover.description.unshared": "犹≒ｸ癌ｸ｣犹呉ｹ犧金ｸｪ犧癌ｸｱ犧吭ｸｪ犧ｲ犧倨ｸｲ犧｣犧内ｸｰ犧壟ｸ吭ｹ犧ｧ犹・ｸ・犧謂ｸｰ犹犧もｹ霞ｸｲ犧籾ｸｶ犧・ｹ・ｸ扉ｹ霞ｹもｸ扉ｸ｢犧憫ｸｹ犹霞ｸ伶ｸｵ犹謂ｸ｡犧ｵ犧･犧ｴ犧・ｸ≒ｹ・,
+-  "session.share.action.share": "犹≒ｸ癌ｸ｣犹・,
++  "session.share.action.share": "犧ｪ犹謂ｸ・ｸｭ犧ｭ犧・,
+   "session.share.action.publish": "犹犧憫ｸ｢犹≒ｸ樅ｸ｣犹・,
+   "session.share.action.publishing": "犧≒ｸｳ犧･犧ｱ犧・ｹ犧憫ｸ｢犹≒ｸ樅ｸ｣犹・..",
+   "session.share.action.unpublish": "犧｢犧≒ｹ犧･犧ｴ犧≒ｸ≒ｸｲ犧｣犹犧憫ｸ｢犹≒ｸ樅ｸ｣犹・,
+@@ -590,6 +595,8 @@ export const dict = {
+   "common.reset": "犧｣犧ｵ犹犧金ｹ・ｸ・,
+   "common.archive": "犧謂ｸｱ犧扉ｹ犧≒ｹ・ｸ・,
+   "common.delete": "犧･犧・,
++  "common.add": "犹犧樅ｸｴ犹謂ｸ｡",
++  "common.done": "犹犧ｪ犧｣犹・ｸ謂ｸｪ犧ｴ犹霞ｸ・,
+   "common.close": "犧巵ｸｴ犧・,
+   "common.edit": "犹≒ｸ≒ｹ霞ｹ・ｸ・,
+   "common.loadMore": "犹もｸｫ犧･犧扉ｹ犧樅ｸｴ犹謂ｸ｡犹犧歩ｸｴ犧｡",
 diff --git a/packages/app/src/i18n/tr.ts b/packages/app/src/i18n/tr.ts
-index 27a6e03..f10b914 100644
+index 27a6e03..f4ce71f 100644
 --- a/packages/app/src/i18n/tr.ts
 +++ b/packages/app/src/i18n/tr.ts
 @@ -158,6 +158,10 @@ export const dict = {
    "provider.connect.oauth.auto.confirmationCode": "Onay kodu",
-   "provider.connect.toast.connected.title": "{{provider}} bağlandı",
-   "provider.connect.toast.connected.description": "{{provider}} modelleri artık kullanımda.",
-+  "provider.connect.accounts": "{{provider}} Hesapları",
+   "provider.connect.toast.connected.title": "{{provider}} baﾄ殕andﾄｱ",
+   "provider.connect.toast.connected.description": "{{provider}} modelleri artﾄｱk kullanﾄｱmda.",
++  "provider.connect.accounts": "{{provider}} Hesaplarﾄｱ",
 +  "provider.connect.mainAccount": "Ana Hesap",
-+  "provider.connect.noAccounts": "Henüz hesap yok",
++  "provider.connect.noAccounts": "Henﾃｼz hesap yok",
 +  "provider.connect.setMainAccount": "Ana hesap olarak ayarla",
  
-   "provider.custom.title": "Özel sağlayıcı",
-   "provider.custom.description.prefix": "OpenAI uyumlu bir sağlayıcı yapılandırın. ",
-@@ -602,6 +606,8 @@ export const dict = {
-   "common.reset": "Sıfırla",
-   "common.archive": "Arşivle",
+   "provider.custom.title": "ﾃ奔el saﾄ殕ayﾄｱcﾄｱ",
+   "provider.custom.description.prefix": "OpenAI uyumlu bir saﾄ殕ayﾄｱcﾄｱ yapﾄｱlandﾄｱrﾄｱn. ",
+@@ -279,6 +283,7 @@ export const dict = {
+   "prompt.context.removeActiveFile": "Aktif dosyayﾄｱ baﾄ殕amdan ﾃｧﾄｱkar",
+   "prompt.context.removeFile": "Dosyayﾄｱ baﾄ殕amdan ﾃｧﾄｱkar",
+   "prompt.action.attachFile": "Dosya ekle",
++  "prompt.action.enterNewline": "Enter ile yeni satﾄｱr",
+   "prompt.attachment.remove": "Eki kaldﾄｱr",
+   "prompt.action.send": "Gﾃｶnder",
+   "prompt.action.stop": "Durdur",
+@@ -572,7 +577,7 @@ export const dict = {
+   "session.share.popover.description.shared": "Bu oturum web'de herkese aﾃｧﾄｱktﾄｱr. Baﾄ殕antﾄｱya sahip herkes eriﾅ歹bilir.",
+   "session.share.popover.description.unshared":
+     "Oturumu web'de herkese aﾃｧﾄｱk olarak paylaﾅ淨ｱn. Baﾄ殕antﾄｱya sahip herkes eriﾅ歹bilecek.",
+-  "session.share.action.share": "Paylaﾅ・,
++  "session.share.action.share": "Dﾄｱﾅ歛 aktar",
+   "session.share.action.publish": "Yayﾄｱnla",
+   "session.share.action.publishing": "Yayﾄｱnlanﾄｱyor...",
+   "session.share.action.unpublish": "Yayﾄｱndan kaldﾄｱr",
+@@ -602,6 +607,8 @@ export const dict = {
+   "common.reset": "Sﾄｱfﾄｱrla",
+   "common.archive": "Arﾅ殃vle",
    "common.delete": "Sil",
 +  "common.add": "Ekle",
 +  "common.done": "Tamam",
    "common.close": "Kapat",
-   "common.edit": "Düzenle",
-   "common.loadMore": "Daha fazla yükle",
+   "common.edit": "Dﾃｼzenle",
+   "common.loadMore": "Daha fazla yﾃｼkle",
 diff --git a/packages/app/src/i18n/uk.ts b/packages/app/src/i18n/uk.ts
-index 948c9a6..f6880e3 100644
+index 948c9a6..7585597 100644
 --- a/packages/app/src/i18n/uk.ts
 +++ b/packages/app/src/i18n/uk.ts
 @@ -157,6 +157,10 @@ export const dict = {
-   "provider.connect.oauth.auto.confirmationCode": "Код підтвердження",
-   "provider.connect.toast.connected.title": "{{provider}} підключено",
-   "provider.connect.toast.connected.description": "Моделі {{provider}} тепер доступні для використання.",
-+  "provider.connect.accounts": "Акаунти {{provider}}",
-+  "provider.connect.mainAccount": "Основний акаунт",
-+  "provider.connect.noAccounts": "Ще немає акаунтів",
-+  "provider.connect.setMainAccount": "Зробити основним акаунтом",
+   "provider.connect.oauth.auto.confirmationCode": "ﾐ墟ｾﾐｴ ﾐｿﾑ孟ｴﾑひｲﾐｵﾑﾐｴﾐｶﾐｵﾐｽﾐｽﾑ・,
+   "provider.connect.toast.connected.title": "{{provider}} ﾐｿﾑ孟ｴﾐｺﾐｻﾑ紗・ｵﾐｽﾐｾ",
+   "provider.connect.toast.connected.description": "ﾐ慴ｾﾐｴﾐｵﾐｻﾑ・{{provider}} ﾑひｵﾐｿﾐｵﾑ ﾐｴﾐｾﾑ・びσｿﾐｽﾑ・ﾐｴﾐｻﾑ・ﾐｲﾐｸﾐｺﾐｾﾑﾐｸﾑ・ひｰﾐｽﾐｽﾑ・",
++  "provider.connect.accounts": "ﾐ籍ｺﾐｰﾑσｽﾑひｸ {{provider}}",
++  "provider.connect.mainAccount": "ﾐ樮・ｽﾐｾﾐｲﾐｽﾐｸﾐｹ ﾐｰﾐｺﾐｰﾑσｽﾑ・,
++  "provider.connect.noAccounts": "ﾐｩﾐｵ ﾐｽﾐｵﾐｼﾐｰﾑ・ﾐｰﾐｺﾐｰﾑσｽﾑび孟ｲ",
++  "provider.connect.setMainAccount": "ﾐ林ﾐｾﾐｱﾐｸﾑひｸ ﾐｾﾑ・ｽﾐｾﾐｲﾐｽﾐｸﾐｼ ﾐｰﾐｺﾐｰﾑσｽﾑひｾﾐｼ",
  
-   "provider.custom.title": "Користувацький провайдер",
-   "provider.custom.description.prefix": "Налаштуйте провайдера, сумісного з OpenAI. Перегляньте ",
-@@ -652,6 +656,8 @@ export const dict = {
-   "common.reset": "Скинути",
-   "common.archive": "Архівувати",
-   "common.delete": "Видалити",
-+  "common.add": "Додати",
-+  "common.done": "Готово",
-   "common.close": "Закрити",
-   "common.edit": "Редагувати",
-   "common.loadMore": "Завантажити більше",
+   "provider.custom.title": "ﾐ墟ｾﾑﾐｸﾑ・びσｲﾐｰﾑ・糊ｺﾐｸﾐｹ ﾐｿﾑﾐｾﾐｲﾐｰﾐｹﾐｴﾐｵﾑ",
+   "provider.custom.description.prefix": "ﾐ斷ｰﾐｻﾐｰﾑ尉びσｹﾑひｵ ﾐｿﾑﾐｾﾐｲﾐｰﾐｹﾐｴﾐｵﾑﾐｰ, ﾑ・σｼﾑ毛・ｽﾐｾﾐｳﾐｾ ﾐｷ OpenAI. ﾐ渙ｵﾑﾐｵﾐｳﾐｻﾑ紹ｽﾑ袴ひｵ ",
+@@ -281,6 +285,7 @@ export const dict = {
+   "prompt.context.removeActiveFile": "ﾐ漬ｸﾐｴﾐｰﾐｻﾐｸﾑひｸ ﾐｰﾐｺﾑひｸﾐｲﾐｽﾐｸﾐｹ ﾑ・ｰﾐｹﾐｻ ﾐｷ ﾐｺﾐｾﾐｽﾑひｵﾐｺﾑ・び・,
+   "prompt.context.removeFile": "ﾐ漬ｸﾐｴﾐｰﾐｻﾐｸﾑひｸ ﾑ・ｰﾐｹﾐｻ ﾐｷ ﾐｺﾐｾﾐｽﾑひｵﾐｺﾑ・び・,
+   "prompt.action.attachFile": "ﾐ頒ｾﾐｴﾐｰﾑひｸ ﾑ・ｰﾐｹﾐｻﾐｸ",
++  "prompt.action.enterNewline": "Enter 竊ｵ",
+   "prompt.attachment.remove": "ﾐ漬ｸﾐｴﾐｰﾐｻﾐｸﾑひｸ ﾐｲﾐｺﾐｻﾐｰﾐｴﾐｵﾐｽﾐｽﾑ・,
+   "prompt.action.send": "ﾐ斷ｰﾐｴﾑ毛・ｻﾐｰﾑひｸ",
+   "prompt.action.stop": "ﾐ林σｿﾐｸﾐｽﾐｸﾑひｸ",
+@@ -620,7 +625,7 @@ export const dict = {
+     "ﾐｦﾑ・ﾑ・ｵﾑ・毛・ﾑ・ﾐｿﾑσｱﾐｻﾑ毛・ｽﾐｾﾑ・ﾐｲ ﾑ孟ｽﾑひｵﾑﾐｽﾐｵﾑび・ ﾐ漬ｾﾐｽﾐｰ ﾐｴﾐｾﾑ・びσｿﾐｽﾐｰ ﾐｱﾑσｴﾑ・ﾐｺﾐｾﾐｼﾑ・ﾐｷﾐｰ ﾐｿﾐｾﾑ・ｸﾐｻﾐｰﾐｽﾐｽﾑ紹ｼ.",
+   "session.share.popover.description.unshared":
+     "ﾐ榧ｿﾑσｱﾐｻﾑ孟ｺﾑσｹﾑひｵ ﾑ・ｵﾑ・毛・ﾐｿﾑσｱﾐｻﾑ毛・ｽﾐｾ ﾐｲ ﾑ孟ｽﾑひｵﾑﾐｽﾐｵﾑび・ ﾐ漬ｾﾐｽﾐｰ ﾐｱﾑσｴﾐｵ ﾐｴﾐｾﾑ・びσｿﾐｽﾐｰ ﾐｱﾑσｴﾑ・ﾐｺﾐｾﾐｼﾑ・ﾐｷﾐｰ ﾐｿﾐｾﾑ・ｸﾐｻﾐｰﾐｽﾐｽﾑ紹ｼ.",
+-  "session.share.action.share": "ﾐ渙ｾﾐｴﾑ孟ｻﾐｸﾑひｸﾑ・・,
++  "session.share.action.share": "ﾐ片ｺﾑ・ｿﾐｾﾑﾑ・,
+   "session.share.action.publish": "ﾐ榧ｿﾑσｱﾐｻﾑ孟ｺﾑσｲﾐｰﾑひｸ",
+   "session.share.action.publishing": "ﾐ湲σｱﾐｻﾑ孟ｺﾐｰﾑ・毛・..",
+   "session.share.action.unpublish": "ﾐ｡ﾐｺﾐｰﾑ・σｲﾐｰﾑひｸ ﾐｿﾑσｱﾐｻﾑ孟ｺﾐｰﾑ・毛・,
+@@ -652,6 +657,8 @@ export const dict = {
+   "common.reset": "ﾐ｡ﾐｺﾐｸﾐｽﾑτひｸ",
+   "common.archive": "ﾐ績ﾑ・孟ｲﾑσｲﾐｰﾑひｸ",
+   "common.delete": "ﾐ漬ｸﾐｴﾐｰﾐｻﾐｸﾑひｸ",
++  "common.add": "ﾐ頒ｾﾐｴﾐｰﾑひｸ",
++  "common.done": "ﾐ寅ｾﾑひｾﾐｲﾐｾ",
+   "common.close": "ﾐ厘ｰﾐｺﾑﾐｸﾑひｸ",
+   "common.edit": "ﾐﾐｵﾐｴﾐｰﾐｳﾑσｲﾐｰﾑひｸ",
+   "common.loadMore": "ﾐ厘ｰﾐｲﾐｰﾐｽﾑひｰﾐｶﾐｸﾑひｸ ﾐｱﾑ孟ｻﾑ袴威ｵ",
 diff --git a/packages/app/src/i18n/zh.ts b/packages/app/src/i18n/zh.ts
-index f5c962a..fce58ae 100644
+index f5c962a..e5375c7 100644
 --- a/packages/app/src/i18n/zh.ts
 +++ b/packages/app/src/i18n/zh.ts
 @@ -176,6 +176,10 @@ export const dict = {
-   "provider.connect.oauth.auto.confirmationCode": "确认码",
-   "provider.connect.toast.connected.title": "{{provider}} 已连接",
-   "provider.connect.toast.connected.description": "现在可以使用 {{provider}} 模型了。",
-+  "provider.connect.accounts": "{{provider}} 账号",
-+  "provider.connect.mainAccount": "主账号",
-+  "provider.connect.noAccounts": "暂无账号",
-+  "provider.connect.setMainAccount": "设为主账号",
+   "provider.connect.oauth.auto.confirmationCode": "遑ｮ隶､遐・,
+   "provider.connect.toast.connected.title": "{{provider}} 蟾ｲ霑樊磁",
+   "provider.connect.toast.connected.description": "邇ｰ蝨ｨ蜿ｯ莉･菴ｿ逕ｨ {{provider}} 讓｡蝙倶ｺ・・,
++  "provider.connect.accounts": "{{provider}} 雍ｦ蜿ｷ",
++  "provider.connect.mainAccount": "荳ｻ雍ｦ蜿ｷ",
++  "provider.connect.noAccounts": "證よ裏雍ｦ蜿ｷ",
++  "provider.connect.setMainAccount": "隶ｾ荳ｺ荳ｻ雍ｦ蜿ｷ",
  
-   "provider.custom.title": "自定义提供商",
-   "provider.custom.description.prefix": "配置与 OpenAI 兼容的提供商。请查看",
-@@ -597,6 +601,8 @@ export const dict = {
-   "common.reset": "重置",
-   "common.archive": "归档",
-   "common.delete": "删除",
-+  "common.add": "添加",
-+  "common.done": "完成",
-   "common.close": "关闭",
-   "common.edit": "编辑",
-   "common.loadMore": "加载更多",
+   "provider.custom.title": "閾ｪ螳壻ｹ画署萓帛膚",
+   "provider.custom.description.prefix": "驟咲ｽｮ荳・OpenAI 蜈ｼ螳ｹ逧・署萓帛膚縲りｯｷ譟･逵・,
+@@ -294,6 +298,7 @@ export const dict = {
+   "prompt.context.removeActiveFile": "莉惹ｸ贋ｸ区枚遘ｻ髯､豢ｻ蜉ｨ譁・ｻｶ",
+   "prompt.context.removeFile": "莉惹ｸ贋ｸ区枚遘ｻ髯､譁・ｻｶ",
+   "prompt.action.attachFile": "髯・刈譁・ｻｶ",
++  "prompt.action.enterNewline": "Enter 謐｢陦・,
+   "prompt.attachment.remove": "遘ｻ髯､髯・ｻｶ",
+   "prompt.action.send": "蜿鷹・,
+   "prompt.action.stop": "蛛懈ｭ｢",
+@@ -567,7 +572,7 @@ export const dict = {
+   "session.share.popover.title": "蜿大ｸ・芦鄂鷹｡ｵ",
+   "session.share.popover.description.shared": "豁､莨夊ｯ晏ｷｲ蝨ｨ鄂鷹｡ｵ荳雁・蠑縲ゆｻｻ菴墓凶譛蛾得謗･逧・ｺｺ驛ｽ蜿ｯ莉･隶ｿ髣ｮ縲・,
+   "session.share.popover.description.unshared": "蝨ｨ鄂鷹｡ｵ荳雁・蠑蛻・ｺｫ豁､莨夊ｯ昴ゆｻｻ菴墓凶譛蛾得謗･逧・ｺｺ驛ｽ蜿ｯ莉･隶ｿ髣ｮ縲・,
+-  "session.share.action.share": "蛻・ｺｫ",
++  "session.share.action.share": "蟇ｼ蜃ｺ",
+   "session.share.action.publish": "蜿大ｸ・,
+   "session.share.action.publishing": "豁｣蝨ｨ蜿大ｸ・..",
+   "session.share.action.unpublish": "蜿匁ｶ亥書蟶・,
+@@ -597,6 +602,8 @@ export const dict = {
+   "common.reset": "驥咲ｽｮ",
+   "common.archive": "蠖呈｡｣",
+   "common.delete": "蛻髯､",
++  "common.add": "豺ｻ蜉",
++  "common.done": "螳梧・",
+   "common.close": "蜈ｳ髣ｭ",
+   "common.edit": "郛冶ｾ・,
+   "common.loadMore": "蜉霓ｽ譖ｴ螟・,
 diff --git a/packages/app/src/i18n/zht.ts b/packages/app/src/i18n/zht.ts
-index edd6f7b..3db590f 100644
+index edd6f7b..9609b3a 100644
 --- a/packages/app/src/i18n/zht.ts
 +++ b/packages/app/src/i18n/zht.ts
 @@ -155,6 +155,10 @@ export const dict = {
-   "provider.connect.oauth.auto.confirmationCode": "確認碼",
-   "provider.connect.toast.connected.title": "{{provider}} 已連線",
-   "provider.connect.toast.connected.description": "現在可以使用 {{provider}} 模型了。",
-+  "provider.connect.accounts": "{{provider}} 帳戶",
-+  "provider.connect.mainAccount": "主要帳戶",
-+  "provider.connect.noAccounts": "尚無帳戶",
-+  "provider.connect.setMainAccount": "設為主要帳戶",
+   "provider.connect.oauth.auto.confirmationCode": "遒ｺ隱咲｢ｼ",
+   "provider.connect.toast.connected.title": "{{provider}} 蟾ｲ騾｣邱・,
+   "provider.connect.toast.connected.description": "迴ｾ蝨ｨ蜿ｯ莉･菴ｿ逕ｨ {{provider}} 讓｡蝙倶ｺ・・,
++  "provider.connect.accounts": "{{provider}} 蟶ｳ謌ｶ",
++  "provider.connect.mainAccount": "荳ｻ隕∝ｸｳ謌ｶ",
++  "provider.connect.noAccounts": "蟆夂┌蟶ｳ謌ｶ",
++  "provider.connect.setMainAccount": "險ｭ轤ｺ荳ｻ隕∝ｸｳ謌ｶ",
  
-   "provider.custom.title": "自訂提供商",
-   "provider.custom.description.prefix": "設定與 OpenAI 相容的提供商。請參閱",
-@@ -586,6 +590,8 @@ export const dict = {
-   "common.reset": "重設",
-   "common.archive": "封存",
-   "common.delete": "刪除",
-+  "common.add": "新增",
-+  "common.done": "完成",
-   "common.close": "關閉",
-   "common.edit": "編輯",
-   "common.loadMore": "載入更多",
+   "provider.custom.title": "閾ｪ險よ署萓帛膚",
+   "provider.custom.description.prefix": "險ｭ螳夊・ OpenAI 逶ｸ螳ｹ逧・署萓帛膚縲りｫ句純髢ｱ",
+@@ -274,6 +278,7 @@ export const dict = {
+   "prompt.context.removeActiveFile": "蠕樔ｸ贋ｸ区枚遘ｻ髯､逶ｮ蜑肴ｪ疲｡・,
+   "prompt.context.removeFile": "蠕樔ｸ贋ｸ区枚遘ｻ髯､讙疲｡・,
+   "prompt.action.attachFile": "髯・刈讙疲｡・,
++  "prompt.action.enterNewline": "Enter 謠幄｡・,
+   "prompt.attachment.remove": "遘ｻ髯､髯・ｻｶ",
+   "prompt.action.send": "蛯ｳ騾・,
+   "prompt.action.stop": "蛛懈ｭ｢",
+@@ -557,7 +562,7 @@ export const dict = {
+   "session.share.popover.title": "逋ｼ菴亥芦邯ｲ鬆・,
+   "session.share.popover.description.shared": "豁､蟾･菴憺嚴谿ｵ蟾ｲ蝨ｨ邯ｲ鬆∽ｸ雁・髢九ゆｻｻ菴墓刀譛蛾｣邨千噪莠ｺ驛ｽ蜿ｯ莉･蟄伜叙縲・,
+   "session.share.popover.description.unshared": "蝨ｨ邯ｲ鬆∽ｸ雁・髢句・莠ｫ豁､蟾･菴憺嚴谿ｵ縲ゆｻｻ菴墓刀譛蛾｣邨千噪莠ｺ驛ｽ蜿ｯ莉･蟄伜叙縲・,
+-  "session.share.action.share": "蛻・ｺｫ",
++  "session.share.action.share": "蛹ｯ蜃ｺ",
+   "session.share.action.publish": "逋ｼ菴・,
+   "session.share.action.publishing": "豁｣蝨ｨ逋ｼ菴・..",
+   "session.share.action.unpublish": "蜿匁ｶ育匸菴・,
+@@ -586,6 +591,8 @@ export const dict = {
+   "common.reset": "驥崎ｨｭ",
+   "common.archive": "蟆∝ｭ・,
+   "common.delete": "蛻ｪ髯､",
++  "common.add": "譁ｰ蠅・,
++  "common.done": "螳梧・",
+   "common.close": "髣憺哩",
+   "common.edit": "邱ｨ霈ｯ",
+   "common.loadMore": "霈牙・譖ｴ螟・,
 diff --git a/packages/app/src/pages/session.tsx b/packages/app/src/pages/session.tsx
 index 312b5c3..3c4750a 100644
 --- a/packages/app/src/pages/session.tsx
@@ -921,56 +1231,6 @@ index 0643a42..0b5bb53 100644
 +        return `account-switch:${row.provider}:${row.label ?? ""}`
        case "BottomSpacer":
          return "bottom-spacer"
-     }
-diff --git a/packages/app/src/pages/session/message-timeline.tsx b/packages/app/src/pages/session/message-timeline.tsx
-index e071597..b49eb67 100644
---- a/packages/app/src/pages/session/message-timeline.tsx
-+++ b/packages/app/src/pages/session/message-timeline.tsx
-@@ -282,6 +282,7 @@ export function MessageTimeline(props: {
-   userMessages: UserMessage[]
-   anchor: (id: string) => string
-   setRevealMessage?: (fn: (id: string) => void) => void
-+  switchEvents?: Array<{ provider: string; label?: string }>
- }) {
-   let touchGesture: number | undefined
- 
-@@ -426,7 +427,10 @@ export function MessageTimeline(props: {
-   const timelineRows = createMemo((previous: TimelineRow.TimelineRow[] | undefined) => {
-     const rows = messageRowMemos().flatMap((memo) => memo())
-     if (rows.length === 0) return rows
--    return reuseTimelineRows(previous, [...rows, new TimelineRow.BottomSpacer()])
-+    const switchRows = (props.switchEvents ?? []).map(
-+      (evt) => new TimelineRow.AccountSwitch({ provider: evt.provider, label: evt.label }),
-+    )
-+    return reuseTimelineRows(previous, [...rows, ...switchRows, new TimelineRow.BottomSpacer()])
-   })
-   const timelineRowKeys = createMemo(() => timelineRows().map(TimelineRow.key), [] as string[], { equals: sameKeys })
-   const virtualCache = createMemo(() => readTimelineCache(sessionKey(), timelineRowKeys()))
-@@ -1246,6 +1250,25 @@ export function MessageTimeline(props: {
-           </TimelineRowFrame>
-         )
-       }
-+      case "AccountSwitch": {
-+        const switchRow = row as Accessor<TimelineRowByTag<"AccountSwitch">>
-+        const isEn = () => language.locale().startsWith("en")
-+        return (
-+          <TimelineRowFrame row={switchRow}>
-+            <div data-slot="session-turn-message-container" class="w-full px-4 md:px-5">
-+              <div class="flex items-center gap-2 py-2 text-13-regular text-text-weak">
-+                <Icon name="check-small" class="size-4 shrink-0" />
-+                <span>
-+                  {isEn()
-+                    ? `Switched API key for ${switchRow().provider}`
-+                    : `${switchRow().provider} のAPIキーを切り替えました`}
-+                  {switchRow().label ? `: ${switchRow().label}` : ""}
-+                </span>
-+              </div>
-+            </div>
-+          </TimelineRowFrame>
-+        )
-+      }
-       case "BottomSpacer":
-         return <div data-timeline-row="bottom-spacer" aria-hidden="true" class="h-16" />
      }
 diff --git a/packages/app/src/pages/session/usage-exceeded-dialogs.tsx b/packages/app/src/pages/session/usage-exceeded-dialogs.tsx
 index 5354410..05e03d5 100644
@@ -1079,15 +1339,15 @@ index 5354410..05e03d5 100644
    )
 diff --git a/packages/opencode/src/auth/pool.ts b/packages/opencode/src/auth/pool.ts
 new file mode 100644
-index 0000000..e1f78fd
+index 0000000..f76d0d2
 --- /dev/null
 +++ b/packages/opencode/src/auth/pool.ts
-@@ -0,0 +1,187 @@
+@@ -0,0 +1,219 @@
 +import path from "path"
-+import { Effect, Layer, Schema, Context } from "effect"
++import crypto from "crypto"
++import { Effect, Layer, Schema, Context, Option } from "effect"
 +import { Global } from "@opencode-ai/core/global"
 +import { AppFileSystem } from "@opencode-ai/core/filesystem"
-+import { Auth } from "."
 +
 +const POOL_FILE = path.join(Global.Path.data, "auth-pool.json")
 +
@@ -1104,34 +1364,47 @@ index 0000000..e1f78fd
 +  switched: boolean
 +  label?: string
 +  exhausted: boolean
++  key?: string
 +}
 +
 +export interface Interface {
-+  readonly list: (providerID: string) => Effect.Effect<PoolEntry[], never>
++  readonly list: (providerID: string) => Effect.Effect<PublicPoolEntry[], never>
 +  readonly add: (providerID: string, entry: PoolEntry) => Effect.Effect<void, never>
-+  readonly remove: (providerID: string, index: number) => Effect.Effect<void, never>
-+  readonly switch: (providerID: string, index: number) => Effect.Effect<void, never>
++  readonly removeByKey: (providerID: string, keyHash: string) => Effect.Effect<boolean, never>
++  readonly switchByKey: (providerID: string, keyHash: string, currentKey?: string) => Effect.Effect<{ found: boolean; key?: string }, never>
 +  readonly count: (providerID: string) => Effect.Effect<number, never>
-+  readonly resetToMain: (providerID: string) => Effect.Effect<void, never>
-+  readonly rotate: (providerID: string) => Effect.Effect<RotateResult, never>
++  readonly resetToMain: (providerID: string) => Effect.Effect<string | undefined, never>
++  readonly rotate: (providerID: string, retryAfterMs?: number, currentKey?: string) => Effect.Effect<RotateResult, never>
 +}
 +
 +export const Service: Context.Service<Interface, Interface> = Context.Service("@opencode/AuthPool")
 +
-+const getEntries = (data: PoolData, providerID: string): PoolEntry[] =>
-+  Array.isArray(data[providerID]) ? (data[providerID] as PoolEntry[]) : []
++export function sha256(key: string): string {
++  return crypto.createHash("sha256").update(key).digest("hex")
++}
 +
-+const getMain = (data: PoolData, providerID: string): string | undefined => {
-+  const main = data._main
-+  return typeof main === "object" && main !== null && !Array.isArray(main)
-+    ? (main as Record<string, string>)[providerID]
-+    : undefined
++export interface PublicPoolEntry {
++  key_hash: string
++  key_masked: string
++  label?: string
++}
++
++function maskKey(key: string): string {
++  if (key.length <= 12) return key.slice(0, 4) + "..."
++  return key.slice(0, 8) + "..." + key.slice(-4)
++}
++
++function getEntries(data: PoolData, providerID: string): PoolEntry[] {
++  return Array.isArray(data[providerID]) ? (data[providerID] as PoolEntry[]) : []
++}
++
++function getMain(data: PoolData, providerID: string): string | undefined {
++  const main = data._main as Record<string, string> | undefined
++  return main?.[providerID]
 +}
 +
 +const rawPool = (fsys: AppFileSystem.Service) =>
-+  fsys.readJson(POOL_FILE).pipe(
-+    Effect.orElseSucceed(() => ({}) as PoolData),
-+  )
++  fsys.readJson(POOL_FILE).pipe(Effect.orElseSucceed(() => ({}) as PoolData))
 +
 +const writePool = (fsys: AppFileSystem.Service, data: PoolData) =>
 +  fsys.writeJson(POOL_FILE, data, 0o600).pipe(Effect.orDie)
@@ -1143,7 +1416,11 @@ index 0000000..e1f78fd
 +
 +    const list = Effect.fn("AuthPool.list")(function* (providerID: string) {
 +      const data = yield* rawPool(fsys)
-+      return getEntries(data, providerID)
++      return getEntries(data, providerID).map((e) => ({
++        key_hash: sha256(e.key),
++        key_masked: maskKey(e.key),
++        label: e.label,
++      }))
 +    })
 +
 +    const add = Effect.fn("AuthPool.add")(function* (providerID: string, entry: PoolEntry) {
@@ -1151,49 +1428,49 @@ index 0000000..e1f78fd
 +      const arr = getEntries(data, providerID)
 +      arr.push(entry)
 +      data[providerID] = arr
++      if (data._tried) {
++        delete (data._tried as Record<string, string[]>)[providerID]
++      }
 +      yield* writePool(fsys, data)
 +    })
 +
-+    const remove = Effect.fn("AuthPool.remove")(function* (providerID: string, index: number) {
++    const removeByKey = Effect.fn("AuthPool.removeByKey")(function* (providerID: string, keyHash: string) {
 +      const data = yield* rawPool(fsys)
 +      const arr = getEntries(data, providerID)
-+      if (index < 0 || index >= arr.length) return
-+      arr.splice(index, 1)
++      const idx = arr.findIndex((e) => sha256(e.key) === keyHash)
++      if (idx < 0) return false
++      arr.splice(idx, 1)
 +      if (arr.length === 0) {
 +        delete data[providerID]
 +      } else {
 +        data[providerID] = arr
 +      }
 +      yield* writePool(fsys, data)
++      return true
 +    })
 +
-+    const switch_ = Effect.fn("AuthPool.switch")(function* (providerID: string, index: number) {
++    const switchByKey = Effect.fn("AuthPool.switchByKey")(function* (
++      providerID: string,
++      keyHash: string,
++      currentKey?: string,
++    ) {
 +      const data = yield* rawPool(fsys)
 +      const arr = getEntries(data, providerID)
-+      if (index < 0 || index >= arr.length) return
++      const idx = arr.findIndex((e) => sha256(e.key) === keyHash)
++      if (idx < 0) return { found: false, key: undefined as string | undefined }
 +
-+      const poolEntry = arr[index]
-+      const authService = yield* Auth.Service
-+      const current = yield* authService.get(providerID)
++      const newKey = arr[idx].key
 +
-+      if (current?.type === "api" && !getMain(data, providerID)) {
-+        data._main = { ...((data._main as Record<string, string>) ?? {}), [providerID]: current.key }
++      if (currentKey && !getMain(data, providerID)) {
++        const main = (data._main as Record<string, string> ?? {})
++        main[providerID] = currentKey
++        data._main = main
 +      }
 +
-+      const newMain: Auth.Info = { type: "api", key: poolEntry.key }
-+      yield* authService.set(providerID, newMain)
-+
-+      if (current?.type === "api") {
-+        arr[index] = { key: current.key }
-+      } else {
-+        arr.splice(index, 1)
-+      }
-+      if (arr.length === 0) {
-+        delete data[providerID]
-+      } else {
-+        data[providerID] = arr
-+      }
++      arr[idx] = { key: currentKey ?? arr[idx].key, label: arr[idx].label }
++      data[providerID] = arr
 +      yield* writePool(fsys, data)
++      return { found: true, key: newKey }
 +    })
 +
 +    const count = Effect.fn("AuthPool.count")(function* (providerID: string) {
@@ -1204,68 +1481,83 @@ index 0000000..e1f78fd
 +    const resetToMain = Effect.fn("AuthPool.resetToMain")(function* (providerID: string) {
 +      const data = yield* rawPool(fsys)
 +      const mainKey = getMain(data, providerID)
-+      if (!mainKey) return
++      if (!mainKey) return undefined
 +
 +      const arr = getEntries(data, providerID)
-+      const idx = arr.findIndex((e) => e.key === mainKey)
-+      if (idx < 0) return
 +
-+      // Same swap logic as switch()
-+      const authService = yield* Auth.Service
-+      const current = yield* authService.get(providerID)
-+      const newMain: Auth.Info = { type: "api", key: mainKey }
-+      yield* authService.set(providerID, newMain)
-+
-+      if (current?.type === "api") {
-+        arr[idx] = { key: current.key }
-+      } else {
-+        arr.splice(idx, 1)
-+      }
-+      if (arr.length === 0) {
-+        delete data[providerID]
-+      } else {
-+        data[providerID] = arr
-+      }
 +      delete (data._main as Record<string, string>)[providerID]
 +      if (Object.keys(data._main as Record<string, string>).length === 0) delete data._main
++      if (data._tried) {
++        delete (data._tried as Record<string, string[]>)[providerID]
++        if (Object.keys(data._tried as Record<string, string[]>).length === 0) delete data._tried
++      }
++      if (data._retryAfter) {
++        delete (data._retryAfter as Record<string, unknown>)[providerID]
++        if (Object.keys(data._retryAfter as Record<string, unknown>).length === 0) delete data._retryAfter
++      }
++
 +      yield* writePool(fsys, data)
++      return mainKey
 +    })
 +
-+    const rotate = Effect.fn("AuthPool.rotate")(function* (providerID: string) {
-+      const authService = yield* Auth.Service
-+      const current = yield* authService.get(providerID)
++    const rotate = Effect.fn("AuthPool.rotate")(function* (providerID: string, retryAfterMs?: number, currentKey?: string) {
 +      const data = yield* rawPool(fsys)
 +      const entries = getEntries(data, providerID)
 +      if (entries.length === 0) return { switched: false, exhausted: false } as RotateResult
-+      const currentKey = current?.type === "api" ? current.key : undefined
-+      const untried = currentKey ? entries.filter((e) => e.key !== currentKey) : entries
++
++      const tried = ((data._tried ?? {}) as Record<string, string[]>)[providerID] ?? []
++      const triedHashes = new Set(tried)
++
++      // Permanently mark the current (failed) key as tried so it's skipped
++      if (currentKey) {
++        const currentHash = sha256(currentKey)
++        if (!triedHashes.has(currentHash)) {
++          tried.push(currentHash)
++          triedHashes.add(currentHash)
++        }
++      }
++
++      const untried = entries.filter((e) => !triedHashes.has(sha256(e.key)))
++
 +      if (untried.length === 0) {
-+        yield* resetToMain(providerID)
-+        return { switched: false, exhausted: true } as RotateResult
++        const retryAfter = ((data._retryAfter ?? {}) as Record<string, Record<string, number>>)[providerID] ?? {}
++        let bestKey: string | undefined
++        let bestTime = Infinity
++
++        for (const [hash, recoveryAt] of Object.entries(retryAfter)) {
++          if (recoveryAt < bestTime) {
++            const entry = entries.find((e) => sha256(e.key) === hash)
++            if (entry) {
++              bestKey = entry.key
++              bestTime = recoveryAt
++            }
++          }
++        }
++
++        if (!bestKey) bestKey = getMain(data, providerID)
++
++        return { switched: false, exhausted: true, key: bestKey } as RotateResult
 +      }
++
 +      const entry = untried[0]
-+      const idx = entries.indexOf(entry)
-+      const poolEntry = entries[idx]
-+      if (current?.type === "api" && !getMain(data, providerID)) {
-+        data._main = { ...((data._main as Record<string, string>) ?? {}), [providerID]: current.key }
++      const entryHash = sha256(entry.key)
++      tried.push(entryHash)
++      const triedData = (data._tried ?? {}) as Record<string, string[]>
++      triedData[providerID] = tried
++      data._tried = triedData
++
++      if (retryAfterMs !== undefined && retryAfterMs > 0) {
++        const raData = (data._retryAfter ?? {}) as Record<string, Record<string, number>>
++        if (!raData[providerID]) raData[providerID] = {}
++        raData[providerID][entryHash] = Date.now() + retryAfterMs
++        data._retryAfter = raData
 +      }
-+      const newMain: Auth.Info = { type: "api", key: poolEntry.key }
-+      yield* authService.set(providerID, newMain)
-+      if (current?.type === "api") {
-+        entries[idx] = { key: current.key }
-+      } else {
-+        entries.splice(idx, 1)
-+      }
-+      if (entries.length === 0) {
-+        delete data[providerID]
-+      } else {
-+        data[providerID] = entries
-+      }
++
 +      yield* writePool(fsys, data)
-+      return { switched: true, label: poolEntry.label, exhausted: false } as RotateResult
++      return { switched: true, label: entry.label, exhausted: false, key: entry.key } as RotateResult
 +    })
 +
-+    return { list, add, remove, switch: switch_, count, resetToMain, rotate }
++    return { list, add, removeByKey, switchByKey, count, resetToMain, rotate }
 +  }),
 +)
 +
@@ -1443,7 +1735,7 @@ index 2bef35e..baf97b2 100644
  
  const rt = ManagedRuntime.make(AppLayer, { memoMap })
 diff --git a/packages/opencode/src/server/routes/instance/httpapi/groups/control.ts b/packages/opencode/src/server/routes/instance/httpapi/groups/control.ts
-index 33e6a8e..f25fbb3 100644
+index 33e6a8e..db7db49 100644
 --- a/packages/opencode/src/server/routes/instance/httpapi/groups/control.ts
 +++ b/packages/opencode/src/server/routes/instance/httpapi/groups/control.ts
 @@ -27,9 +27,29 @@ export const LogInput = Schema.Struct({
@@ -1455,14 +1747,14 @@ index 33e6a8e..f25fbb3 100644
 +  label: Schema.optional(Schema.String),
 +})
 +
-+const PoolIndexParams = Schema.Struct({
-+  providerID: ProviderID,
-+  index: Schema.NumberFromString,
++const PublicPoolEntry = Schema.Struct({
++  key_hash: Schema.String,
++  key_masked: Schema.String,
++  label: Schema.optional(Schema.String),
 +})
 +
-+const PoolIndexAndKey = Schema.Struct({
-+  providerID: ProviderID,
-+  index: Schema.NumberFromString,
++const PoolKeyPayload = Schema.Struct({
++  key_hash: Schema.String,
 +})
 +
  export const ControlPaths = {
@@ -1470,13 +1762,13 @@ index 33e6a8e..f25fbb3 100644
    log: "/log",
 +  poolList: "/auth/:providerID/pool",
 +  poolAdd: "/auth/:providerID/pool",
-+  poolRemove: "/auth/:providerID/pool/:index",
-+  poolSwitch: "/auth/:providerID/pool/switch/:index",
++  poolRemove: "/auth/:providerID/pool/remove",
++  poolSwitch: "/auth/:providerID/pool/switch",
 +  poolReset: "/auth/:providerID/pool/reset",
  } as const
  
  export const ControlApi = HttpApi.make("control").add(
-@@ -58,6 +78,68 @@ export const ControlApi = HttpApi.make("control").add(
+@@ -58,6 +78,70 @@ export const ControlApi = HttpApi.make("control").add(
            description: "Remove authentication credentials",
          }),
        ),
@@ -1484,8 +1776,8 @@ index 33e6a8e..f25fbb3 100644
 +        params: AuthParams,
 +        success: described(
 +          Schema.Struct({
-+            entries: Schema.Array(PoolEntry),
-+            main: Schema.optional(Schema.NullishOr(PoolEntry)),
++            entries: Schema.Array(PublicPoolEntry),
++            main: Schema.optional(Schema.NullishOr(PublicPoolEntry)),
 +          }),
 +          "List of pool API keys with main account",
 +        ),
@@ -1509,26 +1801,28 @@ index 33e6a8e..f25fbb3 100644
 +          description: "Add an extra API key to the auth pool for a provider",
 +        }),
 +      ),
-+      HttpApiEndpoint.delete("poolRemove", ControlPaths.poolRemove, {
-+        params: PoolIndexParams,
++      HttpApiEndpoint.post("poolRemove", ControlPaths.poolRemove, {
++        params: AuthParams,
++        payload: PoolKeyPayload,
 +        success: described(Schema.Boolean, "API key removed from pool"),
 +        error: HttpApiError.BadRequest,
 +      }).annotateMerge(
 +        OpenApi.annotations({
 +          identifier: "auth.pool.remove",
-+          summary: "Remove API key from pool",
-+          description: "Remove an API key from the auth pool at a given index",
++          summary: "Remove API key from pool by hash",
++          description: "Remove an API key from the auth pool using its SHA256 hash",
 +        }),
 +      ),
 +      HttpApiEndpoint.post("poolSwitch", ControlPaths.poolSwitch, {
-+        params: PoolIndexAndKey,
++        params: AuthParams,
++        payload: PoolKeyPayload,
 +        success: described(Schema.Boolean, "Switched main API key with pool key"),
 +        error: HttpApiError.BadRequest,
 +      }).annotateMerge(
 +        OpenApi.annotations({
 +          identifier: "auth.pool.switch",
 +          summary: "Switch main API key with pool key",
-+          description: "Swap the main API key with one from the pool at a given index",
++          description: "Swap the main API key with one from the pool using SHA256 hash",
 +        }),
 +      ),
 +      HttpApiEndpoint.post("poolReset", ControlPaths.poolReset, {
@@ -1546,10 +1840,10 @@ index 33e6a8e..f25fbb3 100644
          query: LogQuery,
          payload: LogInput,
 diff --git a/packages/opencode/src/server/routes/instance/httpapi/handlers/control.ts b/packages/opencode/src/server/routes/instance/httpapi/handlers/control.ts
-index e1ede22..0a862cb 100644
+index e1ede22..f6ea641 100644
 --- a/packages/opencode/src/server/routes/instance/httpapi/handlers/control.ts
 +++ b/packages/opencode/src/server/routes/instance/httpapi/handlers/control.ts
-@@ -1,25 +1,72 @@
+@@ -1,25 +1,82 @@
  import { Auth } from "@/auth"
 +import * as AuthPool from "@/auth/pool"
  import { ProviderID } from "@/provider/schema"
@@ -1587,7 +1881,9 @@ index e1ede22..0a862cb 100644
 +      const [entries, current] = yield* Effect.all([pool.list(ctx.params.providerID), auth.get(ctx.params.providerID)])
 +      return {
 +        entries,
-+        main: current?.type === "api" ? { key: current.key } : null,
++        main: current?.type === "api"
++          ? { key_hash: AuthPool.sha256(current.key), key_masked: maskKey(current.key) }
++          : null,
 +      }
 +    })
 +
@@ -1600,29 +1896,37 @@ index e1ede22..0a862cb 100644
 +    })
 +
 +    const poolRemove = Effect.fn("ControlHttpApi.poolRemove")(function* (ctx: {
-+      params: { providerID: ProviderID; index: number }
++      params: { providerID: ProviderID }
++      payload: { key_hash: string }
 +    }) {
-+      yield* pool.remove(ctx.params.providerID, ctx.params.index)
-+      return true
++      return yield* pool.removeByKey(ctx.params.providerID, ctx.payload.key_hash)
 +    })
 +
 +    const poolSwitch = Effect.fn("ControlHttpApi.poolSwitch")(function* (ctx: {
-+      params: { providerID: ProviderID; index: number }
++      params: { providerID: ProviderID }
++      payload: { key_hash: string }
 +    }) {
-+      yield* pool.switch(ctx.params.providerID, ctx.params.index)
-+      yield* markInstanceForDisposal(yield* InstanceState.context)
-+      return true
++      const current = yield* auth.get(ctx.params.providerID)
++      const currentKey = current?.type === "api" ? current.key : undefined
++      const result = yield* pool.switchByKey(ctx.params.providerID, ctx.payload.key_hash, currentKey)
++      if (result.found && result.key) {
++        yield* auth.set(ctx.params.providerID, { type: "api", key: result.key })
++      }
++      return result.found
 +    })
 +
 +    const poolReset = Effect.fn("ControlHttpApi.poolReset")(function* (ctx: {
 +      params: { providerID: ProviderID }
 +    }) {
-+      yield* pool.resetToMain(ctx.params.providerID)
++      const mainKey = yield* pool.resetToMain(ctx.params.providerID)
++      if (mainKey) {
++        yield* auth.set(ctx.params.providerID, { type: "api", key: mainKey })
++      }
 +      yield* markInstanceForDisposal(yield* InstanceState.context)
        return true
      })
  
-@@ -29,6 +76,14 @@ export const controlHandlers = HttpApiBuilder.group(RootHttpApi, "control", (han
+@@ -29,6 +86,19 @@ export const controlHandlers = HttpApiBuilder.group(RootHttpApi, "control", (han
        return true
      })
  
@@ -1638,8 +1942,13 @@ index e1ede22..0a862cb 100644
 +      .handle("log", log)
    }),
  )
++
++function maskKey(key: string): string {
++  if (key.length <= 12) return key.slice(0, 4) + "..."
++  return key.slice(0, 8) + "..." + key.slice(-4)
++}
 diff --git a/packages/opencode/src/server/routes/instance/httpapi/server.ts b/packages/opencode/src/server/routes/instance/httpapi/server.ts
-index b784886..9d1f4dc 100644
+index 45a71a7..9d1f4dc 100644
 --- a/packages/opencode/src/server/routes/instance/httpapi/server.ts
 +++ b/packages/opencode/src/server/routes/instance/httpapi/server.ts
 @@ -13,6 +13,7 @@ import { AppFileSystem } from "@opencode-ai/core/filesystem"
@@ -1650,7 +1959,23 @@ index b784886..9d1f4dc 100644
  import { Bus } from "@/bus"
  import { Config } from "@/config/config"
  import { Command } from "@/command"
-@@ -198,6 +199,7 @@ export function createRoutes(
+@@ -69,6 +70,7 @@ import { EventApi } from "./groups/event"
+ import { PtyConnectApi } from "./groups/pty"
+ import { eventHandlers } from "./handlers/event"
+ import { configHandlers } from "./handlers/config"
++import { persistHandlers } from "./handlers/persist"
+ import { controlHandlers } from "./handlers/control"
+ import { experimentalHandlers } from "./handlers/experimental"
+ import { fileHandlers } from "./handlers/file"
+@@ -137,6 +139,7 @@ const instanceApiRoutes = HttpApiBuilder.layer(InstanceHttpApi).pipe(
+     fileHandlers,
+     instanceHandlers,
+     mcpHandlers,
++    persistHandlers,
+     projectHandlers,
+     ptyHandlers,
+     questionHandlers,
+@@ -196,6 +199,7 @@ export function createRoutes(
        Account.defaultLayer,
        Agent.defaultLayer,
        Auth.defaultLayer,
@@ -1658,7 +1983,29 @@ index b784886..9d1f4dc 100644
        Command.defaultLayer,
        Config.defaultLayer,
        File.defaultLayer,
-
+diff --git a/packages/opencode/src/session/llm.ts b/packages/opencode/src/session/llm.ts
+index ea2efc9..531f1f0 100644
+--- a/packages/opencode/src/session/llm.ts
++++ b/packages/opencode/src/session/llm.ts
+@@ -43,6 +43,7 @@ export type StreamInput = {
+   tools: Record<string, Tool>
+   retries?: number
+   toolChoice?: "auto" | "required" | "none"
++  authOverride?: Auth.Info
+ }
+ 
+ export type StreamRequest = StreamInput & {
+@@ -97,7 +98,9 @@ const live: Layer.Layer<
+           provider.getLanguage(input.model),
+           config.get(),
+           provider.getProvider(input.model.providerID),
+-          auth.get(input.model.providerID),
++          input.authOverride
++            ? Effect.succeed(input.authOverride)
++            : auth.get(input.model.providerID),
+         ],
+         { concurrency: "unbounded" },
+       )
 diff --git a/packages/opencode/src/session/message-v2.ts b/packages/opencode/src/session/message-v2.ts
 index 68157f5..e601829 100644
 --- a/packages/opencode/src/session/message-v2.ts
@@ -1681,36 +2028,71 @@ index 68157f5..e601829 100644
              type: "text",
              text: part.text,
 diff --git a/packages/opencode/src/session/processor.ts b/packages/opencode/src/session/processor.ts
-index a287c3b..5907ad3 100644
+index a287c3b..c393044 100644
 --- a/packages/opencode/src/session/processor.ts
 +++ b/packages/opencode/src/session/processor.ts
-@@ -7,6 +7,7 @@ import { Config } from "@/config/config"
+@@ -7,6 +7,8 @@ import { Config } from "@/config/config"
  import { Permission } from "@/permission"
  import { Plugin } from "@/plugin"
  import { Snapshot } from "@/snapshot"
++import { Auth } from "@/auth"
 +import * as AuthPool from "@/auth/pool"
  import * as Session from "./session"
  import { LLM } from "./llm"
  import { MessageV2 } from "./message-v2"
-@@ -101,6 +102,7 @@ export const layer = Layer.effect(
+@@ -32,6 +34,9 @@ import { Usage, type LLMEvent } from "@opencode-ai/llm"
+ const DOOM_LOOP_THRESHOLD = 3
+ const log = Log.create({ service: "session.processor" })
+ 
++// Session-level auth key overrides (auto-rotation only affects session, not global auth)
++const sessionAuthKeys = new Map<string, Record<string, string>>()
++
+ export type Result = "compact" | "stop" | "continue"
+ 
+ export interface Handle {
+@@ -101,6 +106,8 @@ export const layer = Layer.effect(
      const image = yield* Image.Service
      const events = yield* EventV2Bridge.Service
      const flags = yield* RuntimeFlags.Service
 +    const pool = yield* AuthPool.Service
++    const authService = yield* Auth.Service
  
      const create = Effect.fn("SessionProcessor.create")(function* (input: Input) {
        // Pre-capture snapshot before the LLM stream starts. The AI SDK
-@@ -812,6 +814,9 @@ export const layer = Layer.effect(
+@@ -782,6 +789,12 @@ export const layer = Layer.effect(
+         ctx.needsCompaction = false
+         ctx.shouldBreak = (yield* config.get()).experimental?.continue_loop_on_deny !== true
+ 
++        // Set session-level auth override if available
++        const providerKey = sessionAuthKeys.get(ctx.sessionID)?.[input.model.providerID]
++        if (providerKey) {
++          streamInput.authOverride = { type: "api", key: providerKey }
++        }
++
+         return yield* Effect.gen(function* () {
+           yield* Effect.gen(function* () {
+             ctx.currentText = undefined
+@@ -812,6 +825,19 @@ export const layer = Layer.effect(
                  provider: input.model.providerID,
                  parse,
                  set: (info) => {
++                  const retryAfterMs = info.next - Date.now()
++                  const currentKey = streamInput.authOverride?.key
++                  const currentKeyEff = currentKey
++                    ? Effect.succeed(currentKey)
++                    : authService.get(input.model.providerID).pipe(
++                        Effect.map((a) => (a?.type === "api" ? a.key : undefined)),
++                        Effect.orElseSucceed(() => undefined),
++                      )
 +                  const poolRotate = info.action?.reason === "account_rate_limit"
-+                    ? pool.rotate(info.action.provider)
++                    ? currentKeyEff.pipe(
++                        Effect.andThen((ck) => pool.rotate(info.action.provider, retryAfterMs, ck)),
++                      )
 +                    : Effect.succeed({ switched: false, exhausted: false } as AuthPool.RotateResult)
                    // TODO(v2): Temporary dual-write while migrating session messages to v2 events.
                    const event = flags.experimentalEventSystem
                      ? events.publish(SessionEvent.Retried, {
-@@ -824,16 +829,27 @@ export const layer = Layer.effect(
+@@ -824,16 +850,35 @@ export const layer = Layer.effect(
                          timestamp: DateTime.makeUnsafe(Date.now()),
                        })
                      : Effect.void
@@ -1726,6 +2108,13 @@ index a287c3b..5907ad3 100644
 -                    ),
 +                  return poolRotate.pipe(
 +                    Effect.andThen((rotated) => {
++                      if (rotated.key) {
++                        // Store session-level auth key override
++                        const keys = sessionAuthKeys.get(ctx.sessionID) ?? {}
++                        keys[input.model.providerID] = rotated.key
++                        sessionAuthKeys.set(ctx.sessionID, keys)
++                        streamInput.authOverride = { type: "api", key: rotated.key }
++                      }
 +                      if (rotated.switched) {
 +                        ;(streamInput.user as any).__internalContinue = true
 +                      }
@@ -1743,12 +2132,13 @@ index a287c3b..5907ad3 100644
 +                            poolExhausted: rotated.exhausted || undefined,
 +                          }),
 +                        ),
++                        Effect.andThen(() => !rotated.exhausted),
 +                      )
 +                    }),
                    )
                  },
                }),
-@@ -873,6 +889,7 @@ export const defaultLayer = Layer.suspend(() =>
+@@ -873,6 +918,7 @@ export const defaultLayer = Layer.suspend(() =>
      Layer.provide(SessionSummary.defaultLayer),
      Layer.provide(SessionStatus.defaultLayer),
      Layer.provide(Image.defaultLayer),
@@ -1785,6 +2175,88 @@ index 22fe4d8..a854efb 100644
              if (structured !== undefined) {
                handle.message.structured = structured
                handle.message.finish = handle.message.finish ?? "stop"
+diff --git a/packages/opencode/src/session/retry.ts b/packages/opencode/src/session/retry.ts
+index 463bc27..1d42e57 100644
+--- a/packages/opencode/src/session/retry.ts
++++ b/packages/opencode/src/session/retry.ts
+@@ -6,8 +6,7 @@ import { isRecord } from "@/util/record"
+ 
+ export type Err = ReturnType<NamedError["toObject"]>
+ 
+-export const GO_UPSELL_MESSAGE = "Free usage exceeded, subscribe to Go"
+-export const GO_UPSELL_URL = "https://opencode.ai/go"
++
+ export type RetryReason = "free_tier_limit" | "account_rate_limit" | (string & {})
+ 
+ export type Retryable = {
+@@ -72,22 +71,8 @@ export function retryable(error: Err, provider: string) {
+     // 5xx errors are transient server failures and should always be retried,
+     // even when the provider SDK doesn't explicitly mark them as retryable.
+     if (!error.data.isRetryable && !(status !== undefined && status >= 500)) return undefined
+-    if (error.data.responseBody?.includes("FreeUsageLimitError")) {
+-      return {
+-        message: GO_UPSELL_MESSAGE,
+-        action: {
+-          reason: "free_tier_limit",
+-          provider,
+-          title: "Free limit reached",
+-          message: "Subscribe to OpenCode Go for reliable access to the best open-source models, starting at $5/month.",
+-          label: "subscribe",
+-          link: GO_UPSELL_URL,
+-        },
+-      }
+-    }
+     if (error.data.responseBody?.includes("GoUsageLimitError")) {
+       const body = parseJSON(error.data.responseBody)
+-      const workspace = str(body?.metadata?.workspace)
+       const limitName = str(body?.metadata?.limitName)
+       const retryAfter = num(error.data.responseHeaders?.["retry-after"])
+       const resetIn = iife(() => {
+@@ -104,19 +89,7 @@ export function retryable(error: Err, provider: string) {
+       })
+ 
+       const message = `${limitName ? `${limitName} usage limit` : "Usage limit"} reached. It will reset in ${resetIn}. To continue using this model now, enable usage from your available balance`
+-
+-      const link = `https://opencode.ai/workspace/${workspace}/go`
+-      return {
+-        message: `${message} - ${link}`,
+-        action: {
+-          reason: "account_rate_limit",
+-          provider,
+-          title: "Go limit reached",
+-          message,
+-          label: "open settings",
+-          link,
+-        },
+-      }
++      return { message, action: { reason: "account_rate_limit", provider, title: "Go limit reached", message, label: "open settings" } }
+     }
+     return { message: error.data.message.includes("Overloaded") ? "Provider is overloaded" : error.data.message }
+   }
+@@ -175,7 +148,7 @@ function parseJSON(value: unknown) {
+ export function policy(opts: {
+   provider: string
+   parse: (error: unknown) => Err
+-  set: (input: { attempt: number; message: string; action?: Retryable["action"]; next: number }) => Effect.Effect<void>
++  set: (input: { attempt: number; message: string; action?: Retryable["action"]; next: number }) => Effect.Effect<boolean | void>
+ }) {
+   return Schedule.fromStepWithMetadata(
+     Effect.succeed((meta: Schedule.InputMetadata<unknown>) => {
+@@ -185,12 +158,13 @@ export function policy(opts: {
+       return Effect.gen(function* () {
+         const wait = delay(meta.attempt, MessageV2.APIError.isInstance(error) ? error : undefined)
+         const now = yield* Clock.currentTimeMillis
+-        yield* opts.set({
++        const shouldContinue = yield* opts.set({
+           attempt: meta.attempt,
+           message: retry.message,
+           action: retry.action,
+           next: now + wait,
+         })
++        if (shouldContinue === false) return Cause.done(meta.attempt)
+         return [meta.attempt, Duration.millis(wait)] as [number, Duration.Duration]
+       })
+     }),
 diff --git a/packages/opencode/src/session/status.ts b/packages/opencode/src/session/status.ts
 index 089559e..8b4885b 100644
 --- a/packages/opencode/src/session/status.ts
