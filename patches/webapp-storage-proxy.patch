@@ -176,7 +176,7 @@ index 5115f03..8151c1a 100644
  const platform: Platform = {
    platform: "web",
 -  version: pkg.version,
-+  version: pkg.version + " (Tate Patched)",
++  version: pkg.version + " (Tate Patched 3)",
    openLink,
    back,
    forward,

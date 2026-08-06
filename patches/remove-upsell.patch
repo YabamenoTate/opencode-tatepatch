@@ -1,21 +1,26 @@
 diff --git a/packages/opencode/src/session/retry.ts b/packages/opencode/src/session/retry.ts
-index 463bc27..56a089f 100644
+index 463bc27..fd93079 100644
 --- a/packages/opencode/src/session/retry.ts
 +++ b/packages/opencode/src/session/retry.ts
-@@ -6,8 +6,7 @@ import { isRecord } from "@/util/record"
+@@ -6,9 +6,8 @@ import { isRecord } from "@/util/record"
  
  export type Err = ReturnType<NamedError["toObject"]>
  
 -export const GO_UPSELL_MESSAGE = "Free usage exceeded, subscribe to Go"
 -export const GO_UPSELL_URL = "https://opencode.ai/go"
+-export type RetryReason = "free_tier_limit" | "account_rate_limit" | (string & {})
 +
- export type RetryReason = "free_tier_limit" | "account_rate_limit" | (string & {})
++export type RetryReason = "free_tier_limit" | "account_rate_limit" | "request_queue_full" | "rate_limit" | (string & {})
  
  export type Retryable = {
-@@ -72,22 +71,8 @@ export function retryable(error: Err, provider: string) {
-     // 5xx errors are transient server failures and should always be retried,
-     // even when the provider SDK doesn't explicitly mark them as retryable.
-     if (!error.data.isRetryable && !(status !== undefined && status >= 500)) return undefined
+   message: string
+@@ -69,25 +68,11 @@ export function retryable(error: Err, provider: string) {
+   if (MessageV2.ContextOverflowError.isInstance(error)) return undefined
+   if (MessageV2.APIError.isInstance(error)) {
+     const status = error.data.statusCode
+-    // 5xx errors are transient server failures and should always be retried,
+-    // even when the provider SDK doesn't explicitly mark them as retryable.
+-    if (!error.data.isRetryable && !(status !== undefined && status >= 500)) return undefined
 -    if (error.data.responseBody?.includes("FreeUsageLimitError")) {
 -      return {
 -        message: GO_UPSELL_MESSAGE,
@@ -29,17 +34,22 @@ index 463bc27..56a089f 100644
 -        },
 -      }
 -    }
++
++    // Gemini (opencode / opencode-go) quota exhaustion — this is the canonical
++    // "the current key is out of quota" signal for API-key auth.
      if (error.data.responseBody?.includes("GoUsageLimitError")) {
        const body = parseJSON(error.data.responseBody)
 -      const workspace = str(body?.metadata?.workspace)
        const limitName = str(body?.metadata?.limitName)
        const retryAfter = num(error.data.responseHeaders?.["retry-after"])
        const resetIn = iife(() => {
-@@ -104,19 +89,7 @@ export function retryable(error: Err, provider: string) {
+@@ -104,20 +89,29 @@ export function retryable(error: Err, provider: string) {
        })
  
        const message = `${limitName ? `${limitName} usage limit` : "Usage limit"} reached. It will reset in ${resetIn}. To continue using this model now, enable usage from your available balance`
--
++      return { message, action: { reason: "account_rate_limit", provider, title: "Go limit reached", message, label: "open settings" } }
++    }
+ 
 -      const link = `https://opencode.ai/workspace/${workspace}/go`
 -      return {
 -        message: `${message} - ${link}`,
@@ -52,7 +62,26 @@ index 463bc27..56a089f 100644
 -          link,
 -        },
 -      }
-+      return { message, action: { reason: "account_rate_limit", provider, title: "Go limit reached", message, label: "open settings" } }
++    // The request queue of the current key's project is full — rotate to another
++    // key before surfacing the 5xx to the user, since a different project has its
++    // own queue capacity.
++    const bodyText = str(error.data.responseBody).toLowerCase()
++    const msgText = error.data.message.toLowerCase()
++    if (status === 503 && (bodyText.includes("request queue is full") || msgText.includes("request queue is full"))) {
++      const message = "Provider is overloaded"
++      return { message, action: { reason: "request_queue_full", provider, title: message, message, label: "" } }
++    }
++
++    // API-key auth providers: rotate when the current key is rate-limited,
++    // quota-exhausted, or rejected — instead of retrying that same key in place.
++    if (status === 429 || status === 401 || status === 403) {
++      const message = status === 429 ? "Rate limit reached" : "API key rejected"
++      return { message, action: { reason: "rate_limit", provider, title: message, message, label: "" } }
      }
++
++    // 5xx errors are transient server failures and should always be retried,
++    // even when the provider SDK doesn't explicitly mark them as retryable.
++    if (!error.data.isRetryable && !(status !== undefined && status >= 500)) return undefined
      return { message: error.data.message.includes("Overloaded") ? "Provider is overloaded" : error.data.message }
    }
+ 

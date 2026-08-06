@@ -1033,10 +1033,10 @@ index 5354410..05e03d5 100644
    )
 diff --git a/packages/opencode/src/auth/pool.ts b/packages/opencode/src/auth/pool.ts
 new file mode 100644
-index 0000000..f76d0d2
+index 0000000..6befcf8
 --- /dev/null
 +++ b/packages/opencode/src/auth/pool.ts
-@@ -0,0 +1,219 @@
+@@ -0,0 +1,275 @@
 +import path from "path"
 +import crypto from "crypto"
 +import { Effect, Layer, Schema, Context, Option } from "effect"
@@ -1071,7 +1071,7 @@ index 0000000..f76d0d2
 +  readonly rotate: (providerID: string, retryAfterMs?: number, currentKey?: string) => Effect.Effect<RotateResult, never>
 +}
 +
-+export const Service: Context.Service<Interface, Interface> = Context.Service("@opencode/AuthPool")
++export class Service extends Context.Service<Service, Interface>()("@opencode/AuthPool") {}
 +
 +export function sha256(key: string): string {
 +  return crypto.createHash("sha256").update(key).digest("hex")
@@ -1125,6 +1125,10 @@ index 0000000..f76d0d2
 +      if (data._tried) {
 +        delete (data._tried as Record<string, string[]>)[providerID]
 +      }
++      if (data._retryAfter) {
++        delete (data._retryAfter as Record<string, Record<string, number>>)[providerID]
++        if (Object.keys(data._retryAfter as Record<string, unknown>).length === 0) delete data._retryAfter
++      }
 +      yield* writePool(fsys, data)
 +    })
 +
@@ -1161,8 +1165,30 @@ index 0000000..f76d0d2
 +        data._main = main
 +      }
 +
-+      arr[idx] = { key: currentKey ?? arr[idx].key, label: arr[idx].label }
-+      data[providerID] = arr
++      // Properly swap the accounts: the selected key leaves the pool and becomes
++      // the main account, while the current main key joins the pool. This keeps
++      // both accounts present in the pool file so neither is ever lost.
++      if (currentKey && currentKey !== newKey) {
++        arr.splice(idx, 1)
++        arr.push({ key: currentKey })
++        if (arr.length === 0) {
++          delete data[providerID]
++        } else {
++          data[providerID] = arr
++        }
++      }
++
++      // A manual switch starts a fresh rotation window: clear any cooldowns so
++      // the selected key is usable immediately and not skipped by auto-rotation.
++      if (data._tried) {
++        delete (data._tried as Record<string, string[]>)[providerID]
++        if (Object.keys(data._tried as Record<string, string[]>).length === 0) delete data._tried
++      }
++      if (data._retryAfter) {
++        delete (data._retryAfter as Record<string, Record<string, number>>)[providerID]
++        if (Object.keys(data._retryAfter as Record<string, unknown>).length === 0) delete data._retryAfter
++      }
++
 +      yield* writePool(fsys, data)
 +      return { found: true, key: newKey }
 +    })
@@ -1178,6 +1204,18 @@ index 0000000..f76d0d2
 +      if (!mainKey) return undefined
 +
 +      const arr = getEntries(data, providerID)
++
++      // Remove the restored main key from the pool so it is not duplicated
++      // as both the main account and a pool entry after a reset.
++      const idx = arr.findIndex((e) => e.key === mainKey)
++      if (idx >= 0) {
++        arr.splice(idx, 1)
++      }
++      if (arr.length === 0) {
++        delete data[providerID]
++      } else {
++        data[providerID] = arr
++      }
 +
 +      delete (data._main as Record<string, string>)[providerID]
 +      if (Object.keys(data._main as Record<string, string>).length === 0) delete data._main
@@ -1199,59 +1237,77 @@ index 0000000..f76d0d2
 +      const entries = getEntries(data, providerID)
 +      if (entries.length === 0) return { switched: false, exhausted: false } as RotateResult
 +
-+      const tried = ((data._tried ?? {}) as Record<string, string[]>)[providerID] ?? []
-+      const triedHashes = new Set(tried)
++      const now = Date.now()
++      const raData = (data._retryAfter ?? {}) as Record<string, Record<string, number>>
++      const ra = raData[providerID] ?? {}
++      const entryHashes = new Set(entries.map((e) => sha256(e.key)))
 +
-+      // Permanently mark the current (failed) key as tried so it's skipped
-+      if (currentKey) {
-+        const currentHash = sha256(currentKey)
-+        if (!triedHashes.has(currentHash)) {
-+          tried.push(currentHash)
-+          triedHashes.add(currentHash)
-+        }
++      // Tracks whether any cooldown state changed, so the pool file is rewritten.
++      let cooldownChanged = false
++
++      // The only key that actually failed is the current one — record its recovery window
++      if (retryAfterMs !== undefined && retryAfterMs > 0 && currentKey && entryHashes.has(sha256(currentKey))) {
++        ra[sha256(currentKey)] = now + retryAfterMs
++        cooldownChanged = true
 +      }
 +
-+      const untried = entries.filter((e) => !triedHashes.has(sha256(e.key)))
++      // Drop stale cooldowns (already recovered, or key removed from the pool),
++      // and migrate away from the old permanent `_tried` map.
++      for (const hash of Object.keys(ra)) {
++        if (!entryHashes.has(hash) || ra[hash] <= now) {
++          delete ra[hash]
++          cooldownChanged = true
++        }
++      }
++      if (data._tried) {
++        delete data._tried
++        cooldownChanged = true
++      }
++      if (Object.keys(ra).length > 0) {
++        raData[providerID] = ra
++        data._retryAfter = raData
++        cooldownChanged = true
++      } else if (raData[providerID] || data._retryAfter) {
++        delete raData[providerID]
++        if (Object.keys(raData).length === 0) delete data._retryAfter
++        else data._retryAfter = raData
++        cooldownChanged = true
++      }
 +
-+      if (untried.length === 0) {
-+        const retryAfter = ((data._retryAfter ?? {}) as Record<string, Record<string, number>>)[providerID] ?? {}
-+        let bestKey: string | undefined
-+        let bestTime = Infinity
++      const inCooldown = (key: string): boolean => {
++        const at = ra[sha256(key)]
++        return at !== undefined && at > now
++      }
 +
-+        for (const [hash, recoveryAt] of Object.entries(retryAfter)) {
-+          if (recoveryAt < bestTime) {
-+            const entry = entries.find((e) => sha256(e.key) === hash)
-+            if (entry) {
-+              bestKey = entry.key
-+              bestTime = recoveryAt
-+            }
++      // A key is usable right now if it is not inside an active cooldown
++      const usable = entries.filter((e) => !inCooldown(e.key))
++
++      if (usable.length > 0) {
++        // Prefer a usable key different from the one that just failed
++        const entry = usable.find((e) => e.key !== currentKey) ?? usable[0]
++        if (cooldownChanged) yield* writePool(fsys, data)
++        return { switched: true, label: entry.label, exhausted: false, key: entry.key } as RotateResult
++      }
++
++      // Every key is cooling down — silently wait for the earliest recovery instead of
++      // reporting exhaustion, so the session resumes once the best key becomes available.
++      let bestKey: string | undefined
++      let bestTime = Infinity
++      for (const [hash, at] of Object.entries(ra)) {
++        if (at < bestTime) {
++          const entry = entries.find((e) => sha256(e.key) === hash)
++          if (entry) {
++            bestKey = entry.key
++            bestTime = at
 +          }
 +        }
-+
-+        if (!bestKey) bestKey = getMain(data, providerID)
-+
-+        return { switched: false, exhausted: true, key: bestKey } as RotateResult
 +      }
-+
-+      const entry = untried[0]
-+      const entryHash = sha256(entry.key)
-+      tried.push(entryHash)
-+      const triedData = (data._tried ?? {}) as Record<string, string[]>
-+      triedData[providerID] = tried
-+      data._tried = triedData
-+
-+      if (retryAfterMs !== undefined && retryAfterMs > 0) {
-+        const raData = (data._retryAfter ?? {}) as Record<string, Record<string, number>>
-+        if (!raData[providerID]) raData[providerID] = {}
-+        raData[providerID][entryHash] = Date.now() + retryAfterMs
-+        data._retryAfter = raData
-+      }
-+
-+      yield* writePool(fsys, data)
-+      return { switched: true, label: entry.label, exhausted: false, key: entry.key } as RotateResult
++      if (!bestKey) bestKey = getMain(data, providerID)
++      if (cooldownChanged) yield* writePool(fsys, data)
++      return { switched: false, exhausted: false, key: bestKey } as RotateResult
 +    })
 +
-+    return { list, add, removeByKey, switchByKey, count, resetToMain, rotate }
++    return Service.of({ list, add, removeByKey, switchByKey, count, resetToMain, rotate })
 +  }),
 +)
 +
@@ -1534,22 +1590,20 @@ index 33e6a8e..db7db49 100644
          query: LogQuery,
          payload: LogInput,
 diff --git a/packages/opencode/src/server/routes/instance/httpapi/handlers/control.ts b/packages/opencode/src/server/routes/instance/httpapi/handlers/control.ts
-index e1ede22..94791bb 100644
+index e1ede22..1572f9c 100644
 --- a/packages/opencode/src/server/routes/instance/httpapi/handlers/control.ts
 +++ b/packages/opencode/src/server/routes/instance/httpapi/handlers/control.ts
-@@ -1,25 +1,84 @@
+@@ -1,7 +1,9 @@
  import { Auth } from "@/auth"
 +import * as AuthPool from "@/auth/pool"
  import { ProviderID } from "@/provider/schema"
-+import * as InstanceState from "@/effect/instance-state"
  import * as Log from "@opencode-ai/core/util/log"
  import { Effect } from "effect"
 +import { clearProviderPoolExhaustion } from "@/session/processor"
  import { HttpApiBuilder } from "effect/unstable/httpapi"
  import { RootHttpApi } from "../api"
  import { LogInput } from "../groups/control"
-+import { markInstanceForDisposal } from "../lifecycle"
- 
+@@ -9,12 +11,14 @@ import { LogInput } from "../groups/control"
  export const controlHandlers = HttpApiBuilder.group(RootHttpApi, "control", (handlers) =>
    Effect.gen(function* () {
      const auth = yield* Auth.Service
@@ -1560,16 +1614,14 @@ index e1ede22..94791bb 100644
        payload: Auth.Info
      }) {
        yield* auth.set(ctx.params.providerID, ctx.payload).pipe(Effect.orDie)
-+      yield* markInstanceForDisposal(yield* InstanceState.context)
++      clearProviderPoolExhaustion(ctx.params.providerID)
        return true
      })
  
-     const authRemove = Effect.fn("ControlHttpApi.authRemove")(function* (ctx: { params: { providerID: ProviderID } }) {
-       yield* auth.remove(ctx.params.providerID).pipe(Effect.orDie)
-+      yield* markInstanceForDisposal(yield* InstanceState.context)
-+      return true
-+    })
-+
+@@ -23,12 +27,88 @@ export const controlHandlers = HttpApiBuilder.group(RootHttpApi, "control", (han
+       return true
+     })
+ 
 +    const poolList = Effect.fn("ControlHttpApi.poolList")(function* (ctx: {
 +      params: { providerID: ProviderID }
 +    }) {
@@ -1586,7 +1638,15 @@ index e1ede22..94791bb 100644
 +      params: { providerID: ProviderID }
 +      payload: { key: string; label?: string }
 +    }) {
-+      yield* pool.add(ctx.params.providerID, { key: ctx.payload.key, label: ctx.payload.label })
++      const current = yield* auth.get(ctx.params.providerID)
++      const mainKey = current?.type === "api" ? current.key : undefined
++      if (mainKey) {
++        yield* pool.add(ctx.params.providerID, { key: ctx.payload.key, label: ctx.payload.label })
++      } else {
++        // No main account yet: promote the newly added key to the main account
++        // instead of putting it in the pool, so the first key always works.
++        yield* auth.set(ctx.params.providerID, { type: "api", key: ctx.payload.key })
++      }
 +      clearProviderPoolExhaustion(ctx.params.providerID)
 +      return true
 +    })
@@ -1595,7 +1655,9 @@ index e1ede22..94791bb 100644
 +      params: { providerID: ProviderID }
 +      payload: { key_hash: string }
 +    }) {
-+      return yield* pool.removeByKey(ctx.params.providerID, ctx.payload.key_hash)
++      const removed = yield* pool.removeByKey(ctx.params.providerID, ctx.payload.key_hash)
++      clearProviderPoolExhaustion(ctx.params.providerID)
++      return removed
 +    })
 +
 +    const poolSwitch = Effect.fn("ControlHttpApi.poolSwitch")(function* (ctx: {
@@ -1607,6 +1669,7 @@ index e1ede22..94791bb 100644
 +      const result = yield* pool.switchByKey(ctx.params.providerID, ctx.payload.key_hash, currentKey)
 +      if (result.found && result.key) {
 +        yield* auth.set(ctx.params.providerID, { type: "api", key: result.key })
++        clearProviderPoolExhaustion(ctx.params.providerID)
 +      }
 +      return result.found
 +    })
@@ -1617,12 +1680,14 @@ index e1ede22..94791bb 100644
 +      const mainKey = yield* pool.resetToMain(ctx.params.providerID)
 +      if (mainKey) {
 +        yield* auth.set(ctx.params.providerID, { type: "api", key: mainKey })
++        clearProviderPoolExhaustion(ctx.params.providerID)
 +      }
-+      yield* markInstanceForDisposal(yield* InstanceState.context)
-       return true
-     })
- 
-@@ -29,6 +88,19 @@ export const controlHandlers = HttpApiBuilder.group(RootHttpApi, "control", (han
++      return true
++    })
++
+     const log = Effect.fn("ControlHttpApi.log")(function* (ctx: { payload: typeof LogInput.Type }) {
+       const logger = Log.create({ service: ctx.payload.service })
+       logger[ctx.payload.level](ctx.payload.message, ctx.payload.extra)
        return true
      })
  
@@ -1643,6 +1708,26 @@ index e1ede22..94791bb 100644
 +  if (key.length <= 12) return key.slice(0, 4) + "..."
 +  return key.slice(0, 8) + "..." + key.slice(-4)
 +}
+diff --git a/packages/opencode/src/server/routes/instance/httpapi/server.ts b/packages/opencode/src/server/routes/instance/httpapi/server.ts
+index 45a71a7..6473ce2 100644
+--- a/packages/opencode/src/server/routes/instance/httpapi/server.ts
++++ b/packages/opencode/src/server/routes/instance/httpapi/server.ts
+@@ -13,6 +13,7 @@ import { AppFileSystem } from "@opencode-ai/core/filesystem"
+ import { Account } from "@/account/account"
+ import { Agent } from "@/agent/agent"
+ import { Auth } from "@/auth"
++import * as AuthPool from "@/auth/pool"
+ import { Bus } from "@/bus"
+ import { Config } from "@/config/config"
+ import { Command } from "@/command"
+@@ -196,6 +197,7 @@ export function createRoutes(
+       Account.defaultLayer,
+       Agent.defaultLayer,
+       Auth.defaultLayer,
++      AuthPool.defaultLayer,
+       Command.defaultLayer,
+       Config.defaultLayer,
+       File.defaultLayer,
 diff --git a/packages/opencode/src/session/llm.ts b/packages/opencode/src/session/llm.ts
 index ea2efc9..531f1f0 100644
 --- a/packages/opencode/src/session/llm.ts
@@ -1688,7 +1773,7 @@ index 68157f5..e601829 100644
              type: "text",
              text: part.text,
 diff --git a/packages/opencode/src/session/processor.ts b/packages/opencode/src/session/processor.ts
-index a287c3b..cf60db0 100644
+index a287c3b..2ff81e2 100644
 --- a/packages/opencode/src/session/processor.ts
 +++ b/packages/opencode/src/session/processor.ts
 @@ -7,6 +7,8 @@ import { Config } from "@/config/config"
@@ -1744,7 +1829,7 @@ index a287c3b..cf60db0 100644
          return yield* Effect.gen(function* () {
            yield* Effect.gen(function* () {
              ctx.currentText = undefined
-@@ -812,6 +837,19 @@ export const layer = Layer.effect(
+@@ -812,6 +837,22 @@ export const layer = Layer.effect(
                  provider: input.model.providerID,
                  parse,
                  set: (info) => {
@@ -1756,15 +1841,18 @@ index a287c3b..cf60db0 100644
 +                        Effect.map((a) => (a?.type === "api" ? a.key : undefined)),
 +                        Effect.orElseSucceed(() => undefined),
 +                      )
-+                  const poolRotate = info.action?.reason === "account_rate_limit"
-+                    ? currentKeyEff.pipe(
-+                        Effect.andThen((ck) => pool.rotate(info.action.provider, retryAfterMs, ck)),
-+                      )
-+                    : Effect.succeed({ switched: false, exhausted: false } as AuthPool.RotateResult)
++                  const poolRotate =
++                    info.action?.reason === "account_rate_limit" ||
++                    info.action?.reason === "request_queue_full" ||
++                    info.action?.reason === "rate_limit"
++                      ? currentKeyEff.pipe(
++                          Effect.andThen((ck) => pool.rotate(info.action.provider, retryAfterMs, ck)),
++                        )
++                      : Effect.succeed({ switched: false, exhausted: false } as AuthPool.RotateResult)
                    // TODO(v2): Temporary dual-write while migrating session messages to v2 events.
                    const event = flags.experimentalEventSystem
                      ? events.publish(SessionEvent.Retried, {
-@@ -824,16 +862,46 @@ export const layer = Layer.effect(
+@@ -824,16 +865,46 @@ export const layer = Layer.effect(
                          timestamp: DateTime.makeUnsafe(Date.now()),
                        })
                      : Effect.void
@@ -1821,43 +1909,45 @@ index a287c3b..cf60db0 100644
                    )
                  },
                }),
-@@ -873,6 +941,7 @@ export const defaultLayer = Layer.suspend(() =>
-     Layer.provide(SessionSummary.defaultLayer),
-     Layer.provide(SessionStatus.defaultLayer),
-     Layer.provide(Image.defaultLayer),
-+    Layer.provide(AuthPool.defaultLayer),
-     Layer.provide(Bus.layer),
-     Layer.provide(Config.defaultLayer),
-     Layer.provide(RuntimeFlags.defaultLayer),
-diff --git a/packages/opencode/src/session/prompt.ts b/packages/opencode/src/session/prompt.ts
-index 22fe4d8..a854efb 100644
---- a/packages/opencode/src/session/prompt.ts
-+++ b/packages/opencode/src/session/prompt.ts
-@@ -1454,6 +1454,24 @@ export const layer = Layer.effect(
-               toolChoice: format.type === "json_schema" ? "required" : undefined,
-             })
+@@ -862,22 +933,22 @@ export const layer = Layer.effect(
+   }),
+ )
  
-+            // If a key rotation happened during processing, inject a display-only
-+            // internalContinue part (stripped from AI messages, shown as "API key switched" in UI)
-+            if ((lastUser as any).__internalContinue) {
-+              delete (lastUser as any).__internalContinue
-+              const msg = msgs.find((m) => m.info.id === lastUser.id)
-+              if (msg) {
-+                msg.parts.push({
-+                  id: PartID.ascending(),
-+                  messageID: lastUser.id,
-+                  sessionID: lastUser.sessionID,
-+                  type: "text",
-+                  text: "",
-+                  synthetic: true,
-+                  internalContinue: true,
-+                })
-+              }
-+            }
-+
-             if (structured !== undefined) {
-               handle.message.structured = structured
-               handle.message.finish = handle.message.finish ?? "stop"
+-export const defaultLayer = Layer.suspend(() =>
+-  layer.pipe(
+-    Layer.provide(Session.defaultLayer),
+-    Layer.provide(Snapshot.defaultLayer),
+-    Layer.provide(Agent.defaultLayer),
+-    Layer.provide(LLM.defaultLayer),
+-    Layer.provide(Permission.defaultLayer),
+-    Layer.provide(Plugin.defaultLayer),
+-    Layer.provide(SessionSummary.defaultLayer),
+-    Layer.provide(SessionStatus.defaultLayer),
+-    Layer.provide(Image.defaultLayer),
+-    Layer.provide(Bus.layer),
+-    Layer.provide(Config.defaultLayer),
+-    Layer.provide(RuntimeFlags.defaultLayer),
+-    Layer.provide(EventV2Bridge.defaultLayer),
+-  ),
++export const defaultLayer: Layer.Layer<Service, never, never> = layer.pipe(
++  Layer.provide(Session.defaultLayer),
++  Layer.provide(Snapshot.defaultLayer),
++  Layer.provide(Agent.defaultLayer),
++  Layer.provide(LLM.defaultLayer),
++  Layer.provide(Permission.defaultLayer),
++  Layer.provide(Plugin.defaultLayer),
++  Layer.provide(SessionSummary.defaultLayer),
++  Layer.provide(SessionStatus.defaultLayer),
++  Layer.provide(Image.defaultLayer),
++  Layer.provide(AuthPool.defaultLayer),
++  Layer.provide(Auth.defaultLayer),
++  Layer.provide(Bus.layer),
++  Layer.provide(Config.defaultLayer),
++  Layer.provide(RuntimeFlags.defaultLayer),
++  Layer.provide(EventV2Bridge.defaultLayer),
+ )
+ 
+ export * as SessionProcessor from "./processor"
 diff --git a/packages/opencode/src/session/status.ts b/packages/opencode/src/session/status.ts
 index 089559e..8b4885b 100644
 --- a/packages/opencode/src/session/status.ts
