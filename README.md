@@ -39,7 +39,7 @@ Anyone typing in Japanese, Chinese, or other IME environments knows the frustrat
 ## Installation & Usage
 
 ## Prerequisites
-- [opencode](https://opencode.ai) v1.15.13 installed
+- [opencode](https://opencode.ai) v1.18.31 installed
 - [git](https://git-scm.com) installed
 - [bun](https://bun.sh) installed
 
@@ -192,7 +192,7 @@ Tate Patchは、中央集権的な依存関係を排し、プライバシーを�
 ## インストールと使い方
 
 ### 必要条件
-- [opencode](https://opencode.ai) v1.15.13 がインストールされていること
+- [opencode](https://opencode.ai) v1.18.31 がインストールされていること
 - [git](https://git-scm.com) がインストールされていること
 - [bun](https://bun.sh) がインストールされていること
 

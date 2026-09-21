@@ -1,8 +1,8 @@
 diff --git a/packages/app/src/components/prompt-input.tsx b/packages/app/src/components/prompt-input.tsx
-index 84fe749..743affa 100644
+index 41cf7d30ca..3436526d6e 100644
 --- a/packages/app/src/components/prompt-input.tsx
 +++ b/packages/app/src/components/prompt-input.tsx
-@@ -1206,16 +1206,38 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
+@@ -1304,16 +1304,38 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
        }
      }
  
@@ -47,7 +47,7 @@ index 84fe749..743affa 100644
      }
  
      const ctrl = event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey
-@@ -1273,24 +1295,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
+@@ -1374,24 +1396,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
        return
      }
  
@@ -72,229 +72,669 @@ index 84fe749..743affa 100644
 +
    }
  
-   const [agentsQuery, globalProvidersQuery, providersQuery] = useQueries(() => ({
-@@ -1920,6 +1925,9 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
-                       </Show>
+   const handleSlashMenuKeyDown = (event: KeyboardEvent) => {
+@@ -1783,6 +1788,9 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                      </Show>
-                   </div>
-+                  <div class="text-11-regular text-text-weak ml-auto shrink-0 whitespace-nowrap select-none pr-2">
-+                    {language.t("prompt.action.enterNewline")}
-+                  </div>
-                 </div>
+                   </Show>
+                 </Show>
++                <div class="text-11-regular text-text-weak ml-auto shrink-0 whitespace-nowrap select-none">
++                  {language.t("prompt.action.enterNewline")}
++                </div>
                </div>
-             </DockTray>
+             </div>
+           </div>
+diff --git a/packages/app/src/i18n/am.ts b/packages/app/src/i18n/am.ts
+index 07fa4dd47b..6e29fffed6 100644
+--- a/packages/app/src/i18n/am.ts
++++ b/packages/app/src/i18n/am.ts
+@@ -1133,4 +1133,5 @@ export const dict = {
+   "provider.connect.setMainAccount": "Set as main account",
+   "common.add": "Add",
+   "common.done": "Done",
++  "prompt.action.enterNewline": "Enter for newline",
+ }
 diff --git a/packages/app/src/i18n/ar.ts b/packages/app/src/i18n/ar.ts
-index 5d12402..bd08a26 100644
+index f24736934a..6a7b1cf769 100644
 --- a/packages/app/src/i18n/ar.ts
 +++ b/packages/app/src/i18n/ar.ts
-@@ -255,6 +255,7 @@ export const dict = {
-   "prompt.context.removeActiveFile": "إزالة الملف النشط من السياق",
-   "prompt.context.removeFile": "إزالة الملف من السياق",
-   "prompt.action.attachFile": "إرفاق ملف",
+@@ -384,6 +384,7 @@ export const dict = {
+   "prompt.menu.commands": "الأوامر",
+   "prompt.menu.context": "السياق",
+   "prompt.menu.shellCommand": "أمر shell",
 +  "prompt.action.enterNewline": "u200FEnter لسطر جديد",
    "prompt.attachment.remove": "إزالة المرفق",
    "prompt.action.send": "إرسال",
-   "prompt.action.stop": "توقف",
+   "prompt.action.stop": "إيقاف",
+diff --git a/packages/app/src/i18n/az.ts b/packages/app/src/i18n/az.ts
+index b185c32b34..90901c69f6 100644
+--- a/packages/app/src/i18n/az.ts
++++ b/packages/app/src/i18n/az.ts
+@@ -1171,4 +1171,5 @@ export const dict = {
+   "provider.connect.setMainAccount": "Set as main account",
+   "common.add": "Add",
+   "common.done": "Done",
++  "prompt.action.enterNewline": "Enter for newline",
+ }
+diff --git a/packages/app/src/i18n/bg.ts b/packages/app/src/i18n/bg.ts
+index 21f40515ec..646079e311 100644
+--- a/packages/app/src/i18n/bg.ts
++++ b/packages/app/src/i18n/bg.ts
+@@ -1173,4 +1173,5 @@ export const dict = {
+   "provider.connect.setMainAccount": "Set as main account",
+   "common.add": "Add",
+   "common.done": "Done",
++  "prompt.action.enterNewline": "Enter for newline",
+ }
+diff --git a/packages/app/src/i18n/bn.ts b/packages/app/src/i18n/bn.ts
+index 7f819d3516..eaf58d4196 100644
+--- a/packages/app/src/i18n/bn.ts
++++ b/packages/app/src/i18n/bn.ts
+@@ -1155,4 +1155,5 @@ export const dict: Record<string, string> = {
+   "provider.connect.setMainAccount": "Set as main account",
+   "common.add": "Add",
+   "common.done": "Done",
++  "prompt.action.enterNewline": "Enter for newline",
+ }
 diff --git a/packages/app/src/i18n/br.ts b/packages/app/src/i18n/br.ts
-index 7c6965e..0639fb8 100644
+index 3d9aa285c5..cd67ce8397 100644
 --- a/packages/app/src/i18n/br.ts
 +++ b/packages/app/src/i18n/br.ts
-@@ -255,6 +255,7 @@ export const dict = {
-   "prompt.context.removeActiveFile": "Remover arquivo ativo do contexto",
-   "prompt.context.removeFile": "Remover arquivo do contexto",
-   "prompt.action.attachFile": "Anexar arquivo",
+@@ -386,6 +386,7 @@ export const dict = {
+   "prompt.menu.commands": "Comandos",
+   "prompt.menu.context": "Contexto",
+   "prompt.menu.shellCommand": "Comando shell",
 +  "prompt.action.enterNewline": "Enter para nova linha",
    "prompt.attachment.remove": "Remover anexo",
    "prompt.action.send": "Enviar",
    "prompt.action.stop": "Parar",
 diff --git a/packages/app/src/i18n/bs.ts b/packages/app/src/i18n/bs.ts
-index 201b6ed..609153c 100644
+index a09e2995d7..3a91288667 100644
 --- a/packages/app/src/i18n/bs.ts
 +++ b/packages/app/src/i18n/bs.ts
-@@ -275,6 +275,7 @@ export const dict = {
-   "prompt.context.removeActiveFile": "Ukloni aktivnu datoteku iz konteksta",
-   "prompt.context.removeFile": "Ukloni datoteku iz konteksta",
-   "prompt.action.attachFile": "Priloži datoteku",
+@@ -406,6 +406,7 @@ export const dict = {
+   "prompt.menu.commands": "Komande",
+   "prompt.menu.context": "Kontekst",
+   "prompt.menu.shellCommand": "Shell naredba",
 +  "prompt.action.enterNewline": "Enter za novi red",
    "prompt.attachment.remove": "Ukloni prilog",
    "prompt.action.send": "Pošalji",
    "prompt.action.stop": "Zaustavi",
+diff --git a/packages/app/src/i18n/ca.ts b/packages/app/src/i18n/ca.ts
+index de6a067443..2883efc00c 100644
+--- a/packages/app/src/i18n/ca.ts
++++ b/packages/app/src/i18n/ca.ts
+@@ -1176,4 +1176,5 @@ export const dict = {
+   "provider.connect.setMainAccount": "Set as main account",
+   "common.add": "Add",
+   "common.done": "Done",
++  "prompt.action.enterNewline": "Enter for newline",
+ }
+diff --git a/packages/app/src/i18n/cs.ts b/packages/app/src/i18n/cs.ts
+index 5caf029cd2..779c889af7 100644
+--- a/packages/app/src/i18n/cs.ts
++++ b/packages/app/src/i18n/cs.ts
+@@ -1166,4 +1166,5 @@ export const dict = {
+   "provider.connect.setMainAccount": "Set as main account",
+   "common.add": "Add",
+   "common.done": "Done",
++  "prompt.action.enterNewline": "Enter for newline",
+ }
 diff --git a/packages/app/src/i18n/da.ts b/packages/app/src/i18n/da.ts
-index d52aca8..1f5ba0b 100644
+index 9615641116..24718a88b0 100644
 --- a/packages/app/src/i18n/da.ts
 +++ b/packages/app/src/i18n/da.ts
-@@ -273,6 +273,7 @@ export const dict = {
-   "prompt.context.removeActiveFile": "Fjern aktiv fil fra kontekst",
-   "prompt.context.removeFile": "Fjern fil fra kontekst",
-   "prompt.action.attachFile": "Vedhæft fil",
+@@ -303,6 +303,7 @@ export const dict = {
+   "prompt.menu.commands": "Kommandoer",
+   "prompt.menu.context": "Kontekst",
+   "prompt.menu.shellCommand": "Shell-kommando",
 +  "prompt.action.enterNewline": "Enter for ny linje",
    "prompt.attachment.remove": "Fjern vedhæftning",
    "prompt.action.send": "Send",
    "prompt.action.stop": "Stop",
 diff --git a/packages/app/src/i18n/de.ts b/packages/app/src/i18n/de.ts
-index 4d5a649..4049a2b 100644
+index 30732c8d84..c2a107adba 100644
 --- a/packages/app/src/i18n/de.ts
 +++ b/packages/app/src/i18n/de.ts
-@@ -260,6 +260,7 @@ export const dict = {
-   "prompt.context.removeActiveFile": "Aktive Datei aus dem Kontext entfernen",
-   "prompt.context.removeFile": "Datei aus dem Kontext entfernen",
-   "prompt.action.attachFile": "Datei anhängen",
+@@ -290,6 +290,7 @@ export const dict = {
+   "prompt.menu.commands": "Befehle",
+   "prompt.menu.context": "Kontext",
+   "prompt.menu.shellCommand": "Shell-Befehl",
 +  "prompt.action.enterNewline": "Enter für neue Zeile",
    "prompt.attachment.remove": "Anhang entfernen",
    "prompt.action.send": "Senden",
-   "prompt.action.stop": "Stopp",
+   "prompt.action.stop": "Stoppen",
+diff --git a/packages/app/src/i18n/dv.ts b/packages/app/src/i18n/dv.ts
+index 582650d1c8..4ea4a2f4a2 100644
+--- a/packages/app/src/i18n/dv.ts
++++ b/packages/app/src/i18n/dv.ts
+@@ -1180,4 +1180,5 @@ export const dict = {
+   "provider.connect.setMainAccount": "Set as main account",
+   "common.add": "Add",
+   "common.done": "Done",
++  "prompt.action.enterNewline": "Enter for newline",
+ }
+diff --git a/packages/app/src/i18n/dz.ts b/packages/app/src/i18n/dz.ts
+index b3ffa6f640..ab0c108f99 100644
+--- a/packages/app/src/i18n/dz.ts
++++ b/packages/app/src/i18n/dz.ts
+@@ -1184,4 +1184,5 @@ export const dict: Record<string, string> = {
+   "provider.connect.setMainAccount": "Set as main account",
+   "common.add": "Add",
+   "common.done": "Done",
++  "prompt.action.enterNewline": "Enter for newline",
+ }
+diff --git a/packages/app/src/i18n/el.ts b/packages/app/src/i18n/el.ts
+index 1d5d86da9f..99b2f4a9a3 100644
+--- a/packages/app/src/i18n/el.ts
++++ b/packages/app/src/i18n/el.ts
+@@ -1176,4 +1176,5 @@ export const dict = {
+   "provider.connect.setMainAccount": "Set as main account",
+   "common.add": "Add",
+   "common.done": "Done",
++  "prompt.action.enterNewline": "Enter for newline",
+ }
 diff --git a/packages/app/src/i18n/en.ts b/packages/app/src/i18n/en.ts
-index 29f662f..43d29b6 100644
+index b5e692ab15..7257c1bdd5 100644
 --- a/packages/app/src/i18n/en.ts
 +++ b/packages/app/src/i18n/en.ts
-@@ -281,6 +281,7 @@ export const dict = {
-   "prompt.context.removeActiveFile": "Remove active file from context",
-   "prompt.context.removeFile": "Remove file from context",
-   "prompt.action.attachFile": "Add files",
+@@ -308,6 +308,7 @@ export const dict = {
+   "prompt.menu.commands": "Commands",
+   "prompt.menu.context": "Context",
+   "prompt.menu.shellCommand": "Shell command",
 +  "prompt.action.enterNewline": "Enter for newline",
    "prompt.attachment.remove": "Remove attachment",
    "prompt.action.send": "Send",
    "prompt.action.stop": "Stop",
 diff --git a/packages/app/src/i18n/es.ts b/packages/app/src/i18n/es.ts
-index b71fe03..7e28cf8 100644
+index c82fe31025..7d759f7c58 100644
 --- a/packages/app/src/i18n/es.ts
 +++ b/packages/app/src/i18n/es.ts
-@@ -274,6 +274,7 @@ export const dict = {
-   "prompt.context.removeActiveFile": "Eliminar archivo activo del contexto",
-   "prompt.context.removeFile": "Eliminar archivo del contexto",
-   "prompt.action.attachFile": "Adjuntar archivo",
+@@ -406,6 +406,7 @@ export const dict = {
+   "prompt.menu.commands": "Comandos",
+   "prompt.menu.context": "Contexto",
+   "prompt.menu.shellCommand": "Comando de shell",
 +  "prompt.action.enterNewline": "Enter para nueva línea",
    "prompt.attachment.remove": "Eliminar adjunto",
    "prompt.action.send": "Enviar",
    "prompt.action.stop": "Detener",
+diff --git a/packages/app/src/i18n/et.ts b/packages/app/src/i18n/et.ts
+index 91217e5aca..f71f55b8d0 100644
+--- a/packages/app/src/i18n/et.ts
++++ b/packages/app/src/i18n/et.ts
+@@ -1154,4 +1154,5 @@ export const dict = {
+   "provider.connect.setMainAccount": "Set as main account",
+   "common.add": "Add",
+   "common.done": "Done",
++  "prompt.action.enterNewline": "Enter for newline",
+ }
+diff --git a/packages/app/src/i18n/fa.ts b/packages/app/src/i18n/fa.ts
+index a5d49b2fbe..4278383037 100644
+--- a/packages/app/src/i18n/fa.ts
++++ b/packages/app/src/i18n/fa.ts
+@@ -1158,4 +1158,5 @@ export const dict = {
+   "provider.connect.setMainAccount": "Set as main account",
+   "common.add": "Add",
+   "common.done": "Done",
++  "prompt.action.enterNewline": "Enter for newline",
+ }
+diff --git a/packages/app/src/i18n/fi.ts b/packages/app/src/i18n/fi.ts
+index 83a17fc5f6..746d2d5fcc 100644
+--- a/packages/app/src/i18n/fi.ts
++++ b/packages/app/src/i18n/fi.ts
+@@ -1171,4 +1171,5 @@ export const dict = {
+   "provider.connect.setMainAccount": "Set as main account",
+   "common.add": "Add",
+   "common.done": "Done",
++  "prompt.action.enterNewline": "Enter for newline",
+ }
+diff --git a/packages/app/src/i18n/fo.ts b/packages/app/src/i18n/fo.ts
+index 26e18af39c..499666ff32 100644
+--- a/packages/app/src/i18n/fo.ts
++++ b/packages/app/src/i18n/fo.ts
+@@ -1157,4 +1157,5 @@ export const dict = {
+   "provider.connect.setMainAccount": "Set as main account",
+   "common.add": "Add",
+   "common.done": "Done",
++  "prompt.action.enterNewline": "Enter for newline",
+ }
 diff --git a/packages/app/src/i18n/fr.ts b/packages/app/src/i18n/fr.ts
-index 385dbdd..61c670a 100644
+index fea33f0b21..6caee4b6bf 100644
 --- a/packages/app/src/i18n/fr.ts
 +++ b/packages/app/src/i18n/fr.ts
-@@ -255,6 +255,7 @@ export const dict = {
-   "prompt.context.removeActiveFile": "Retirer le fichier actif du contexte",
-   "prompt.context.removeFile": "Retirer le fichier du contexte",
-   "prompt.action.attachFile": "Joindre un fichier",
+@@ -389,6 +389,7 @@ export const dict = {
+   "prompt.menu.commands": "Commandes",
+   "prompt.menu.context": "Contexte",
+   "prompt.menu.shellCommand": "Commande shell",
 +  "prompt.action.enterNewline": "Entrée pour nouvelle ligne",
    "prompt.attachment.remove": "Supprimer la pièce jointe",
    "prompt.action.send": "Envoyer",
    "prompt.action.stop": "Arrêter",
+diff --git a/packages/app/src/i18n/hi.ts b/packages/app/src/i18n/hi.ts
+index 34a8a7a743..85a3095ef9 100644
+--- a/packages/app/src/i18n/hi.ts
++++ b/packages/app/src/i18n/hi.ts
+@@ -1166,4 +1166,5 @@ export const dict = {
+   "provider.connect.setMainAccount": "Set as main account",
+   "common.add": "Add",
+   "common.done": "Done",
++  "prompt.action.enterNewline": "Enter for newline",
+ }
+diff --git a/packages/app/src/i18n/hr.ts b/packages/app/src/i18n/hr.ts
+index 3ca31a44f5..770d32f778 100644
+--- a/packages/app/src/i18n/hr.ts
++++ b/packages/app/src/i18n/hr.ts
+@@ -1171,4 +1171,5 @@ export const dict = {
+   "provider.connect.setMainAccount": "Set as main account",
+   "common.add": "Add",
+   "common.done": "Done",
++  "prompt.action.enterNewline": "Enter for newline",
+ }
+diff --git a/packages/app/src/i18n/hu.ts b/packages/app/src/i18n/hu.ts
+index 1dcfe35b6c..dc4a1005b6 100644
+--- a/packages/app/src/i18n/hu.ts
++++ b/packages/app/src/i18n/hu.ts
+@@ -1173,4 +1173,5 @@ export const dict = {
+   "provider.connect.setMainAccount": "Set as main account",
+   "common.add": "Add",
+   "common.done": "Done",
++  "prompt.action.enterNewline": "Enter for newline",
+ }
+diff --git a/packages/app/src/i18n/hy.ts b/packages/app/src/i18n/hy.ts
+index 725c27205f..2ca575211a 100644
+--- a/packages/app/src/i18n/hy.ts
++++ b/packages/app/src/i18n/hy.ts
+@@ -1168,4 +1168,5 @@ export const dict = {
+   "provider.connect.setMainAccount": "Set as main account",
+   "common.add": "Add",
+   "common.done": "Done",
++  "prompt.action.enterNewline": "Enter for newline",
+ }
+diff --git a/packages/app/src/i18n/id.ts b/packages/app/src/i18n/id.ts
+index 2babcad3f2..5975444e5c 100644
+--- a/packages/app/src/i18n/id.ts
++++ b/packages/app/src/i18n/id.ts
+@@ -1253,4 +1253,5 @@ export const dict = {
+   "provider.connect.setMainAccount": "Set as main account",
+   "common.add": "Add",
+   "common.done": "Done",
++  "prompt.action.enterNewline": "Enter for newline",
+ }
+diff --git a/packages/app/src/i18n/is.ts b/packages/app/src/i18n/is.ts
+index bb9ada772f..af904ab6b3 100644
+--- a/packages/app/src/i18n/is.ts
++++ b/packages/app/src/i18n/is.ts
+@@ -1160,4 +1160,5 @@ export const dict = {
+   "provider.connect.setMainAccount": "Set as main account",
+   "common.add": "Add",
+   "common.done": "Done",
++  "prompt.action.enterNewline": "Enter for newline",
+ }
+diff --git a/packages/app/src/i18n/it.ts b/packages/app/src/i18n/it.ts
+index bc4a455703..5a53a4e9df 100644
+--- a/packages/app/src/i18n/it.ts
++++ b/packages/app/src/i18n/it.ts
+@@ -1179,4 +1179,5 @@ export const dict = {
+   "provider.connect.setMainAccount": "Set as main account",
+   "common.add": "Add",
+   "common.done": "Done",
++  "prompt.action.enterNewline": "Enter for newline",
+ }
 diff --git a/packages/app/src/i18n/ja.ts b/packages/app/src/i18n/ja.ts
-index 34ac398..79c127f 100644
+index dc7c957663..d85c7c0c3f 100644
 --- a/packages/app/src/i18n/ja.ts
 +++ b/packages/app/src/i18n/ja.ts
-@@ -254,6 +254,7 @@ export const dict = {
-   "prompt.context.removeActiveFile": "コンテキストからアクティブなファイルを削除",
-   "prompt.context.removeFile": "コンテキストからファイルを削除",
-   "prompt.action.attachFile": "ファイルを添付",
+@@ -383,6 +383,7 @@ export const dict = {
+   "prompt.menu.commands": "コマンド",
+   "prompt.menu.context": "コンテキスト",
+   "prompt.menu.shellCommand": "シェルコマンド",
 +  "prompt.action.enterNewline": "Enterで改行",
    "prompt.attachment.remove": "添付ファイルを削除",
    "prompt.action.send": "送信",
    "prompt.action.stop": "停止",
+diff --git a/packages/app/src/i18n/ka.ts b/packages/app/src/i18n/ka.ts
+index 6bced1a427..e9287174c8 100644
+--- a/packages/app/src/i18n/ka.ts
++++ b/packages/app/src/i18n/ka.ts
+@@ -1159,4 +1159,5 @@ export const dict = {
+   "provider.connect.setMainAccount": "Set as main account",
+   "common.add": "Add",
+   "common.done": "Done",
++  "prompt.action.enterNewline": "Enter for newline",
+ }
+diff --git a/packages/app/src/i18n/km.ts b/packages/app/src/i18n/km.ts
+index 15038b3181..378933c8dc 100644
+--- a/packages/app/src/i18n/km.ts
++++ b/packages/app/src/i18n/km.ts
+@@ -1154,4 +1154,5 @@ export const dict = {
+   "provider.connect.setMainAccount": "Set as main account",
+   "common.add": "Add",
+   "common.done": "Done",
++  "prompt.action.enterNewline": "Enter for newline",
+ }
 diff --git a/packages/app/src/i18n/ko.ts b/packages/app/src/i18n/ko.ts
-index f1926f3..621a694 100644
+index 73c145ec9f..a476e85d37 100644
 --- a/packages/app/src/i18n/ko.ts
 +++ b/packages/app/src/i18n/ko.ts
-@@ -254,6 +254,7 @@ export const dict = {
-   "prompt.context.removeActiveFile": "컨텍스트에서 활성 파일 제거",
-   "prompt.context.removeFile": "컨텍스트에서 파일 제거",
-   "prompt.action.attachFile": "파일 첨부",
+@@ -272,6 +272,7 @@ export const dict = {
+   "prompt.menu.commands": "명령어",
+   "prompt.menu.context": "컨텍스트",
+   "prompt.menu.shellCommand": "셸 명령",
 +  "prompt.action.enterNewline": "Enter로 줄바꿈",
    "prompt.attachment.remove": "첨부 파일 제거",
    "prompt.action.send": "전송",
    "prompt.action.stop": "중지",
+diff --git a/packages/app/src/i18n/lo.ts b/packages/app/src/i18n/lo.ts
+index cb0e3833bb..8bb290f213 100644
+--- a/packages/app/src/i18n/lo.ts
++++ b/packages/app/src/i18n/lo.ts
+@@ -1151,4 +1151,5 @@ export const dict = {
+   "provider.connect.setMainAccount": "Set as main account",
+   "common.add": "Add",
+   "common.done": "Done",
++  "prompt.action.enterNewline": "Enter for newline",
+ }
+diff --git a/packages/app/src/i18n/lt.ts b/packages/app/src/i18n/lt.ts
+index 1e5e1efcbd..c5aaf20d86 100644
+--- a/packages/app/src/i18n/lt.ts
++++ b/packages/app/src/i18n/lt.ts
+@@ -1176,4 +1176,5 @@ export const dict = {
+   "provider.connect.setMainAccount": "Set as main account",
+   "common.add": "Add",
+   "common.done": "Done",
++  "prompt.action.enterNewline": "Enter for newline",
+ }
+diff --git a/packages/app/src/i18n/lv.ts b/packages/app/src/i18n/lv.ts
+index 982c1bfc78..8db9eb370b 100644
+--- a/packages/app/src/i18n/lv.ts
++++ b/packages/app/src/i18n/lv.ts
+@@ -1165,4 +1165,5 @@ export const dict = {
+   "provider.connect.setMainAccount": "Set as main account",
+   "common.add": "Add",
+   "common.done": "Done",
++  "prompt.action.enterNewline": "Enter for newline",
+ }
+diff --git a/packages/app/src/i18n/mk.ts b/packages/app/src/i18n/mk.ts
+index e8a46eec84..90de24e5a2 100644
+--- a/packages/app/src/i18n/mk.ts
++++ b/packages/app/src/i18n/mk.ts
+@@ -1169,4 +1169,5 @@ export const dict = {
+   "provider.connect.setMainAccount": "Set as main account",
+   "common.add": "Add",
+   "common.done": "Done",
++  "prompt.action.enterNewline": "Enter for newline",
+ }
+diff --git a/packages/app/src/i18n/mn.ts b/packages/app/src/i18n/mn.ts
+index 0b521f5293..57faaf89c8 100644
+--- a/packages/app/src/i18n/mn.ts
++++ b/packages/app/src/i18n/mn.ts
+@@ -1171,4 +1171,5 @@ export const dict = {
+   "provider.connect.setMainAccount": "Set as main account",
+   "common.add": "Add",
+   "common.done": "Done",
++  "prompt.action.enterNewline": "Enter for newline",
+ }
+diff --git a/packages/app/src/i18n/ms.ts b/packages/app/src/i18n/ms.ts
+index 71f6955a72..a46d6b63a2 100644
+--- a/packages/app/src/i18n/ms.ts
++++ b/packages/app/src/i18n/ms.ts
+@@ -1160,4 +1160,5 @@ export const dict = {
+   "provider.connect.setMainAccount": "Set as main account",
+   "common.add": "Add",
+   "common.done": "Done",
++  "prompt.action.enterNewline": "Enter for newline",
+ }
+diff --git a/packages/app/src/i18n/my.ts b/packages/app/src/i18n/my.ts
+index da166d06f3..65ff1c9216 100644
+--- a/packages/app/src/i18n/my.ts
++++ b/packages/app/src/i18n/my.ts
+@@ -1179,4 +1179,5 @@ export const dict = {
+   "provider.connect.setMainAccount": "Set as main account",
+   "common.add": "Add",
+   "common.done": "Done",
++  "prompt.action.enterNewline": "Enter for newline",
+ }
+diff --git a/packages/app/src/i18n/ne.ts b/packages/app/src/i18n/ne.ts
+index 1f76484ed6..53d6fd7c00 100644
+--- a/packages/app/src/i18n/ne.ts
++++ b/packages/app/src/i18n/ne.ts
+@@ -1160,4 +1160,5 @@ export const dict: Record<string, string> = {
+   "provider.connect.setMainAccount": "Set as main account",
+   "common.add": "Add",
+   "common.done": "Done",
++  "prompt.action.enterNewline": "Enter for newline",
+ }
+diff --git a/packages/app/src/i18n/nl.ts b/packages/app/src/i18n/nl.ts
+index f1d6ae4bb6..de3a07b65c 100644
+--- a/packages/app/src/i18n/nl.ts
++++ b/packages/app/src/i18n/nl.ts
+@@ -1174,4 +1174,5 @@ export const dict = {
+   "provider.connect.setMainAccount": "Set as main account",
+   "common.add": "Add",
+   "common.done": "Done",
++  "prompt.action.enterNewline": "Enter for newline",
+ }
 diff --git a/packages/app/src/i18n/no.ts b/packages/app/src/i18n/no.ts
-index b4adebd..f89d6f4 100644
+index 8c782f63a0..3778f373dc 100644
 --- a/packages/app/src/i18n/no.ts
 +++ b/packages/app/src/i18n/no.ts
-@@ -277,6 +277,7 @@ export const dict = {
-   "prompt.context.removeActiveFile": "Fjern aktiv fil fra kontekst",
-   "prompt.context.removeFile": "Fjern fil fra kontekst",
-   "prompt.action.attachFile": "Legg ved fil",
+@@ -396,6 +396,7 @@ export const dict = {
+   "prompt.menu.commands": "Kommandoer",
+   "prompt.menu.context": "Kontekst",
+   "prompt.menu.shellCommand": "Shell-kommando",
 +  "prompt.action.enterNewline": "Enter for ny linje",
    "prompt.attachment.remove": "Fjern vedlegg",
    "prompt.action.send": "Send",
    "prompt.action.stop": "Stopp",
+diff --git a/packages/app/src/i18n/pa.ts b/packages/app/src/i18n/pa.ts
+index 1b169d5f78..1823bd1db1 100644
+--- a/packages/app/src/i18n/pa.ts
++++ b/packages/app/src/i18n/pa.ts
+@@ -1164,4 +1164,5 @@ export const dict = {
+   "provider.connect.setMainAccount": "Set as main account",
+   "common.add": "Add",
+   "common.done": "Done",
++  "prompt.action.enterNewline": "Enter for newline",
+ }
 diff --git a/packages/app/src/i18n/pl.ts b/packages/app/src/i18n/pl.ts
-index 02637e5..5054a29 100644
+index bc5e5ef3b2..19dca275fc 100644
 --- a/packages/app/src/i18n/pl.ts
 +++ b/packages/app/src/i18n/pl.ts
-@@ -256,6 +256,7 @@ export const dict = {
-   "prompt.context.removeActiveFile": "Usuń aktywny plik z kontekstu",
-   "prompt.context.removeFile": "Usuń plik z kontekstu",
-   "prompt.action.attachFile": "Załącz plik",
+@@ -386,6 +386,7 @@ export const dict = {
+   "prompt.menu.commands": "Polecenia",
+   "prompt.menu.context": "Kontekst",
+   "prompt.menu.shellCommand": "Polecenie powłoki",
 +  "prompt.action.enterNewline": "Enter = nowa linia",
    "prompt.attachment.remove": "Usuń załącznik",
    "prompt.action.send": "Wyślij",
    "prompt.action.stop": "Zatrzymaj",
+diff --git a/packages/app/src/i18n/ro.ts b/packages/app/src/i18n/ro.ts
+index 9830e2e72d..74a7c45c1f 100644
+--- a/packages/app/src/i18n/ro.ts
++++ b/packages/app/src/i18n/ro.ts
+@@ -1165,4 +1165,5 @@ export const dict = {
+   "provider.connect.setMainAccount": "Set as main account",
+   "common.add": "Add",
+   "common.done": "Done",
++  "prompt.action.enterNewline": "Enter for newline",
+ }
 diff --git a/packages/app/src/i18n/ru.ts b/packages/app/src/i18n/ru.ts
-index a965acf..5322220 100644
+index 465a3e6b37..3da58544eb 100644
 --- a/packages/app/src/i18n/ru.ts
 +++ b/packages/app/src/i18n/ru.ts
-@@ -274,6 +274,7 @@ export const dict = {
-   "prompt.context.removeActiveFile": "Удалить активный файл из контекста",
-   "prompt.context.removeFile": "Удалить файл из контекста",
-   "prompt.action.attachFile": "Прикрепить файл",
+@@ -404,6 +404,7 @@ export const dict = {
+   "prompt.menu.commands": "Команды",
+   "prompt.menu.context": "Контекст",
+   "prompt.menu.shellCommand": "Команда оболочки",
 +  "prompt.action.enterNewline": "Enter ↵",
    "prompt.attachment.remove": "Удалить вложение",
    "prompt.action.send": "Отправить",
    "prompt.action.stop": "Остановить",
+diff --git a/packages/app/src/i18n/si.ts b/packages/app/src/i18n/si.ts
+index a961b26f3c..bc25623fb6 100644
+--- a/packages/app/src/i18n/si.ts
++++ b/packages/app/src/i18n/si.ts
+@@ -1156,4 +1156,5 @@ export const dict: Record<string, string> = {
+   "provider.connect.setMainAccount": "Set as main account",
+   "common.add": "Add",
+   "common.done": "Done",
++  "prompt.action.enterNewline": "Enter for newline",
+ }
+diff --git a/packages/app/src/i18n/sk.ts b/packages/app/src/i18n/sk.ts
+index 0d56695c89..13cd97f94a 100644
+--- a/packages/app/src/i18n/sk.ts
++++ b/packages/app/src/i18n/sk.ts
+@@ -1162,4 +1162,5 @@ export const dict = {
+   "provider.connect.setMainAccount": "Set as main account",
+   "common.add": "Add",
+   "common.done": "Done",
++  "prompt.action.enterNewline": "Enter for newline",
+ }
+diff --git a/packages/app/src/i18n/sl.ts b/packages/app/src/i18n/sl.ts
+index 084715c1d9..23351459c5 100644
+--- a/packages/app/src/i18n/sl.ts
++++ b/packages/app/src/i18n/sl.ts
+@@ -1166,4 +1166,5 @@ export const dict = {
+   "provider.connect.setMainAccount": "Set as main account",
+   "common.add": "Add",
+   "common.done": "Done",
++  "prompt.action.enterNewline": "Enter for newline",
+ }
+diff --git a/packages/app/src/i18n/sq.ts b/packages/app/src/i18n/sq.ts
+index 15b2534681..a975596f83 100644
+--- a/packages/app/src/i18n/sq.ts
++++ b/packages/app/src/i18n/sq.ts
+@@ -1166,4 +1166,5 @@ export const dict = {
+   "provider.connect.setMainAccount": "Set as main account",
+   "common.add": "Add",
+   "common.done": "Done",
++  "prompt.action.enterNewline": "Enter for newline",
+ }
+diff --git a/packages/app/src/i18n/sr.ts b/packages/app/src/i18n/sr.ts
+index b0b28e1224..8ce11c23ab 100644
+--- a/packages/app/src/i18n/sr.ts
++++ b/packages/app/src/i18n/sr.ts
+@@ -1164,4 +1164,5 @@ export const dict = {
+   "provider.connect.setMainAccount": "Set as main account",
+   "common.add": "Add",
+   "common.done": "Done",
++  "prompt.action.enterNewline": "Enter for newline",
+ }
+diff --git a/packages/app/src/i18n/sv.ts b/packages/app/src/i18n/sv.ts
+index 2561aa77df..b67fd1cfe3 100644
+--- a/packages/app/src/i18n/sv.ts
++++ b/packages/app/src/i18n/sv.ts
+@@ -1163,4 +1163,5 @@ export const dict = {
+   "provider.connect.setMainAccount": "Set as main account",
+   "common.add": "Add",
+   "common.done": "Done",
++  "prompt.action.enterNewline": "Enter for newline",
+ }
+diff --git a/packages/app/src/i18n/tg.ts b/packages/app/src/i18n/tg.ts
+index a5b6d97998..67ed5937f3 100644
+--- a/packages/app/src/i18n/tg.ts
++++ b/packages/app/src/i18n/tg.ts
+@@ -1167,4 +1167,5 @@ export const dict = {
+   "provider.connect.setMainAccount": "Set as main account",
+   "common.add": "Add",
+   "common.done": "Done",
++  "prompt.action.enterNewline": "Enter for newline",
+ }
 diff --git a/packages/app/src/i18n/th.ts b/packages/app/src/i18n/th.ts
-index 00df86a..8935c1f 100644
+index 79431a0844..44b377c1e8 100644
 --- a/packages/app/src/i18n/th.ts
 +++ b/packages/app/src/i18n/th.ts
-@@ -274,6 +274,7 @@ export const dict = {
-   "prompt.context.removeActiveFile": "เอาไฟล์ที่ใช้งานอยู่ออกจากบริบท",
-   "prompt.context.removeFile": "เอาไฟล์ออกจากบริบท",
-   "prompt.action.attachFile": "แนบไฟล์",
+@@ -403,6 +403,7 @@ export const dict = {
+   "prompt.menu.commands": "คำสั่ง",
+   "prompt.menu.context": "บริบท",
+   "prompt.menu.shellCommand": "คำสั่งเชลล์",
 +  "prompt.action.enterNewline": "Enter สำหรับขึ้นบรรทัดใหม่",
    "prompt.attachment.remove": "เอาไฟล์แนบออก",
    "prompt.action.send": "ส่ง",
    "prompt.action.stop": "หยุด",
+diff --git a/packages/app/src/i18n/tk.ts b/packages/app/src/i18n/tk.ts
+index aeef18c4d3..40fddbe76b 100644
+--- a/packages/app/src/i18n/tk.ts
++++ b/packages/app/src/i18n/tk.ts
+@@ -1162,4 +1162,5 @@ export const dict = {
+   "provider.connect.setMainAccount": "Set as main account",
+   "common.add": "Add",
+   "common.done": "Done",
++  "prompt.action.enterNewline": "Enter for newline",
+ }
 diff --git a/packages/app/src/i18n/tr.ts b/packages/app/src/i18n/tr.ts
-index 27a6e03..e402bc5 100644
+index b567f1f051..bac5aa7c88 100644
 --- a/packages/app/src/i18n/tr.ts
 +++ b/packages/app/src/i18n/tr.ts
-@@ -279,6 +279,7 @@ export const dict = {
-   "prompt.context.removeActiveFile": "Aktif dosyayı bağlamdan çıkar",
-   "prompt.context.removeFile": "Dosyayı bağlamdan çıkar",
-   "prompt.action.attachFile": "Dosya ekle",
+@@ -410,6 +410,7 @@ export const dict = {
+   "prompt.menu.commands": "Komutlar",
+   "prompt.menu.context": "Bağlam",
+   "prompt.menu.shellCommand": "Kabuk komutu",
 +  "prompt.action.enterNewline": "Enter ile yeni satır",
    "prompt.attachment.remove": "Eki kaldır",
    "prompt.action.send": "Gönder",
    "prompt.action.stop": "Durdur",
 diff --git a/packages/app/src/i18n/uk.ts b/packages/app/src/i18n/uk.ts
-index 948c9a6..2d0fd39 100644
+index 0b982537de..050971b73b 100644
 --- a/packages/app/src/i18n/uk.ts
 +++ b/packages/app/src/i18n/uk.ts
-@@ -281,6 +281,7 @@ export const dict = {
-   "prompt.context.removeActiveFile": "Видалити активний файл з контексту",
-   "prompt.context.removeFile": "Видалити файл з контексту",
-   "prompt.action.attachFile": "Додати файли",
+@@ -407,6 +407,7 @@ export const dict = {
+   "prompt.menu.commands": "Команди",
+   "prompt.menu.context": "Контекст",
+   "prompt.menu.shellCommand": "Команда оболонки",
 +  "prompt.action.enterNewline": "Enter ↵",
    "prompt.attachment.remove": "Видалити вкладення",
    "prompt.action.send": "Надіслати",
    "prompt.action.stop": "Зупинити",
+diff --git a/packages/app/src/i18n/ur.ts b/packages/app/src/i18n/ur.ts
+index 57c84ffba9..e970883cc8 100644
+--- a/packages/app/src/i18n/ur.ts
++++ b/packages/app/src/i18n/ur.ts
+@@ -1167,4 +1167,5 @@ export const dict = {
+   "provider.connect.setMainAccount": "Set as main account",
+   "common.add": "Add",
+   "common.done": "Done",
++  "prompt.action.enterNewline": "Enter for newline",
+ }
+diff --git a/packages/app/src/i18n/uz.ts b/packages/app/src/i18n/uz.ts
+index ef2b31cd9d..15397fb1af 100644
+--- a/packages/app/src/i18n/uz.ts
++++ b/packages/app/src/i18n/uz.ts
+@@ -1174,4 +1174,5 @@ export const dict = {
+   "provider.connect.setMainAccount": "Set as main account",
+   "common.add": "Add",
+   "common.done": "Done",
++  "prompt.action.enterNewline": "Enter for newline",
+ }
+diff --git a/packages/app/src/i18n/vi.ts b/packages/app/src/i18n/vi.ts
+index 6888729744..f92208d5a1 100644
+--- a/packages/app/src/i18n/vi.ts
++++ b/packages/app/src/i18n/vi.ts
+@@ -1172,4 +1172,5 @@ export const dict = {
+   "provider.connect.setMainAccount": "Set as main account",
+   "common.add": "Add",
+   "common.done": "Done",
++  "prompt.action.enterNewline": "Enter for newline",
+ }
 diff --git a/packages/app/src/i18n/zh.ts b/packages/app/src/i18n/zh.ts
-index f5c962a..b66f8be 100644
+index 1801e66951..662a4537fa 100644
 --- a/packages/app/src/i18n/zh.ts
 +++ b/packages/app/src/i18n/zh.ts
-@@ -294,6 +294,7 @@ export const dict = {
-   "prompt.context.removeActiveFile": "从上下文移除活动文件",
-   "prompt.context.removeFile": "从上下文移除文件",
-   "prompt.action.attachFile": "附加文件",
+@@ -423,6 +423,7 @@ export const dict = {
+   "prompt.menu.commands": "命令",
+   "prompt.menu.context": "上下文",
+   "prompt.menu.shellCommand": "shell 命令",
 +  "prompt.action.enterNewline": "Enter 换行",
    "prompt.attachment.remove": "移除附件",
    "prompt.action.send": "发送",
    "prompt.action.stop": "停止",
 diff --git a/packages/app/src/i18n/zht.ts b/packages/app/src/i18n/zht.ts
-index edd6f7b..949d1b9 100644
+index 946ef1eae6..56ae91d26e 100644
 --- a/packages/app/src/i18n/zht.ts
 +++ b/packages/app/src/i18n/zht.ts
-@@ -274,6 +274,7 @@ export const dict = {
-   "prompt.context.removeActiveFile": "從上下文移除目前檔案",
-   "prompt.context.removeFile": "從上下文移除檔案",
-   "prompt.action.attachFile": "附加檔案",
+@@ -403,6 +403,7 @@ export const dict = {
+   "prompt.menu.commands": "命令",
+   "prompt.menu.context": "上下文",
+   "prompt.menu.shellCommand": "shell 命令",
 +  "prompt.action.enterNewline": "Enter 換行",
    "prompt.attachment.remove": "移除附件",
    "prompt.action.send": "傳送",

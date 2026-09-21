@@ -1,8 +1,8 @@
 diff --git a/packages/opencode/src/session/retry.ts b/packages/opencode/src/session/retry.ts
-index 463bc27..fd93079 100644
+index 284c0f0ade..d8048bb91c 100644
 --- a/packages/opencode/src/session/retry.ts
 +++ b/packages/opencode/src/session/retry.ts
-@@ -6,9 +6,8 @@ import { isRecord } from "@/util/record"
+@@ -7,9 +7,8 @@ import { isRecord } from "@/util/record"
  
  export type Err = ReturnType<NamedError["toObject"]>
  
@@ -14,13 +14,19 @@ index 463bc27..fd93079 100644
  
  export type Retryable = {
    message: string
-@@ -69,25 +68,11 @@ export function retryable(error: Err, provider: string) {
-   if (MessageV2.ContextOverflowError.isInstance(error)) return undefined
-   if (MessageV2.APIError.isInstance(error)) {
+@@ -87,31 +86,11 @@ export function retryable(error: Err, provider: string) {
+   if (SessionV1.ContextOverflowError.isInstance(error)) return undefined
+   if (SessionV1.APIError.isInstance(error)) {
      const status = error.data.statusCode
 -    // 5xx errors are transient server failures and should always be retried,
 -    // even when the provider SDK doesn't explicitly mark them as retryable.
--    if (!error.data.isRetryable && !(status !== undefined && status >= 500)) return undefined
+-    if (
+-      !error.data.isRetryable &&
+-      !(status !== undefined && status >= 500) &&
+-      !matchesRetryableMessage(error.data.message) &&
+-      !matchesRetryableMessage(error.data.responseBody)
+-    )
+-      return undefined
 -    if (error.data.responseBody?.includes("FreeUsageLimitError")) {
 -      return {
 -        message: GO_UPSELL_MESSAGE,
@@ -28,7 +34,7 @@ index 463bc27..fd93079 100644
 -          reason: "free_tier_limit",
 -          provider,
 -          title: "Free limit reached",
--          message: "Subscribe to OpenCode Go for reliable access to the best open-source models, starting at $5/month.",
+-          message: "Subscribe to OpenCode Go for reliable access to the best open-source models for $10/month.",
 -          label: "subscribe",
 -          link: GO_UPSELL_URL,
 -        },
@@ -43,7 +49,7 @@ index 463bc27..fd93079 100644
        const limitName = str(body?.metadata?.limitName)
        const retryAfter = num(error.data.responseHeaders?.["retry-after"])
        const resetIn = iife(() => {
-@@ -104,20 +89,29 @@ export function retryable(error: Err, provider: string) {
+@@ -128,20 +107,36 @@ export function retryable(error: Err, provider: string) {
        })
  
        const message = `${limitName ? `${limitName} usage limit` : "Usage limit"} reached. It will reset in ${resetIn}. To continue using this model now, enable usage from your available balance`
@@ -79,9 +85,95 @@ index 463bc27..fd93079 100644
 +      return { message, action: { reason: "rate_limit", provider, title: message, message, label: "" } }
      }
 +
-+    // 5xx errors are transient server failures and should always be retried,
-+    // even when the provider SDK doesn't explicitly mark them as retryable.
-+    if (!error.data.isRetryable && !(status !== undefined && status >= 500)) return undefined
++    // Everything else: only retry when the SDK marks it retryable, it is a 5xx,
++    // or the message looks like a transient/retryable error.
++    if (
++      !error.data.isRetryable &&
++      !(status !== undefined && status >= 500) &&
++      !matchesRetryableMessage(error.data.message) &&
++      !matchesRetryableMessage(error.data.responseBody)
++    )
++      return undefined
++
      return { message: error.data.message.includes("Overloaded") ? "Provider is overloaded" : error.data.message }
    }
  
+diff --git a/packages/opencode/test/session/retry.test.ts b/packages/opencode/test/session/retry.test.ts
+index 20c8678cf0..e9f783198f 100644
+--- a/packages/opencode/test/session/retry.test.ts
++++ b/packages/opencode/test/session/retry.test.ts
+@@ -321,6 +321,24 @@ describe("session.retry.retryable", () => {
+     expect(SessionRetry.retryable(error, retryProvider)).toBeUndefined()
+   })
+ 
++  test("rotates the API key on 401/403/429 even when isRetryable is false", () => {
++    for (const statusCode of [401, 403, 429]) {
++      const error = Schema.decodeUnknownSync(SessionV1.APIError.Schema)(
++        new SessionV1.APIError({
++          message: statusCode === 429 ? "Rate limit reached" : "Unauthorized",
++          isRetryable: false,
++          statusCode,
++        }).toObject(),
++      )
++
++      const message = statusCode === 429 ? "Rate limit reached" : "API key rejected"
++      expect(SessionRetry.retryable(error, retryProvider)).toEqual({
++        message,
++        action: { reason: "rate_limit", provider: retryProvider, title: message, message, label: "" },
++      })
++    }
++  })
++
+   test("retries ZlibError decompression failures", () => {
+     const error = Schema.decodeUnknownSync(SessionV1.APIError.Schema)(
+       new SessionV1.APIError({
+@@ -335,32 +353,6 @@ describe("session.retry.retryable", () => {
+     expect(retryable).toEqual({ message: "Response decompression failed" })
+   })
+ 
+-  test("maps free limits to Go upsell action", () => {
+-    const error = Schema.decodeUnknownSync(SessionV1.APIError.Schema)(
+-      new SessionV1.APIError({
+-        message: "Free usage exceeded",
+-        isRetryable: true,
+-        statusCode: 429,
+-        responseBody: JSON.stringify({
+-          type: "error",
+-          error: { type: "FreeUsageLimitError", message: "Free usage exceeded" },
+-        }),
+-      }).toObject(),
+-    )
+-
+-    expect(SessionRetry.retryable(error, "opencode")).toEqual({
+-      message: SessionRetry.GO_UPSELL_MESSAGE,
+-      action: {
+-        reason: "free_tier_limit",
+-        provider: "opencode",
+-        title: "Free limit reached",
+-        message: "Subscribe to OpenCode Go for reliable access to the best open-source models for $10/month.",
+-        label: "subscribe",
+-        link: SessionRetry.GO_UPSELL_URL,
+-      },
+-    })
+-  })
+-
+   test("maps Go subscription limits to workspace PAYG upsell", () => {
+     const error = Schema.decodeUnknownSync(SessionV1.APIError.Schema)(
+       new SessionV1.APIError({
+@@ -386,7 +378,7 @@ describe("session.retry.retryable", () => {
+ 
+     expect(SessionRetry.retryable(error, "opencode-go")).toEqual({
+       message:
+-        "5 hour usage limit reached. It will reset in 5 hours 23 minutes. To continue using this model now, enable usage from your available balance - https://opencode.ai/workspace/wrk_01K6XGM22R6FM8JVABE9XDQXGH/go",
++        "5 hour usage limit reached. It will reset in 5 hours 23 minutes. To continue using this model now, enable usage from your available balance",
+       action: {
+         reason: "account_rate_limit",
+         provider: "opencode-go",
+@@ -394,7 +386,6 @@ describe("session.retry.retryable", () => {
+         message:
+           "5 hour usage limit reached. It will reset in 5 hours 23 minutes. To continue using this model now, enable usage from your available balance",
+         label: "open settings",
+-        link: "https://opencode.ai/workspace/wrk_01K6XGM22R6FM8JVABE9XDQXGH/go",
+       },
+     })
+   })

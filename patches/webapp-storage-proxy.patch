@@ -1,6 +1,80 @@
+diff --git a/packages/app/src/entry.tsx b/packages/app/src/entry.tsx
+index 6e5f63fd4e..89d39f7f1f 100644
+--- a/packages/app/src/entry.tsx
++++ b/packages/app/src/entry.tsx
+@@ -12,6 +12,40 @@ import { authFromToken } from "@/utils/server"
+ import pkg from "../package.json"
+ import { ServerConnection } from "./context/server"
+ 
++// Intercept ALL localStorage — server-only XHR layer.
++// Every browser sees the same state since all data lives on the server.
++if (typeof localStorage !== "undefined") {
++  const orig = localStorage
++  Storage.prototype.getItem = function (key: string): string | null {
++    if (key == null) return null
++    try {
++      const xhr = new XMLHttpRequest()
++      xhr.open("GET", "/persist/" + encodeURIComponent(key), false)
++      xhr.send()
++      if (xhr.status === 200) return xhr.responseText
++    } catch { /* server down */ }
++    return null
++  }
++  Storage.prototype.setItem = function (key: string, value: string): void {
++    try {
++      const xhr = new XMLHttpRequest()
++      xhr.open("PUT", "/persist/" + encodeURIComponent(key), false)
++      xhr.setRequestHeader("Content-Type", "application/json")
++      xhr.send(JSON.stringify(value))
++    } catch { /* server down */ }
++  }
++  Storage.prototype.removeItem = function (key: string): void {
++    try {
++      const xhr = new XMLHttpRequest()
++      xhr.open("DELETE", "/persist/" + encodeURIComponent(key), false)
++      xhr.send()
++    } catch { /* server down */ }
++  }
++  Storage.prototype.clear = function (): void {
++    /* no-op */
++  }
++}
++
+ const DEFAULT_SERVER_URL_KEY = "opencode.settings.dat:defaultServerUrl"
+ 
+ const getLocale = () => {
+@@ -119,7 +153,7 @@ const clearAuthToken = () => {
+ const platform: Platform = {
+   platform: "web",
+   draftStore: createBrowserDraftStore(),
+-  version: pkg.version,
++  version: pkg.version + " (Tate Patched 4)",
+   openExternal,
+   restart,
+   notify,
+diff --git a/packages/opencode/src/server/routes/instance/httpapi/api.ts b/packages/opencode/src/server/routes/instance/httpapi/api.ts
+index f5076ad080..fd4548842a 100644
+--- a/packages/opencode/src/server/routes/instance/httpapi/api.ts
++++ b/packages/opencode/src/server/routes/instance/httpapi/api.ts
+@@ -10,6 +10,7 @@ import { Question } from "@/question"
+ import { ConfigApi } from "./groups/config"
+ import { ControlApi } from "./groups/control"
+ import { ControlPlaneApi } from "./groups/control-plane"
++import { PersistApi } from "./groups/persist"
+ import { EventApi } from "./groups/event"
+ import { ExperimentalApi } from "./groups/experimental"
+ import { FileApi } from "./groups/file"
+@@ -64,6 +65,7 @@ export const InstanceHttpApi = HttpApi.make("opencode-instance")
+   .addHttpApi(FileApi)
+   .addHttpApi(InstanceApi)
+   .addHttpApi(McpApi)
++  .addHttpApi(PersistApi)
+   .addHttpApi(ProjectApi)
+   .addHttpApi(ProjectCopyApi)
+   .addHttpApi(PtyApi)
 diff --git a/packages/opencode/src/server/routes/instance/httpapi/groups/persist.ts b/packages/opencode/src/server/routes/instance/httpapi/groups/persist.ts
 new file mode 100644
-index 0000000..3d6fb3f
+index 0000000000..3d6fb3f675
 --- /dev/null
 +++ b/packages/opencode/src/server/routes/instance/httpapi/groups/persist.ts
 @@ -0,0 +1,63 @@
@@ -69,7 +143,7 @@ index 0000000..3d6fb3f
 +  )
 diff --git a/packages/opencode/src/server/routes/instance/httpapi/handlers/persist.ts b/packages/opencode/src/server/routes/instance/httpapi/handlers/persist.ts
 new file mode 100644
-index 0000000..375d168
+index 0000000000..375d168654
 --- /dev/null
 +++ b/packages/opencode/src/server/routes/instance/httpapi/handlers/persist.ts
 @@ -0,0 +1,53 @@
@@ -126,97 +200,23 @@ index 0000000..375d168
 +      .handle("remove", remove)
 +  }),
 +)
-diff --git a/packages/app/src/entry.tsx b/packages/app/src/entry.tsx
-index 5115f03..8151c1a 100644
---- a/packages/app/src/entry.tsx
-+++ b/packages/app/src/entry.tsx
-@@ -11,6 +11,40 @@ import { authFromToken } from "@/utils/server"
- import pkg from "../package.json"
- import { ServerConnection } from "./context/server"
- 
-+// Intercept ALL localStorage — server-only XHR layer.
-+// Every browser sees the same state since all data lives on the server.
-+if (typeof localStorage !== "undefined") {
-+  const orig = localStorage
-+  Storage.prototype.getItem = function (key: string): string | null {
-+    if (key == null) return null
-+    try {
-+      const xhr = new XMLHttpRequest()
-+      xhr.open("GET", "/persist/" + encodeURIComponent(key), false)
-+      xhr.send()
-+      if (xhr.status === 200) return xhr.responseText
-+    } catch { /* server down */ }
-+    return null
-+  }
-+  Storage.prototype.setItem = function (key: string, value: string): void {
-+    try {
-+      const xhr = new XMLHttpRequest()
-+      xhr.open("PUT", "/persist/" + encodeURIComponent(key), false)
-+      xhr.setRequestHeader("Content-Type", "application/json")
-+      xhr.send(JSON.stringify(value))
-+    } catch { /* server down */ }
-+  }
-+  Storage.prototype.removeItem = function (key: string): void {
-+    try {
-+      const xhr = new XMLHttpRequest()
-+      xhr.open("DELETE", "/persist/" + encodeURIComponent(key), false)
-+      xhr.send()
-+    } catch { /* server down */ }
-+  }
-+  Storage.prototype.clear = function (): void {
-+    /* no-op */
-+  }
-+}
-+
- const DEFAULT_SERVER_URL_KEY = "opencode.settings.dat:defaultServerUrl"
- 
- const getLocale = () => {
-@@ -121,7 +155,7 @@ const clearAuthToken = () => {
- 
- const platform: Platform = {
-   platform: "web",
--  version: pkg.version,
-+  version: pkg.version + " (Tate Patched 3)",
-   openLink,
-   back,
-   forward,
-diff --git a/packages/opencode/src/server/routes/instance/httpapi/api.ts b/packages/opencode/src/server/routes/instance/httpapi/api.ts
-index eff336b..96f13d1 100644
---- a/packages/opencode/src/server/routes/instance/httpapi/api.ts
-+++ b/packages/opencode/src/server/routes/instance/httpapi/api.ts
-@@ -4,6 +4,7 @@ import { BusEvent } from "@/bus/bus-event"
- import { SyncEvent } from "@/sync"
- import { ConfigApi } from "./groups/config"
- import { ControlApi } from "./groups/control"
-+import { PersistApi } from "./groups/persist"
- import { EventApi } from "./groups/event"
- import { ExperimentalApi } from "./groups/experimental"
- import { FileApi } from "./groups/file"
-@@ -39,6 +40,7 @@ export const InstanceHttpApi = HttpApi.make("opencode-instance")
-   .addHttpApi(FileApi)
-   .addHttpApi(InstanceApi)
-   .addHttpApi(McpApi)
-+  .addHttpApi(PersistApi)
-   .addHttpApi(ProjectApi)
-   .addHttpApi(PtyApi)
-   .addHttpApi(QuestionApi)
 diff --git a/packages/opencode/src/server/routes/instance/httpapi/server.ts b/packages/opencode/src/server/routes/instance/httpapi/server.ts
-index 45a71a7..b784886 100644
+index fb9d2db656..2347d7f053 100644
 --- a/packages/opencode/src/server/routes/instance/httpapi/server.ts
 +++ b/packages/opencode/src/server/routes/instance/httpapi/server.ts
-@@ -69,6 +69,7 @@ import { EventApi } from "./groups/event"
+@@ -83,6 +83,7 @@ import { EventApi } from "./groups/event"
  import { PtyConnectApi } from "./groups/pty"
  import { eventHandlers } from "./handlers/event"
  import { configHandlers } from "./handlers/config"
 +import { persistHandlers } from "./handlers/persist"
  import { controlHandlers } from "./handlers/control"
+ import { controlPlaneHandlers } from "./handlers/control-plane"
  import { experimentalHandlers } from "./handlers/experimental"
- import { fileHandlers } from "./handlers/file"
-@@ -137,6 +138,7 @@ const instanceApiRoutes = HttpApiBuilder.layer(InstanceHttpApi).pipe(
+@@ -158,6 +159,7 @@ const instanceApiRoutes = HttpApiBuilder.layer(InstanceHttpApi).pipe(
      fileHandlers,
      instanceHandlers,
      mcpHandlers,
 +    persistHandlers,
      projectHandlers,
+     projectCopyHandlers,
      ptyHandlers,
-     questionHandlers,

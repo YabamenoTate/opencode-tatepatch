@@ -1,8 +1,8 @@
 diff --git a/packages/app/src/i18n/ar.ts b/packages/app/src/i18n/ar.ts
-index 5d12402..fad7028 100644
+index 6a7b1cf769..00cba21a7f 100644
 --- a/packages/app/src/i18n/ar.ts
 +++ b/packages/app/src/i18n/ar.ts
-@@ -503,7 +503,7 @@ export const dict = {
+@@ -781,7 +781,7 @@ export const dict = {
    "session.share.popover.title": "نشر على الويب",
    "session.share.popover.description.shared": "هذه الجلسة عامة على الويب. يمكن لأي شخص لديه الرابط الوصول إليها.",
    "session.share.popover.description.unshared": "شارك الجلسة علنًا على الويب. ستكون متاحة لأي شخص لديه الرابط.",
@@ -12,10 +12,10 @@ index 5d12402..fad7028 100644
    "session.share.action.publishing": "جارٍ النشر...",
    "session.share.action.unpublish": "إلغاء النشر",
 diff --git a/packages/app/src/i18n/br.ts b/packages/app/src/i18n/br.ts
-index 7c6965e..55ff762 100644
+index cd67ce8397..961cbef0b3 100644
 --- a/packages/app/src/i18n/br.ts
 +++ b/packages/app/src/i18n/br.ts
-@@ -509,7 +509,7 @@ export const dict = {
+@@ -782,7 +782,7 @@ export const dict = {
      "Esta sessão é pública na web. Está acessível para qualquer pessoa com o link.",
    "session.share.popover.description.unshared":
      "Compartilhar sessão publicamente na web. Estará acessível para qualquer pessoa com o link.",
@@ -25,10 +25,10 @@ index 7c6965e..55ff762 100644
    "session.share.action.publishing": "Publicando...",
    "session.share.action.unpublish": "Cancelar publicação",
 diff --git a/packages/app/src/i18n/bs.ts b/packages/app/src/i18n/bs.ts
-index 201b6ed..1417106 100644
+index 3a91288667..14eee74494 100644
 --- a/packages/app/src/i18n/bs.ts
 +++ b/packages/app/src/i18n/bs.ts
-@@ -566,7 +566,7 @@ export const dict = {
+@@ -840,7 +840,7 @@ export const dict = {
    "session.share.popover.title": "Objavi na webu",
    "session.share.popover.description.shared": "Ova sesija je javna na webu. Dostupna je svima koji imaju link.",
    "session.share.popover.description.unshared": "Podijeli sesiju javno na webu. Biće dostupna svima koji imaju link.",
@@ -38,10 +38,10 @@ index 201b6ed..1417106 100644
    "session.share.action.publishing": "Objavljivanje...",
    "session.share.action.unpublish": "Poništi objavu",
 diff --git a/packages/app/src/i18n/da.ts b/packages/app/src/i18n/da.ts
-index d52aca8..c6aa9c8 100644
+index 24718a88b0..a6d3c7950f 100644
 --- a/packages/app/src/i18n/da.ts
 +++ b/packages/app/src/i18n/da.ts
-@@ -563,7 +563,7 @@ export const dict = {
+@@ -717,7 +717,7 @@ export const dict = {
      "Denne session er offentlig på nettet. Den er tilgængelig for alle med linket.",
    "session.share.popover.description.unshared":
      "Del session offentligt på nettet. Den vil være tilgængelig for alle med linket.",
@@ -51,23 +51,23 @@ index d52aca8..c6aa9c8 100644
    "session.share.action.publishing": "Udgiver...",
    "session.share.action.unpublish": "Afpublicer",
 diff --git a/packages/app/src/i18n/de.ts b/packages/app/src/i18n/de.ts
-index 4d5a649..6bbeb2e 100644
+index c2a107adba..8fa52a85d7 100644
 --- a/packages/app/src/i18n/de.ts
 +++ b/packages/app/src/i18n/de.ts
-@@ -517,7 +517,7 @@ export const dict = {
+@@ -672,7 +672,7 @@ export const dict = {
      "Diese Sitzung ist öffentlich im Web. Sie ist für jeden mit dem Link zugänglich.",
    "session.share.popover.description.unshared":
      "Sitzung öffentlich im Web teilen. Sie wird für jeden mit dem Link zugänglich sein.",
 -  "session.share.action.share": "Teilen",
 +  "session.share.action.share": "Exportieren",
    "session.share.action.publish": "Veröffentlichen",
-   "session.share.action.publishing": "Veröffentliche...",
+   "session.share.action.publishing": "Wird veröffentlicht…",
    "session.share.action.unpublish": "Veröffentlichung aufheben",
 diff --git a/packages/app/src/i18n/en.ts b/packages/app/src/i18n/en.ts
-index 29f662f..5b5fcff 100644
+index 7257c1bdd5..8669aaca5e 100644
 --- a/packages/app/src/i18n/en.ts
 +++ b/packages/app/src/i18n/en.ts
-@@ -631,7 +631,7 @@ export const dict = {
+@@ -781,7 +781,7 @@ export const dict = {
      "This session is public on the web. It is accessible to anyone with the link.",
    "session.share.popover.description.unshared":
      "Share session publicly on the web. It will be accessible to anyone with the link.",
@@ -77,10 +77,10 @@ index 29f662f..5b5fcff 100644
    "session.share.action.publishing": "Publishing...",
    "session.share.action.unpublish": "Unpublish",
 diff --git a/packages/app/src/i18n/es.ts b/packages/app/src/i18n/es.ts
-index b71fe03..7f0c30b 100644
+index 7d759f7c58..77483c614b 100644
 --- a/packages/app/src/i18n/es.ts
 +++ b/packages/app/src/i18n/es.ts
-@@ -569,7 +569,7 @@ export const dict = {
+@@ -845,7 +845,7 @@ export const dict = {
      "Esta sesión es pública en la web. Es accesible para cualquiera con el enlace.",
    "session.share.popover.description.unshared":
      "Compartir sesión públicamente en la web. Será accesible para cualquiera con el enlace.",
@@ -90,23 +90,23 @@ index b71fe03..7f0c30b 100644
    "session.share.action.publishing": "Publicando...",
    "session.share.action.unpublish": "Despublicar",
 diff --git a/packages/app/src/i18n/fr.ts b/packages/app/src/i18n/fr.ts
-index 385dbdd..76cc38d 100644
+index 6caee4b6bf..175efddd97 100644
 --- a/packages/app/src/i18n/fr.ts
 +++ b/packages/app/src/i18n/fr.ts
-@@ -514,7 +514,7 @@ export const dict = {
-     "Cette session est publique sur le web. Elle est accessible à toute personne disposant du lien.",
+@@ -792,7 +792,7 @@ export const dict = {
+     "Cette session est publique sur le Web. Elle est accessible à toute personne disposant du lien.",
    "session.share.popover.description.unshared":
-     "Partager la session publiquement sur le web. Elle sera accessible à toute personne disposant du lien.",
+     "Rendre la session publique sur le Web. Elle sera accessible à toute personne disposant du lien.",
 -  "session.share.action.share": "Partager",
 +  "session.share.action.share": "Exporter",
    "session.share.action.publish": "Publier",
    "session.share.action.publishing": "Publication...",
    "session.share.action.unpublish": "Dépublier",
 diff --git a/packages/app/src/i18n/ja.ts b/packages/app/src/i18n/ja.ts
-index 34ac398..707d945 100644
+index d85c7c0c3f..41322a8e46 100644
 --- a/packages/app/src/i18n/ja.ts
 +++ b/packages/app/src/i18n/ja.ts
-@@ -506,7 +506,7 @@ export const dict = {
+@@ -774,7 +774,7 @@ export const dict = {
      "このセッションはウェブで公開されています。リンクを知っている人なら誰でもアクセスできます。",
    "session.share.popover.description.unshared":
      "セッションをウェブで公開します。リンクを知っている人なら誰でもアクセスできるようになります。",
@@ -116,10 +116,10 @@ index 34ac398..707d945 100644
    "session.share.action.publishing": "公開中...",
    "session.share.action.unpublish": "非公開にする",
 diff --git a/packages/app/src/i18n/ko.ts b/packages/app/src/i18n/ko.ts
-index f1926f3..ab82818 100644
+index a476e85d37..a26023041f 100644
 --- a/packages/app/src/i18n/ko.ts
 +++ b/packages/app/src/i18n/ko.ts
-@@ -503,7 +503,7 @@ export const dict = {
+@@ -537,7 +537,7 @@ export const dict = {
    "session.share.popover.description.shared": "이 세션은 웹에 공개되었습니다. 링크가 있는 누구나 액세스할 수 있습니다.",
    "session.share.popover.description.unshared":
      "세션을 웹에 공개적으로 공유합니다. 링크가 있는 누구나 액세스할 수 있습니다.",
@@ -129,10 +129,10 @@ index f1926f3..ab82818 100644
    "session.share.action.publishing": "게시 중...",
    "session.share.action.unpublish": "게시 취소",
 diff --git a/packages/app/src/i18n/no.ts b/packages/app/src/i18n/no.ts
-index b4adebd..71667d9 100644
+index 3778f373dc..7632e57353 100644
 --- a/packages/app/src/i18n/no.ts
 +++ b/packages/app/src/i18n/no.ts
-@@ -569,7 +569,7 @@ export const dict = {
+@@ -705,7 +705,7 @@ export const dict = {
      "Denne sesjonen er offentlig på nettet. Den er tilgjengelig for alle med lenken.",
    "session.share.popover.description.unshared":
      "Del sesjonen offentlig på nettet. Den vil være tilgjengelig for alle med lenken.",
@@ -142,10 +142,10 @@ index b4adebd..71667d9 100644
    "session.share.action.publishing": "Publiserer...",
    "session.share.action.unpublish": "Avpubliser",
 diff --git a/packages/app/src/i18n/pl.ts b/packages/app/src/i18n/pl.ts
-index 02637e5..552efb2 100644
+index 19dca275fc..3b1b908555 100644
 --- a/packages/app/src/i18n/pl.ts
 +++ b/packages/app/src/i18n/pl.ts
-@@ -507,7 +507,7 @@ export const dict = {
+@@ -784,7 +784,7 @@ export const dict = {
      "Ta sesja jest publiczna w sieci. Jest dostępna dla każdego, kto posiada link.",
    "session.share.popover.description.unshared":
      "Udostępnij sesję publicznie w sieci. Będzie dostępna dla każdego, kto posiada link.",
@@ -155,10 +155,10 @@ index 02637e5..552efb2 100644
    "session.share.action.publishing": "Publikowanie...",
    "session.share.action.unpublish": "Cofnij publikację",
 diff --git a/packages/app/src/i18n/ru.ts b/packages/app/src/i18n/ru.ts
-index a965acf..6345bbe 100644
+index 3da58544eb..e62d0f8fa6 100644
 --- a/packages/app/src/i18n/ru.ts
 +++ b/packages/app/src/i18n/ru.ts
-@@ -566,7 +566,7 @@ export const dict = {
+@@ -842,7 +842,7 @@ export const dict = {
      "Эта сессия общедоступна. Доступ к ней может получить любой, у кого есть ссылка.",
    "session.share.popover.description.unshared":
      "Опубликуйте сессию в интернете. Доступ к ней сможет получить любой, у кого есть ссылка.",
@@ -168,10 +168,10 @@ index a965acf..6345bbe 100644
    "session.share.action.publishing": "Публикация...",
    "session.share.action.unpublish": "Отменить публикацию",
 diff --git a/packages/app/src/i18n/th.ts b/packages/app/src/i18n/th.ts
-index 00df86a..6678f0a 100644
+index 44b377c1e8..995f8fe487 100644
 --- a/packages/app/src/i18n/th.ts
 +++ b/packages/app/src/i18n/th.ts
-@@ -561,7 +561,7 @@ export const dict = {
+@@ -828,7 +828,7 @@ export const dict = {
    "session.share.popover.title": "เผยแพร่บนเว็บ",
    "session.share.popover.description.shared": "เซสชันนี้เป็นสาธารณะบนเว็บ สามารถเข้าถึงได้โดยผู้ที่มีลิงก์",
    "session.share.popover.description.unshared": "แชร์เซสชันสาธารณะบนเว็บ จะเข้าถึงได้โดยผู้ที่มีลิงก์",
@@ -181,10 +181,10 @@ index 00df86a..6678f0a 100644
    "session.share.action.publishing": "กำลังเผยแพร่...",
    "session.share.action.unpublish": "ยกเลิกการเผยแพร่",
 diff --git a/packages/app/src/i18n/tr.ts b/packages/app/src/i18n/tr.ts
-index 27a6e03..2a9064c 100644
+index bac5aa7c88..b0a2d7239f 100644
 --- a/packages/app/src/i18n/tr.ts
 +++ b/packages/app/src/i18n/tr.ts
-@@ -572,7 +572,7 @@ export const dict = {
+@@ -845,7 +845,7 @@ export const dict = {
    "session.share.popover.description.shared": "Bu oturum web'de herkese açıktır. Bağlantıya sahip herkes erişebilir.",
    "session.share.popover.description.unshared":
      "Oturumu web'de herkese açık olarak paylaşın. Bağlantıya sahip herkes erişebilecek.",
@@ -194,10 +194,10 @@ index 27a6e03..2a9064c 100644
    "session.share.action.publishing": "Yayınlanıyor...",
    "session.share.action.unpublish": "Yayından kaldır",
 diff --git a/packages/app/src/i18n/uk.ts b/packages/app/src/i18n/uk.ts
-index 948c9a6..6dd1948 100644
+index 050971b73b..fcdec79712 100644
 --- a/packages/app/src/i18n/uk.ts
 +++ b/packages/app/src/i18n/uk.ts
-@@ -620,7 +620,7 @@ export const dict = {
+@@ -892,7 +892,7 @@ export const dict = {
      "Ця сесія є публічною в інтернеті. Вона доступна будь-кому за посиланням.",
    "session.share.popover.description.unshared":
      "Опублікуйте сесію публічно в інтернеті. Вона буде доступна будь-кому за посиланням.",
@@ -207,10 +207,10 @@ index 948c9a6..6dd1948 100644
    "session.share.action.publishing": "Публікація...",
    "session.share.action.unpublish": "Скасувати публікацію",
 diff --git a/packages/app/src/i18n/zh.ts b/packages/app/src/i18n/zh.ts
-index f5c962a..cd5f0c8 100644
+index 662a4537fa..c2504cd778 100644
 --- a/packages/app/src/i18n/zh.ts
 +++ b/packages/app/src/i18n/zh.ts
-@@ -567,7 +567,7 @@ export const dict = {
+@@ -824,7 +824,7 @@ export const dict = {
    "session.share.popover.title": "发布到网页",
    "session.share.popover.description.shared": "此会话已在网页上公开。任何拥有链接的人都可以访问。",
    "session.share.popover.description.unshared": "在网页上公开分享此会话。任何拥有链接的人都可以访问。",
@@ -220,10 +220,10 @@ index f5c962a..cd5f0c8 100644
    "session.share.action.publishing": "正在发布...",
    "session.share.action.unpublish": "取消发布",
 diff --git a/packages/app/src/i18n/zht.ts b/packages/app/src/i18n/zht.ts
-index edd6f7b..3efb096 100644
+index 56ae91d26e..3b471f5173 100644
 --- a/packages/app/src/i18n/zht.ts
 +++ b/packages/app/src/i18n/zht.ts
-@@ -557,7 +557,7 @@ export const dict = {
+@@ -822,7 +822,7 @@ export const dict = {
    "session.share.popover.title": "發佈到網頁",
    "session.share.popover.description.shared": "此工作階段已在網頁上公開。任何擁有連結的人都可以存取。",
    "session.share.popover.description.unshared": "在網頁上公開分享此工作階段。任何擁有連結的人都可以存取。",
@@ -232,213 +232,53 @@ index edd6f7b..3efb096 100644
    "session.share.action.publish": "發佈",
    "session.share.action.publishing": "正在發佈...",
    "session.share.action.unpublish": "取消發佈",
-diff --git a/packages/app/src/pages/session/message-timeline.tsx b/packages/app/src/pages/session/message-timeline.tsx
-index e071597..38002e6 100644
---- a/packages/app/src/pages/session/message-timeline.tsx
-+++ b/packages/app/src/pages/session/message-timeline.tsx
-@@ -38,7 +38,6 @@ import { Spinner } from "@opencode-ai/ui/spinner"
- import { SessionRetry } from "@opencode-ai/ui/session-retry"
- import { ScrollView } from "@opencode-ai/ui/scroll-view"
- import { StickyAccordionHeader } from "@opencode-ai/ui/sticky-accordion-header"
--import { TextField } from "@opencode-ai/ui/text-field"
- import { TextReveal } from "@opencode-ai/ui/text-reveal"
- import { TextShimmer } from "@opencode-ai/ui/text-shimmer"
- import type {
-@@ -51,7 +50,6 @@ import type {
- import { showToast } from "@opencode-ai/ui/toast"
- import { Binary } from "@opencode-ai/core/util/binary"
- import { getDirectory, getFilename } from "@opencode-ai/core/util/path"
--import { Popover as KobaltePopover } from "@kobalte/core/popover"
- import { normalize } from "@opencode-ai/ui/session-diff"
- import { useFileComponent } from "@opencode-ai/ui/context/file"
- import { shouldMarkBoundaryGesture, normalizeWheelDelta } from "@/pages/session/message-gesture"
-@@ -60,8 +58,6 @@ import { useDialog } from "@opencode-ai/ui/context/dialog"
- import { createResizeObserver } from "@solid-primitives/resize-observer"
- import { useLanguage } from "@/context/language"
- import { useSessionKey } from "@/pages/session/session-layout"
--import { useServerSDK } from "@/context/server-sdk"
--import { usePlatform } from "@/context/platform"
- import { useSettings } from "@/context/settings"
- import { useSDK } from "@/context/sdk"
- import { useSync } from "@/context/sync"
-@@ -286,14 +282,12 @@ export function MessageTimeline(props: {
-   let touchGesture: number | undefined
+diff --git a/packages/app/src/pages/session/timeline/message-timeline.tsx b/packages/app/src/pages/session/timeline/message-timeline.tsx
+index e083882557..1b91a65655 100644
+--- a/packages/app/src/pages/session/timeline/message-timeline.tsx
++++ b/packages/app/src/pages/session/timeline/message-timeline.tsx
+@@ -1532,17 +1532,6 @@ export function MessageTimeline(props: {
+                                 >
+                                   <DropdownMenu.ItemLabel>{language.t("common.rename")}</DropdownMenu.ItemLabel>
+                                 </DropdownMenu.Item>
+-                                <Show when={shareEnabled()}>
+-                                  <DropdownMenu.Item
+-                                    onSelect={() => {
+-                                      setTitle({ pendingShare: true, menuOpen: false })
+-                                    }}
+-                                  >
+-                                    <DropdownMenu.ItemLabel>
+-                                      {language.t("session.share.action.share")}
+-                                    </DropdownMenu.ItemLabel>
+-                                  </DropdownMenu.Item>
+-                                </Show>
+                                 <DropdownMenu.Item onSelect={() => exportSession(id)}>
+                                   <DropdownMenu.ItemLabel>{language.t("common.export")}</DropdownMenu.ItemLabel>
+                                 </DropdownMenu.Item>
+@@ -1608,15 +1597,6 @@ export function MessageTimeline(props: {
+                               >
+                                 {language.t("common.rename")}
+                               </MenuV2.Item>
+-                              <Show when={shareEnabled()}>
+-                                <MenuV2.Item
+-                                  onSelect={() => {
+-                                    setTitle({ pendingShare: true, menuOpen: false })
+-                                  }}
+-                                >
+-                                  {language.t("session.share.action.share")}...
+-                                </MenuV2.Item>
+-                              </Show>
+                               <MenuV2.Item onSelect={() => exportSession(id)}>
+                                 {language.t("common.export")}...
+                               </MenuV2.Item>
+@@ -1632,186 +1612,6 @@ export function MessageTimeline(props: {
+                         </MenuV2>
+                       </Show>
  
-   const navigate = useNavigate()
--  const serverSDK = useServerSDK()
-   const sdk = useSDK()
-   const sync = useSync()
-   const settings = useSettings()
-   const dialog = useDialog()
-   const language = useLanguage()
-   const { params, sessionKey } = useSessionKey()
--  const platform = usePlatform()
- 
-   let virtualizer: VirtualizerHandle | undefined
-   const sessionID = createMemo(() => params.id)
-@@ -370,8 +364,6 @@ export function MessageTimeline(props: {
-   })
-   const titleValue = createMemo(() => info()?.title)
-   const titleLabel = createMemo(() => sessionTitle(titleValue()))
--  const shareUrl = createMemo(() => info()?.share?.url)
--  const shareEnabled = createMemo(() => sync.data.config.share !== "disabled")
-   const parentID = createMemo(() => info()?.parentID)
-   const parent = createMemo(() => {
-     const id = parentID()
-@@ -549,14 +541,8 @@ export function MessageTimeline(props: {
-     editing: false,
-     menuOpen: false,
-     pendingRename: false,
--    pendingShare: false,
-   })
-   let titleRef: HTMLInputElement | undefined
--
--  const [share, setShare] = createStore({
--    open: false,
--    dismiss: null as "escape" | "outside" | null,
--  })
-   const [bar, setBar] = createStore({
-     ms: pace(640),
-   })
-@@ -714,10 +700,22 @@ export function MessageTimeline(props: {
-     props.setScrollRef(undefined)
-   })
- 
--  const viewShare = () => {
--    const url = shareUrl()
--    if (!url) return
--    platform.openLink(url)
-+  const shareSession = () => {
-+    const id = sessionID()
-+    if (!id) return
-+    const session = info()
-+    const messages = sync.data.message[id] ?? []
-+    const withParts = messages.map((msg) => ({
-+      ...msg,
-+      parts: sync.data.part[msg.id] ?? [],
-+    }))
-+    const blob = new Blob([JSON.stringify({ session, messages: withParts }, null, 2)], { type: "application/json" })
-+    const url = URL.createObjectURL(blob)
-+    const a = document.createElement("a")
-+    a.href = url
-+    a.download = `${titleLabel() || "session"}.json`
-+    a.click()
-+    URL.revokeObjectURL(url)
-   }
- 
-   const errorMessage = (err: unknown) => {
-@@ -729,20 +727,6 @@ export function MessageTimeline(props: {
-     return language.t("common.requestFailed")
-   }
- 
--  const shareMutation = useMutation(() => ({
--    mutationFn: (id: string) => serverSDK.client.session.share({ sessionID: id, directory: sdk.directory }),
--    onError: (err) => {
--      console.error("Failed to share session", err)
--    },
--  }))
--
--  const unshareMutation = useMutation(() => ({
--    mutationFn: (id: string) => serverSDK.client.session.unshare({ sessionID: id, directory: sdk.directory }),
--    onError: (err) => {
--      console.error("Failed to unshare session", err)
--    },
--  }))
--
-   const titleMutation = useMutation(() => ({
-     mutationFn: (input: { id: string; title: string }) =>
-       sdk.client.session.update({ sessionID: input.id, title: input.title }),
-@@ -763,20 +747,6 @@ export function MessageTimeline(props: {
-     },
-   }))
- 
--  const shareSession = () => {
--    const id = sessionID()
--    if (!id || shareMutation.isPending) return
--    if (!shareEnabled()) return
--    shareMutation.mutate(id)
--  }
--
--  const unshareSession = () => {
--    const id = sessionID()
--    if (!id || unshareMutation.isPending) return
--    if (!shareEnabled()) return
--    unshareMutation.mutate(id)
--  }
--
-   createEffect(
-     on(
-       sessionKey,
-@@ -786,7 +756,6 @@ export function MessageTimeline(props: {
-           editing: false,
-           menuOpen: false,
-           pendingRename: false,
--          pendingShare: false,
-         }),
-       { defer: true },
-     ),
-@@ -1417,11 +1386,9 @@ export function MessageTimeline(props: {
-                           icon="dot-grid"
-                           variant="ghost"
-                           class="size-6 rounded-md data-[expanded]:bg-surface-base-active"
--                          classList={{
--                            "bg-surface-base-active": share.open || title.pendingShare,
--                          }}
-+                          classList={{}}
-                           aria-label={language.t("common.moreOptions")}
--                          aria-expanded={title.menuOpen || share.open || title.pendingShare}
-+                          aria-expanded={title.menuOpen}
-                           ref={(el: HTMLButtonElement) => {
-                             more = el
-                           }}
-@@ -1434,14 +1401,6 @@ export function MessageTimeline(props: {
-                                 event.preventDefault()
-                                 setTitle("pendingRename", false)
-                                 openTitleEditor()
--                                return
--                              }
--                              if (title.pendingShare) {
--                                event.preventDefault()
--                                requestAnimationFrame(() => {
--                                  setShare({ open: true, dismiss: null })
--                                  setTitle("pendingShare", false)
--                                })
-                               }
-                             }}
-                           >
-@@ -1453,17 +1412,11 @@ export function MessageTimeline(props: {
-                             >
-                               <DropdownMenu.ItemLabel>{language.t("common.rename")}</DropdownMenu.ItemLabel>
-                             </DropdownMenu.Item>
--                            <Show when={shareEnabled()}>
--                              <DropdownMenu.Item
--                                onSelect={() => {
--                                  setTitle({ pendingShare: true, menuOpen: false })
--                                }}
--                              >
--                                <DropdownMenu.ItemLabel>
--                                  {language.t("session.share.action.share")}
--                                </DropdownMenu.ItemLabel>
--                              </DropdownMenu.Item>
--                            </Show>
-+                            <DropdownMenu.Item onSelect={() => shareSession()}>
-+                              <DropdownMenu.ItemLabel>
-+                                {language.t("session.share.action.share")}
-+                              </DropdownMenu.ItemLabel>
-+                            </DropdownMenu.Item>
-                             <DropdownMenu.Item onSelect={() => void archiveSession(id)}>
-                               <DropdownMenu.ItemLabel>{language.t("common.archive")}</DropdownMenu.ItemLabel>
-                             </DropdownMenu.Item>
-@@ -1476,104 +1429,6 @@ export function MessageTimeline(props: {
-                           </DropdownMenu.Content>
-                         </DropdownMenu.Portal>
-                       </DropdownMenu>
--
 -                      <KobaltePopover
 -                        open={share.open}
 -                        anchorRef={() => more}
 -                        placement="bottom-end"
--                        gutter={4}
+-                        gutter={settings.general.newLayoutDesigns() ? 6 : 4}
 -                        modal={false}
 -                        onOpenChange={(open) => {
 -                          if (open) setShare("dismiss", null)
@@ -448,6 +288,10 @@ index e071597..38002e6 100644
 -                        <KobaltePopover.Portal>
 -                          <KobaltePopover.Content
 -                            data-component="popover-content"
+-                            classList={{
+-                              "flex w-80 max-w-none flex-col items-start gap-3 rounded-[10px] border-0 bg-v2-background-bg-layer-01 p-3 shadow-[var(--v2-elevation-floating)]":
+-                                settings.general.newLayoutDesigns(),
+-                            }}
 -                            style={{ "min-width": "320px" }}
 -                            onEscapeKeyDown={(event) => {
 -                              setShare({ dismiss: "escape", open: false })
@@ -465,24 +309,90 @@ index e071597..38002e6 100644
 -                              setShare("dismiss", null)
 -                            }}
 -                          >
--                            <div class="flex flex-col p-3">
--                              <div class="flex flex-col gap-1">
--                                <div class="text-13-medium text-text-strong">
+-                            <Show
+-                              when={settings.general.newLayoutDesigns()}
+-                              fallback={
+-                                <div class="flex flex-col p-3">
+-                                  <div class="flex flex-col gap-1">
+-                                    <div class="text-13-medium text-text-strong">
+-                                      {language.t("session.share.popover.title")}
+-                                    </div>
+-                                    <div class="text-12-regular text-text-weak">
+-                                      {shareUrl()
+-                                        ? language.t("session.share.popover.description.shared")
+-                                        : language.t("session.share.popover.description.unshared")}
+-                                    </div>
+-                                  </div>
+-                                  <div class="mt-3 flex flex-col gap-2">
+-                                    <Show
+-                                      when={shareUrl()}
+-                                      fallback={
+-                                        <Button
+-                                          size="large"
+-                                          variant="primary"
+-                                          class="w-full"
+-                                          onClick={shareSession}
+-                                          disabled={shareMutation.isPending}
+-                                        >
+-                                          {shareMutation.isPending
+-                                            ? language.t("session.share.action.publishing")
+-                                            : language.t("session.share.action.publish")}
+-                                        </Button>
+-                                      }
+-                                    >
+-                                      <div class="flex flex-col gap-2">
+-                                        <TextField
+-                                          value={shareUrl() ?? ""}
+-                                          readOnly
+-                                          copyable
+-                                          copyKind="link"
+-                                          tabIndex={-1}
+-                                          class="w-full"
+-                                        />
+-                                        <div class="grid grid-cols-2 gap-2">
+-                                          <Button
+-                                            size="large"
+-                                            variant="secondary"
+-                                            class="w-full shadow-none border border-border-weak-base"
+-                                            onClick={unshareSession}
+-                                            disabled={unshareMutation.isPending}
+-                                          >
+-                                            {unshareMutation.isPending
+-                                              ? language.t("session.share.action.unpublishing")
+-                                              : language.t("session.share.action.unpublish")}
+-                                          </Button>
+-                                          <Button
+-                                            size="large"
+-                                            variant="primary"
+-                                            class="w-full"
+-                                            onClick={viewShare}
+-                                            disabled={unshareMutation.isPending}
+-                                          >
+-                                            {language.t("session.share.action.view")}
+-                                          </Button>
+-                                        </div>
+-                                      </div>
+-                                    </Show>
+-                                  </div>
+-                                </div>
+-                              }
+-                            >
+-                              <div class="flex w-full flex-col gap-1.5 px-0.5 pt-0.5">
+-                                <div class="select-none text-[13px] font-[530] leading-none tracking-[-0.04px] text-v2-text-text-base [font-variation-settings:'slnt'_0]">
 -                                  {language.t("session.share.popover.title")}
 -                                </div>
--                                <div class="text-12-regular text-text-weak">
+-                                <div class="select-none text-[13px] font-[440] leading-5 tracking-[-0.04px] text-v2-text-text-muted [font-variation-settings:'slnt'_0]">
 -                                  {shareUrl()
 -                                    ? language.t("session.share.popover.description.shared")
 -                                    : language.t("session.share.popover.description.unshared")}
 -                                </div>
 -                              </div>
--                              <div class="mt-3 flex flex-col gap-2">
+-                              <div class="flex w-full flex-col gap-2">
 -                                <Show
 -                                  when={shareUrl()}
 -                                  fallback={
--                                    <Button
--                                      size="large"
--                                      variant="primary"
+-                                    <ButtonV2
+-                                      variant="contrast"
 -                                      class="w-full"
 -                                      onClick={shareSession}
 -                                      disabled={shareMutation.isPending}
@@ -490,44 +400,57 @@ index e071597..38002e6 100644
 -                                      {shareMutation.isPending
 -                                        ? language.t("session.share.action.publishing")
 -                                        : language.t("session.share.action.publish")}
--                                    </Button>
+-                                    </ButtonV2>
 -                                  }
 -                                >
 -                                  <div class="flex flex-col gap-2">
--                                    <TextField
--                                      value={shareUrl() ?? ""}
--                                      readOnly
--                                      copyable
--                                      copyKind="link"
--                                      tabIndex={-1}
--                                      class="w-full"
--                                    />
--                                    <div class="grid grid-cols-2 gap-2">
--                                      <Button
--                                        size="large"
--                                        variant="secondary"
--                                        class="w-full shadow-none border border-border-weak-base"
+-                                    <div
+-                                      class="flex h-8 w-full items-center gap-1.5 rounded-[6px] py-1 pl-2.5 pr-1.5 shadow-[var(--v2-elevation-button-neutral)]"
+-                                      style={{
+-                                        background:
+-                                          "linear-gradient(180deg, var(--v2-alpha-light-2) 0%, var(--v2-alpha-light-0) 100%), var(--v2-background-bg-button-neutral)",
+-                                      }}
+-                                    >
+-                                      <div
+-                                        class="min-w-0 flex-1 truncate select-text cursor-text text-[13px] font-[440] leading-5 tracking-[-0.04px] text-v2-text-text-base [font-variation-settings:'slnt'_0]"
+-                                        onClick={selectShareUrlText}
+-                                      >
+-                                        {shareUrl()}
+-                                      </div>
+-                                      <IconButtonV2
+-                                        type="button"
+-                                        size="small"
+-                                        variant="ghost-muted"
+-                                        icon={<IconV2 name="outline-copy" />}
+-                                        aria-label={language.t("session.share.copy.copyLink")}
+-                                        onClick={copyShareUrl}
+-                                      />
+-                                      <IconButtonV2
+-                                        type="button"
+-                                        size="small"
+-                                        variant="ghost-muted"
+-                                        icon={<IconV2 name="outline-square-arrow" />}
+-                                        aria-label={language.t("session.share.action.view")}
+-                                        onClick={viewShare}
+-                                        disabled={unshareMutation.isPending}
+-                                      />
+-                                    </div>
+-                                    <div class="flex w-full">
+-                                      <ButtonV2
+-                                        variant="outline"
+-                                        class="w-full"
 -                                        onClick={unshareSession}
 -                                        disabled={unshareMutation.isPending}
 -                                      >
 -                                        {unshareMutation.isPending
 -                                          ? language.t("session.share.action.unpublishing")
 -                                          : language.t("session.share.action.unpublish")}
--                                      </Button>
--                                      <Button
--                                        size="large"
--                                        variant="primary"
--                                        class="w-full"
--                                        onClick={viewShare}
--                                        disabled={unshareMutation.isPending}
--                                      >
--                                        {language.t("session.share.action.view")}
--                                      </Button>
+-                                      </ButtonV2>
 -                                    </div>
 -                                  </div>
 -                                </Show>
 -                              </div>
--                            </div>
+-                            </Show>
 -                          </KobaltePopover.Content>
 -                        </KobaltePopover.Portal>
 -                      </KobaltePopover>

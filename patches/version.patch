@@ -1,5 +1,5 @@
 diff --git a/packages/opencode/src/cli/upgrade.ts b/packages/opencode/src/cli/upgrade.ts
-index 62b230a63..4fe03de59 100644
+index 62b230a633..ce262816b6 100644
 --- a/packages/opencode/src/cli/upgrade.ts
 +++ b/packages/opencode/src/cli/upgrade.ts
 @@ -1,53 +1,125 @@
@@ -13,7 +13,7 @@ index 62b230a63..4fe03de59 100644
 +import { tmpdir } from "os"
 +import { execSync, spawn } from "child_process"
 +
-+const TATEPATCH_VERSION = "v1.15.13 (Tate Patched 3)"
++const TATEPATCH_VERSION = "v1.18.31 (Tate Patched 4)"
 +const TATEPATCH_REPO = "YabamenoTate/opencode-tatepatch"
 +
 +function tatepatchDir(): string | null {
@@ -166,15 +166,15 @@ index 62b230a63..4fe03de59 100644
 +  setTimeout(() => process.exit(0), 200)
  }
 diff --git a/packages/opencode/src/index.ts b/packages/opencode/src/index.ts
-index d20f29dd4..cb3aab146 100644
+index 13540a73a3..964c01f381 100644
 --- a/packages/opencode/src/index.ts
 +++ b/packages/opencode/src/index.ts
-@@ -73,7 +73,7 @@ const cli = yargs(args)
+@@ -48,7 +48,7 @@ const cli = yargs(args)
    .wrap(100)
    .help("help", "show help")
    .alias("help", "h")
 -  .version("version", "show version number", InstallationVersion)
-+  .version("version", "show version number", "v1.15.13 (Tate Patched 3)")
++  .version("version", "show version number", "v1.18.31 (Tate Patched 4)")
    .alias("version", "v")
    .option("print-logs", {
      describe: "print logs to stderr",
