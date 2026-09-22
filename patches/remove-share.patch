@@ -457,3 +457,364 @@ index e083882557..1b91a65655 100644
                      </Show>
                    </div>
                  )}
+diff --git a/packages/app/src/pages/session/timeline/message-timeline.tsx b/packages/app/src/pages/session/timeline/message-timeline.tsx
+index 1b91a65..5888151 100644
+--- a/packages/app/src/pages/session/timeline/message-timeline.tsx
++++ b/packages/app/src/pages/session/timeline/message-timeline.tsx
+@@ -42,7 +42,6 @@ import { ButtonV2 } from "@opencode-ai/ui/v2/button-v2"
+ import { SessionRetry } from "@opencode-ai/session-ui/session-retry"
+ import { isScrollKeyTarget, scrollKey, scrollKeyOwner, ScrollView } from "@opencode-ai/ui/scroll-view"
+ import { StickyAccordionHeader } from "@opencode-ai/ui/sticky-accordion-header"
+-import { TextField } from "@opencode-ai/ui/text-field"
+ import { TextReveal } from "@opencode-ai/ui/text-reveal"
+ import { TextShimmer } from "@opencode-ai/ui/text-shimmer"
+ import type {
+@@ -55,7 +54,6 @@ import type {
+ import { showToast } from "@/utils/toast"
+ import { downloadSessionExport, fetchSessionExport, sessionExportFilename } from "@/utils/session-export"
+ import { getDirectory, getFilename } from "@opencode-ai/core/util/path"
+-import { Popover as KobaltePopover } from "@kobalte/core/popover"
+ import { normalize } from "@opencode-ai/session-ui/session-diff"
+ import { useFileComponent } from "@opencode-ai/ui/context/file"
+ import { shouldMarkBoundaryGesture, normalizeWheelDelta } from "@/pages/session/message-gesture"
+@@ -64,7 +62,6 @@ import { useDialog } from "@opencode-ai/ui/context/dialog"
+ import { useLanguage } from "@/context/language"
+ import { useSessionKey } from "@/pages/session/session-layout"
+ import { useSessionArchive } from "@/pages/session/session-archive"
+-import { useServerSDK } from "@/context/server-sdk"
+ import { usePlatform } from "@/context/platform"
+ import { useSettings } from "@/context/settings"
+ import { legacySessionHref, requireServerKey, sessionHref } from "@/utils/session-route"
+@@ -259,7 +256,6 @@ export function MessageTimeline(props: {
+   let touchGesture: number | undefined
+ 
+   const navigate = useNavigate()
+-  const serverSDK = useServerSDK()
+   const sdk = useSDK()
+   const sync = useSync()
+   const settings = useSettings()
+@@ -298,8 +294,6 @@ export function MessageTimeline(props: {
+   })
+   const titleValue = createMemo(() => info()?.title)
+   const titleLabel = createMemo(() => sessionTitle(titleValue()))
+-  const shareUrl = createMemo(() => info()?.share?.url)
+-  const shareEnabled = createMemo(() => sync().data.config.share !== "disabled")
+   const parentID = createMemo(() => info()?.parentID)
+   const parent = createMemo(() => {
+     const id = parentID()
+@@ -556,16 +550,9 @@ export function MessageTimeline(props: {
+     editing: false,
+     menuOpen: false,
+     pendingRename: false,
+-    pendingShare: false,
+   })
+   let titleRef: HTMLInputElement | undefined
+ 
+-  const [share, setShare] = createStore({
+-    open: false,
+-    dismiss: null as "escape" | "outside" | null,
+-  })
+-  let more: HTMLButtonElement | undefined
+-
+   const bindListRoot = (root: HTMLDivElement) => {
+     if (root === listRoot()) return
+     setListRoot(root)
+@@ -643,12 +630,6 @@ export function MessageTimeline(props: {
+     props.setScrollRef(undefined)
+   })
+ 
+-  const viewShare = () => {
+-    const url = shareUrl()
+-    if (!url) return
+-    platform.openExternal(url)
+-  }
+-
+   const errorMessage = (err: unknown) => {
+     if (err && typeof err === "object" && "data" in err) {
+       const data = (err as { data?: { message?: string } }).data
+@@ -658,20 +639,6 @@ export function MessageTimeline(props: {
+     return language.t("common.requestFailed")
+   }
+ 
+-  const shareMutation = useMutation(() => ({
+-    mutationFn: (id: string) => serverSDK().client.session.share({ sessionID: id }),
+-    onError: (err) => {
+-      console.error("Failed to share session", err)
+-    },
+-  }))
+-
+-  const unshareMutation = useMutation(() => ({
+-    mutationFn: (id: string) => serverSDK().client.session.unshare({ sessionID: id }),
+-    onError: (err) => {
+-      console.error("Failed to unshare session", err)
+-    },
+-  }))
+-
+   const titleMutation = useMutation(() => ({
+     mutationFn: (input: { id: string; title: string }) =>
+       sdk().api.session.rename({ sessionID: input.id, title: input.title }),
+@@ -692,48 +659,6 @@ export function MessageTimeline(props: {
+     },
+   }))
+ 
+-  const shareSession = () => {
+-    const id = sessionID()
+-    if (!id || shareMutation.isPending) return
+-    if (!shareEnabled()) return
+-    shareMutation.mutate(id)
+-  }
+-
+-  const unshareSession = () => {
+-    const id = sessionID()
+-    if (!id || unshareMutation.isPending) return
+-    if (!shareEnabled()) return
+-    unshareMutation.mutate(id)
+-  }
+-  const copyShareUrl = () => {
+-    const url = shareUrl()
+-    if (!url) return
+-    void navigator.clipboard
+-      .writeText(url)
+-      .then(() =>
+-        showToast({
+-          variant: "success",
+-          icon: "circle-check",
+-          title: language.t("session.share.copy.copied"),
+-          description: url,
+-        }),
+-      )
+-      .catch((err: unknown) =>
+-        showToast({
+-          title: language.t("common.requestFailed"),
+-          description: errorMessage(err),
+-        }),
+-      )
+-  }
+-  const selectShareUrlText: JSX.EventHandler<HTMLDivElement, MouseEvent> = (event) => {
+-    const selection = window.getSelection()
+-    if (!selection) return
+-    const range = document.createRange()
+-    range.selectNodeContents(event.currentTarget)
+-    selection.removeAllRanges()
+-    selection.addRange(range)
+-  }
+-
+   createEffect(
+     on(
+       sessionKey,
+@@ -743,7 +668,6 @@ export function MessageTimeline(props: {
+           editing: false,
+           menuOpen: false,
+           pendingRename: false,
+-          pendingShare: false,
+         }),
+       { defer: true },
+     ),
+@@ -1496,15 +1420,9 @@ export function MessageTimeline(props: {
+                               icon="dot-grid"
+                               variant="ghost"
+                               class="size-6 rounded-md data-[expanded]:bg-surface-base-active"
+-                              classList={{
+-                                "bg-surface-base-active": share.open || title.pendingShare,
+-                              }}
+                               aria-label={language.t("common.moreOptions")}
+-                              aria-expanded={title.menuOpen || share.open || title.pendingShare}
+-                              ref={(el: HTMLButtonElement) => {
+-                                more = el
+-                              }}
+-                            />
++aria-expanded={title.menuOpen}
++                          />
+                             <DropdownMenu.Portal>
+                               <DropdownMenu.Content
+                                 style={{ "min-width": "104px" }}
+@@ -1513,14 +1431,6 @@ export function MessageTimeline(props: {
+                                     event.preventDefault()
+                                     setTitle("pendingRename", false)
+                                     openTitleEditor()
+-                                    return
+-                                  }
+-                                  if (title.pendingShare) {
+-                                    event.preventDefault()
+-                                    requestAnimationFrame(() => {
+-                                      setShare({ open: true, dismiss: null })
+-                                      setTitle("pendingShare", false)
+-                                    })
+                                   }
+                                 }}
+                               >
+@@ -1563,13 +1473,9 @@ export function MessageTimeline(props: {
+                             icon={<IconV2 name="outline-dots" />}
+                             variant="ghost-muted"
+                             size="large"
+-                            state={share.open || title.pendingShare ? "pressed" : undefined}
+                             aria-label={language.t("common.moreOptions")}
+-                            aria-expanded={title.menuOpen || share.open || title.pendingShare}
+-                            ref={(el: HTMLButtonElement) => {
+-                              more = el
+-                            }}
+-                          />
++                            aria-expanded={title.menuOpen}
++                            />
+                           <MenuV2.Portal>
+                             <MenuV2.Content
+                               style={{ width: "120px", "min-width": "120px" }}
+@@ -1578,14 +1484,6 @@ export function MessageTimeline(props: {
+                                   event.preventDefault()
+                                   setTitle("pendingRename", false)
+                                   openTitleEditor()
+-                                  return
+-                                }
+-                                if (title.pendingShare) {
+-                                  event.preventDefault()
+-                                  requestAnimationFrame(() => {
+-                                    setShare({ open: true, dismiss: null })
+-                                    setTitle("pendingShare", false)
+-                                  })
+                                 }
+                               }}
+                             >
+diff --git a/packages/app/src/pages/session/use-session-commands.tsx b/packages/app/src/pages/session/use-session-commands.tsx
+index 18d5b17..d5f7f77 100644
+--- a/packages/app/src/pages/session/use-session-commands.tsx
++++ b/packages/app/src/pages/session/use-session-commands.tsx
+@@ -142,99 +142,11 @@ export const useSessionCommands = (actions: SessionCommandContext) => {
+   const mcpCommand = withCategory(language.t("command.category.mcp"))
+   const permissionsCommand = withCategory(language.t("command.category.permissions"))
+ 
+-  const isAutoAcceptActive = () => {
++const isAutoAcceptActive = () => {
+     const sessionID = params.id
+     if (sessionID) return permission.isAutoAccepting(sessionID, sdk().directory)
+     return permission.isAutoAcceptingDirectory(sdk().directory)
+   }
+-  const write = async (value: string) => {
+-    const body = typeof document === "undefined" ? undefined : document.body
+-    if (body) {
+-      const textarea = document.createElement("textarea")
+-      textarea.value = value
+-      textarea.setAttribute("readonly", "")
+-      textarea.style.position = "fixed"
+-      textarea.style.opacity = "0"
+-      textarea.style.pointerEvents = "none"
+-      body.appendChild(textarea)
+-      textarea.select()
+-      const copied = document.execCommand("copy")
+-      body.removeChild(textarea)
+-      if (copied) return true
+-    }
+-
+-    const clipboard = typeof navigator === "undefined" ? undefined : navigator.clipboard
+-    if (!clipboard?.writeText) return false
+-    return clipboard.writeText(value).then(
+-      () => true,
+-      () => false,
+-    )
+-  }
+-
+-  const copyShare = async (url: string, existing: boolean) => {
+-    if (!(await write(url))) {
+-      showToast({
+-        title: language.t("toast.session.share.copyFailed.title"),
+-        variant: "error",
+-      })
+-      return
+-    }
+-
+-    showToast({
+-      title: existing ? language.t("session.share.copy.copied") : language.t("toast.session.share.success.title"),
+-      description: language.t("toast.session.share.success.description"),
+-      variant: "success",
+-    })
+-  }
+-
+-  const share = async () => {
+-    const sessionID = params.id
+-    if (!sessionID) return
+-
+-    const existing = info()?.share?.url
+-    if (existing) {
+-      await copyShare(existing, true)
+-      return
+-    }
+-
+-    const url = await sdk()
+-      .client.session.share({ sessionID })
+-      .then((res) => res.data?.share?.url)
+-      .catch(() => undefined)
+-    if (!url) {
+-      showToast({
+-        title: language.t("toast.session.share.failed.title"),
+-        description: language.t("toast.session.share.failed.description"),
+-        variant: "error",
+-      })
+-      return
+-    }
+-
+-    await copyShare(url, false)
+-  }
+-
+-  const unshare = async () => {
+-    const sessionID = params.id
+-    if (!sessionID) return
+-
+-    await sdk()
+-      .client.session.unshare({ sessionID })
+-      .then(() =>
+-        showToast({
+-          title: language.t("toast.session.unshare.success.title"),
+-          description: language.t("toast.session.unshare.success.description"),
+-          variant: "success",
+-        }),
+-      )
+-      .catch(() =>
+-        showToast({
+-          title: language.t("toast.session.unshare.failed.title"),
+-          description: language.t("toast.session.unshare.failed.description"),
+-          variant: "error",
+-        }),
+-      )
+-  }
+-
+   const exportSession = async () => {
+     const sessionID = params.id
+     if (!sessionID) return
+@@ -421,30 +333,6 @@ export const useSessionCommands = (actions: SessionCommandContext) => {
+     )
+   }
+ 
+-  const shareCmds = () => {
+-    if (sync().data.config.share === "disabled") return []
+-    return [
+-      sessionCommand({
+-        id: "session.share",
+-        title: info()?.share?.url ? language.t("session.share.copy.copyLink") : language.t("command.session.share"),
+-        description: info()?.share?.url
+-          ? language.t("toast.session.share.success.description")
+-          : language.t("command.session.share.description"),
+-        slash: "share",
+-        disabled: !params.id,
+-        onSelect: share,
+-      }),
+-      sessionCommand({
+-        id: "session.unshare",
+-        title: language.t("command.session.unshare"),
+-        description: language.t("command.session.unshare.description"),
+-        slash: "unshare",
+-        disabled: !params.id || !info()?.share?.url,
+-        onSelect: unshare,
+-      }),
+-    ]
+-  }
+-
+   const sessionCmds = () => [
+     sessionCommand({
+       id: "session.new",
+@@ -645,7 +533,6 @@ export const useSessionCommands = (actions: SessionCommandContext) => {
+ 
+   command.register("session", () => [
+     ...sessionCmds(),
+-    ...shareCmds(),
+     ...fileCmds(),
+     ...contextCmds(),
+     ...viewCmds(),

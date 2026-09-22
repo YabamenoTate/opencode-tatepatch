@@ -178,3 +178,455 @@ index 13540a73a3..964c01f381 100644
    .alias("version", "v")
    .option("print-logs", {
      describe: "print logs to stderr",
+diff --git a/packages/core/src/installation/version.ts b/packages/core/src/installation/version.ts
+index 25d9cd9..98e8e59 100644
+--- a/packages/core/src/installation/version.ts
++++ b/packages/core/src/installation/version.ts
+@@ -6,3 +6,9 @@ declare global {
+ export const InstallationVersion = typeof OPENCODE_VERSION === "string" ? OPENCODE_VERSION : "local"
+ export const InstallationChannel = typeof OPENCODE_CHANNEL === "string" ? OPENCODE_CHANNEL : "local"
+ export const InstallationLocal = InstallationChannel === "local"
++
++// The version we identify ourselves with to external services (User-Agent).
++// Kept as a clean semver even when InstallationVersion carries a display
++// suffix such as "(Tate Patched 4)", so version gates like the zen free tier
++// accept the build.
++export const InstallationClientVersion = InstallationVersion.replace(/^v/, "").replace(/[^0-9.].*$/, "")
+diff --git a/packages/core/src/models-dev.ts b/packages/core/src/models-dev.ts
+index e577935..7b96397 100644
+--- a/packages/core/src/models-dev.ts
++++ b/packages/core/src/models-dev.ts
+@@ -7,7 +7,7 @@ import { Flag } from "./flag/flag"
+ import { Flock } from "./util/flock"
+ import { Hash } from "./util/hash"
+ import { FSUtil } from "./fs-util"
+-import { InstallationChannel, InstallationVersion } from "./installation/version"
++import { InstallationChannel, InstallationClientVersion } from "./installation/version"
+ import { EventV2 } from "./event"
+ import { makeGlobalNode } from "./effect/app-node"
+ import { httpClient } from "./effect/app-node-platform"
+@@ -20,7 +20,7 @@ const InterleavedField = Schema.Union([
+   Schema.String,
+ ])
+ 
+-const USER_AGENT = `opencode/${InstallationChannel}/${InstallationVersion}/${Flag.OPENCODE_CLIENT}`
++const USER_AGENT = `opencode/${InstallationChannel}/${InstallationClientVersion}/${Flag.OPENCODE_CLIENT}`
+ 
+ const CostTier = Schema.Struct({
+   input: Schema.Finite,
+diff --git a/packages/core/src/plugin/provider/cloudflare-ai-gateway.ts b/packages/core/src/plugin/provider/cloudflare-ai-gateway.ts
+index 2803cb7..4146188 100644
+--- a/packages/core/src/plugin/provider/cloudflare-ai-gateway.ts
++++ b/packages/core/src/plugin/provider/cloudflare-ai-gateway.ts
+@@ -1,5 +1,5 @@
+ import os from "os"
+-import { InstallationVersion } from "../../installation/version"
++import { InstallationClientVersion } from "../../installation/version"
+ import { Effect, Option, Schema } from "effect"
+ import { define } from "../internal"
+ 
+@@ -77,7 +77,7 @@ function gatewayOptions(options: Record<string, unknown>, metadata: unknown) {
+     skipCache: options.skipCache,
+     collectLog: options.collectLog,
+     headers: {
+-      "User-Agent": `opencode/${InstallationVersion} cloudflare-ai-gateway (${os.platform()} ${os.release()}; ${os.arch()})`,
++      "User-Agent": `opencode/${InstallationClientVersion} cloudflare-ai-gateway (${os.platform()} ${os.release()}; ${os.arch()})`,
+     },
+   }
+ }
+diff --git a/packages/core/src/plugin/provider/cloudflare-workers-ai.ts b/packages/core/src/plugin/provider/cloudflare-workers-ai.ts
+index 1a1c533..660bc4f 100644
+--- a/packages/core/src/plugin/provider/cloudflare-workers-ai.ts
++++ b/packages/core/src/plugin/provider/cloudflare-workers-ai.ts
+@@ -1,5 +1,5 @@
+ import os from "os"
+-import { InstallationVersion } from "../../installation/version"
++import { InstallationClientVersion } from "../../installation/version"
+ import { Effect } from "effect"
+ import { define } from "../internal"
+ import { ProviderV2 } from "../../provider"
+@@ -64,7 +64,7 @@ function sdkOptions(options: Record<string, any>) {
+     baseURL: expandAccountId(options.baseURL),
+     apiKey: process.env.CLOUDFLARE_API_KEY ?? options.apiKey,
+     headers: {
+-      "User-Agent": `opencode/${InstallationVersion} cloudflare-workers-ai (${os.platform()} ${os.release()}; ${os.arch()})`,
++      "User-Agent": `opencode/${InstallationClientVersion} cloudflare-workers-ai (${os.platform()} ${os.release()}; ${os.arch()})`,
+       ...options.headers,
+     },
+     name: providerID,
+diff --git a/packages/core/src/plugin/provider/gitlab.ts b/packages/core/src/plugin/provider/gitlab.ts
+index 8723cda..9bd8570 100644
+--- a/packages/core/src/plugin/provider/gitlab.ts
++++ b/packages/core/src/plugin/provider/gitlab.ts
+@@ -1,5 +1,5 @@
+ import os from "os"
+-import { InstallationVersion } from "../../installation/version"
++import { InstallationClientVersion } from "../../installation/version"
+ import { Effect } from "effect"
+ import { define } from "../internal"
+ import { ProviderV2 } from "../../provider"
+@@ -19,7 +19,7 @@ export const GitLabPlugin = define({
+               : (process.env.GITLAB_INSTANCE_URL ?? "https://gitlab.com"),
+           apiKey: typeof evt.options.apiKey === "string" ? evt.options.apiKey : process.env.GITLAB_TOKEN,
+           aiGatewayHeaders: {
+-            "User-Agent": `opencode/${InstallationVersion} gitlab-ai-provider/${mod.VERSION} (${os.platform()} ${os.release()}; ${os.arch()})`,
++            "User-Agent": `opencode/${InstallationClientVersion} gitlab-ai-provider/${mod.VERSION} (${os.platform()} ${os.release()}; ${os.arch()})`,
+             "anthropic-beta": "context-1m-2025-08-07",
+             ...evt.options.aiGatewayHeaders,
+           },
+diff --git a/packages/core/src/plugin/provider/openai.ts b/packages/core/src/plugin/provider/openai.ts
+index 46553ea..d363f9c 100644
+--- a/packages/core/src/plugin/provider/openai.ts
++++ b/packages/core/src/plugin/provider/openai.ts
+@@ -4,7 +4,7 @@ import { define } from "@opencode-ai/plugin/v2/effect/plugin"
+ import { Deferred, Effect } from "effect"
+ import type { Scope } from "effect"
+ import { Credential } from "../../credential"
+-import { InstallationVersion } from "../../installation/version"
++import { InstallationClientVersion } from "../../installation/version"
+ import { Integration } from "../../integration"
+ import { ModelV2 } from "../../model"
+ import { OauthCallbackPage } from "../../oauth/page"
+@@ -189,7 +189,7 @@ export const OpenAIPlugin = define({
+ } satisfies PluginInternal.Plugin<PluginInternal.Requirements | Scope.Scope>)
+ 
+ function headers(contentType: string) {
+-  return { "Content-Type": contentType, "User-Agent": `opencode/${InstallationVersion}` }
++  return { "Content-Type": contentType, "User-Agent": `opencode/${InstallationClientVersion}` }
+ }
+ 
+ function exchange(code: string, redirect: string, pkce: Pkce) {
+diff --git a/packages/core/src/tool/websearch.ts b/packages/core/src/tool/websearch.ts
+index 6d62236..40b4e87 100644
+--- a/packages/core/src/tool/websearch.ts
++++ b/packages/core/src/tool/websearch.ts
+@@ -6,7 +6,7 @@ import { HttpClient, HttpClientRequest } from "effect/unstable/http"
+ import { makeLocationNode } from "../effect/app-node"
+ import { LayerNodePlatform } from "../effect/app-node-platform"
+ import { truthy } from "../flag/flag"
+-import { InstallationVersion } from "../installation/version"
++import { InstallationClientVersion } from "../installation/version"
+ import { PositiveInt } from "../schema"
+ import { PermissionV2 } from "../permission"
+ import { Tool } from "./tool"
+@@ -237,7 +237,7 @@ const layer = Layer.effectDiscard(
+                         // V2 invocation context does not safely expose the model yet.
+                       },
+                       {
+-                        "User-Agent": `opencode/${InstallationVersion}`,
++                        "User-Agent": `opencode/${InstallationClientVersion}`,
+                         ...(config.parallelApiKey ? { Authorization: `Bearer ${config.parallelApiKey}` } : {}),
+                       },
+                     )
+diff --git a/packages/opencode/src/installation/index.ts b/packages/opencode/src/installation/index.ts
+index 4300220..db17d97 100644
+--- a/packages/opencode/src/installation/index.ts
++++ b/packages/opencode/src/installation/index.ts
+@@ -11,7 +11,7 @@ import { AppProcess } from "@opencode-ai/core/process"
+ import path from "path"
+ import { makeRuntime } from "@opencode-ai/core/effect/runtime"
+ import semver from "semver"
+-import { InstallationChannel, InstallationVersion } from "@opencode-ai/core/installation/version"
++import { InstallationChannel, InstallationClientVersion, InstallationVersion } from "@opencode-ai/core/installation/version"
+ import { NpmConfig } from "@opencode-ai/core/npm-config"
+ import { InstallationEvent } from "@opencode-ai/schema/installation-event"
+ 
+@@ -39,7 +39,7 @@ export const Info = Schema.Struct({
+ export type Info = Schema.Schema.Type<typeof Info>
+ 
+ export function userAgent(client = "cli") {
+-  return `opencode/${InstallationChannel}/${InstallationVersion}/${client}`
++  return `opencode/${InstallationChannel}/${InstallationClientVersion}/${client}`
+ }
+ 
+ export const USER_AGENT = userAgent()
+diff --git a/packages/opencode/src/mcp/index.ts b/packages/opencode/src/mcp/index.ts
+index 05f12fa..329cb81 100644
+--- a/packages/opencode/src/mcp/index.ts
++++ b/packages/opencode/src/mcp/index.ts
+@@ -18,7 +18,7 @@ import {
+ import { Config } from "@/config/config"
+ import { ConfigMCPV1 } from "@opencode-ai/core/v1/config/mcp"
+ import { NamedError } from "@opencode-ai/core/util/error"
+-import { InstallationVersion } from "@opencode-ai/core/installation/version"
++import { InstallationClientVersion } from "@opencode-ai/core/installation/version"
+ import { withTimeout } from "@/util/timeout"
+ import { FSUtil } from "@opencode-ai/core/fs-util"
+ import { McpOAuthPendingProvider, McpOAuthProvider, OAUTH_CALLBACK_PATH } from "./oauth-provider"
+@@ -73,7 +73,7 @@ export class NotFoundError extends Schema.TaggedErrorClass<NotFoundError>()("MCP
+ type MCPClient = Client
+ 
+ function createClient(directory: string) {
+-  const client = new Client({ name: "opencode", version: InstallationVersion }, CLIENT_OPTIONS)
++  const client = new Client({ name: "opencode", version: InstallationClientVersion }, CLIENT_OPTIONS)
+   client.setRequestHandler(ListRootsRequestSchema, () =>
+     Promise.resolve({ roots: [{ uri: pathToFileURL(directory).href }] }),
+   )
+diff --git a/packages/opencode/src/plugin/azure.ts b/packages/opencode/src/plugin/azure.ts
+index 6916aaa..2ca3d89 100644
+--- a/packages/opencode/src/plugin/azure.ts
++++ b/packages/opencode/src/plugin/azure.ts
+@@ -1,4 +1,4 @@
+-import { InstallationVersion } from "@opencode-ai/core/installation/version"
++import { InstallationClientVersion } from "@opencode-ai/core/installation/version"
+ import { which } from "@opencode-ai/core/util/which"
+ import type { Hooks } from "@opencode-ai/plugin"
+ import { Schema } from "effect"
+@@ -65,7 +65,7 @@ export function createAzureAuthHooks(
+             headers.delete("api-key")
+             headers.delete("x-api-key")
+             headers.set("authorization", `Bearer ${await token(scopeForRequest(input))}`)
+-            headers.set("User-Agent", `opencode/${InstallationVersion}`)
++            headers.set("User-Agent", `opencode/${InstallationClientVersion}`)
+             return request(input, { ...init, headers })
+           },
+         }
+diff --git a/packages/opencode/src/plugin/digitalocean.ts b/packages/opencode/src/plugin/digitalocean.ts
+index af24178..6bc9864 100644
+--- a/packages/opencode/src/plugin/digitalocean.ts
++++ b/packages/opencode/src/plugin/digitalocean.ts
+@@ -1,6 +1,6 @@
+ import type { Hooks, PluginInput } from "@opencode-ai/plugin"
+ import type { Model } from "@opencode-ai/sdk/v2"
+-import { InstallationVersion } from "@opencode-ai/core/installation/version"
++import { InstallationClientVersion } from "@opencode-ai/core/installation/version"
+ import { OauthCallbackPage } from "@opencode-ai/core/oauth/page"
+ import { createServer } from "http"
+ import open from "open"
+@@ -171,7 +171,7 @@ async function listRouters(
+     headers: {
+       Authorization: `Bearer ${bearer}`,
+       Accept: "application/json",
+-      "User-Agent": `opencode/${InstallationVersion}`,
++      "User-Agent": `opencode/${InstallationClientVersion}`,
+     },
+     signal: AbortSignal.timeout(10_000),
+   }).catch(() => undefined)
+diff --git a/packages/opencode/src/plugin/github-copilot/copilot.ts b/packages/opencode/src/plugin/github-copilot/copilot.ts
+index 161bf85..d91f6be 100644
+--- a/packages/opencode/src/plugin/github-copilot/copilot.ts
++++ b/packages/opencode/src/plugin/github-copilot/copilot.ts
+@@ -1,6 +1,6 @@
+ import type { Hooks, PluginInput } from "@opencode-ai/plugin"
+ import type { Model } from "@opencode-ai/sdk/v2"
+-import { InstallationVersion } from "@opencode-ai/core/installation/version"
++import { InstallationClientVersion } from "@opencode-ai/core/installation/version"
+ import { iife } from "@/util/iife"
+ import { setTimeout as sleep } from "node:timers/promises"
+ import { CopilotModels } from "./models"
+@@ -72,7 +72,7 @@ export async function CopilotAuthPlugin(input: PluginInput): Promise<Hooks> {
+           {
+             ...(provider.options?.headers as Record<string, string> | undefined),
+             Authorization: `Bearer ${auth.refresh}`,
+-            "User-Agent": `opencode/${InstallationVersion}`,
++            "User-Agent": `opencode/${InstallationClientVersion}`,
+             "X-GitHub-Api-Version": API_VERSION,
+           },
+           provider.models,
+@@ -160,7 +160,7 @@ export async function CopilotAuthPlugin(input: PluginInput): Promise<Hooks> {
+             const headers: Record<string, string> = {
+               "x-initiator": isAgent ? "agent" : "user",
+               ...(init?.headers as Record<string, string>),
+-              "User-Agent": `opencode/${InstallationVersion}`,
++              "User-Agent": `opencode/${InstallationClientVersion}`,
+               Authorization: `Bearer ${info.refresh}`,
+               "Openai-Intent": "conversation-edits",
+             }
+@@ -236,7 +236,7 @@ export async function CopilotAuthPlugin(input: PluginInput): Promise<Hooks> {
+               headers: {
+                 Accept: "application/json",
+                 "Content-Type": "application/json",
+-                "User-Agent": `opencode/${InstallationVersion}`,
++                "User-Agent": `opencode/${InstallationClientVersion}`,
+               },
+               body: JSON.stringify({
+                 client_id: CLIENT_ID,
+@@ -266,7 +266,7 @@ export async function CopilotAuthPlugin(input: PluginInput): Promise<Hooks> {
+                     headers: {
+                       Accept: "application/json",
+                       "Content-Type": "application/json",
+-                      "User-Agent": `opencode/${InstallationVersion}`,
++                      "User-Agent": `opencode/${InstallationClientVersion}`,
+                     },
+                     body: JSON.stringify({
+                       client_id: CLIENT_ID,
+diff --git a/packages/opencode/src/plugin/openai/codex.ts b/packages/opencode/src/plugin/openai/codex.ts
+index 6ead52c..3d8046c 100644
+--- a/packages/opencode/src/plugin/openai/codex.ts
++++ b/packages/opencode/src/plugin/openai/codex.ts
+@@ -1,5 +1,5 @@
+ import type { Hooks, PluginInput } from "@opencode-ai/plugin"
+-import { InstallationVersion } from "@opencode-ai/core/installation/version"
++import { InstallationClientVersion } from "@opencode-ai/core/installation/version"
+ import { OAUTH_DUMMY_KEY } from "../../auth"
+ import os from "os"
+ import { setTimeout as sleep } from "node:timers/promises"
+@@ -475,7 +475,7 @@ export async function CodexAuthPlugin(input: PluginInput, options: CodexAuthPlug
+               method: "POST",
+               headers: {
+                 "Content-Type": "application/json",
+-                "User-Agent": `opencode/${InstallationVersion}`,
++                "User-Agent": `opencode/${InstallationClientVersion}`,
+               },
+               body: JSON.stringify({ client_id: CLIENT_ID }),
+             })
+@@ -499,7 +499,7 @@ export async function CodexAuthPlugin(input: PluginInput, options: CodexAuthPlug
+                     method: "POST",
+                     headers: {
+                       "Content-Type": "application/json",
+-                      "User-Agent": `opencode/${InstallationVersion}`,
++                      "User-Agent": `opencode/${InstallationClientVersion}`,
+                     },
+                     body: JSON.stringify({
+                       device_auth_id: deviceData.device_auth_id,
+@@ -559,7 +559,7 @@ export async function CodexAuthPlugin(input: PluginInput, options: CodexAuthPlug
+     "chat.headers": async (input, output) => {
+       if (input.model.providerID !== "openai") return
+       output.headers.originator = "opencode"
+-      output.headers["User-Agent"] = `opencode/${InstallationVersion} (${os.platform()} ${os.release()}; ${os.arch()})`
++      output.headers["User-Agent"] = `opencode/${InstallationClientVersion} (${os.platform()} ${os.release()}; ${os.arch()})`
+       output.headers["session-id"] = input.sessionID
+       // Temporary fetch-layer hack: title generation currently shares the conversation
+       // session ID, so the OpenAI plugin marks it for HTTP fallback until transport
+diff --git a/packages/opencode/src/plugin/snowflake-cortex.ts b/packages/opencode/src/plugin/snowflake-cortex.ts
+index 09f107e..9d6e90c 100644
+--- a/packages/opencode/src/plugin/snowflake-cortex.ts
++++ b/packages/opencode/src/plugin/snowflake-cortex.ts
+@@ -1,6 +1,6 @@
+ import type { Hooks, PluginInput } from "@opencode-ai/plugin"
+ import { OAUTH_DUMMY_KEY } from "../auth"
+-import { InstallationVersion } from "@opencode-ai/core/installation/version"
++import { InstallationClientVersion } from "@opencode-ai/core/installation/version"
+ import { OauthCallbackPage } from "@opencode-ai/core/oauth/page"
+ import { createServer } from "http"
+ import open from "open"
+@@ -80,7 +80,7 @@ function authHeaders() {
+   return {
+     "Content-Type": "application/x-www-form-urlencoded",
+     Accept: "application/json",
+-    "User-Agent": `opencode/${InstallationVersion}`,
++    "User-Agent": `opencode/${InstallationClientVersion}`,
+   }
+ }
+ 
+@@ -380,7 +380,7 @@ export async function SnowflakeCortexAuthPlugin(_input: PluginInput): Promise<Ho
+                 }
+               }
+               headers.set("authorization", `Bearer ${currentOauth.access}`)
+-              headers.set("User-Agent", `opencode/${InstallationVersion}`)
++              headers.set("User-Agent", `opencode/${InstallationClientVersion}`)
+ 
+               let body = init?.body
+               if (body && typeof body === "string") {
+diff --git a/packages/opencode/src/plugin/xai.ts b/packages/opencode/src/plugin/xai.ts
+index a455121..26b06a5 100644
+--- a/packages/opencode/src/plugin/xai.ts
++++ b/packages/opencode/src/plugin/xai.ts
+@@ -1,6 +1,6 @@
+ import type { Hooks, PluginInput } from "@opencode-ai/plugin"
+ import { OAUTH_DUMMY_KEY } from "../auth"
+-import { InstallationVersion } from "@opencode-ai/core/installation/version"
++import { InstallationClientVersion } from "@opencode-ai/core/installation/version"
+ 
+ // Public Grok-CLI OAuth client.
+ const CLIENT_ID = "b1a00492-073a-47ea-816f-4c329264a828"
+@@ -47,7 +47,7 @@ function authHeaders() {
+   return {
+     "Content-Type": "application/x-www-form-urlencoded",
+     Accept: "application/json",
+-    "User-Agent": `opencode/${InstallationVersion}`,
++    "User-Agent": `opencode/${InstallationClientVersion}`,
+   }
+ }
+ 
+@@ -288,7 +288,7 @@ export async function XaiAuthPlugin(input: PluginInput, options: XaiAuthPluginOp
+               }
+             }
+             headers.set("authorization", `Bearer ${currentAuth.access}`)
+-            headers.set("User-Agent", `opencode/${InstallationVersion}`)
++            headers.set("User-Agent", `opencode/${InstallationClientVersion}`)
+ 
+             return fetch(requestInput, { ...init, headers })
+           },
+diff --git a/packages/opencode/src/provider/provider.ts b/packages/opencode/src/provider/provider.ts
+index 867ef2c..efb1008 100644
+--- a/packages/opencode/src/provider/provider.ts
++++ b/packages/opencode/src/provider/provider.ts
+@@ -13,7 +13,7 @@ import { type LanguageModelV3 } from "@ai-sdk/provider"
+ import { ModelsDev } from "@opencode-ai/core/models-dev"
+ import { Auth } from "../auth"
+ import { Env } from "../env"
+-import { InstallationVersion } from "@opencode-ai/core/installation/version"
++import { InstallationClientVersion } from "@opencode-ai/core/installation/version"
+ import { iife } from "@/util/iife"
+ import { Global } from "@opencode-ai/core/global"
+ import path from "path"
+@@ -628,7 +628,7 @@ function custom(dep: CustomDep): Record<string, CustomLoader> {
+       const directory = yield* InstanceState.directory
+ 
+       const aiGatewayHeaders = {
+-        "User-Agent": `opencode/${InstallationVersion} gitlab-ai-provider/${GITLAB_PROVIDER_VERSION} (${os.platform()} ${os.release()}; ${os.arch()})`,
++        "User-Agent": `opencode/${InstallationClientVersion} gitlab-ai-provider/${GITLAB_PROVIDER_VERSION} (${os.platform()} ${os.release()}; ${os.arch()})`,
+         "anthropic-beta": "context-1m-2025-08-07",
+         ...providerConfig?.options?.aiGatewayHeaders,
+       }
+@@ -761,7 +761,7 @@ function custom(dep: CustomDep): Record<string, CustomLoader> {
+         options: {
+           apiKey,
+           headers: {
+-            "User-Agent": `opencode/${InstallationVersion} cloudflare-workers-ai (${os.platform()} ${os.release()}; ${os.arch()})`,
++            "User-Agent": `opencode/${InstallationClientVersion} cloudflare-workers-ai (${os.platform()} ${os.release()}; ${os.arch()})`,
+           },
+         },
+         async getModel(sdk: any, modelID: string) {
+@@ -831,7 +831,7 @@ function custom(dep: CustomDep): Record<string, CustomLoader> {
+         skipCache: input.options?.skipCache,
+         collectLog: input.options?.collectLog,
+         headers: {
+-          "User-Agent": `opencode/${InstallationVersion} cloudflare-ai-gateway (${os.platform()} ${os.release()}; ${os.arch()})`,
++          "User-Agent": `opencode/${InstallationClientVersion} cloudflare-ai-gateway (${os.platform()} ${os.release()}; ${os.arch()})`,
+         },
+       }
+ 
+diff --git a/packages/opencode/src/session/llm/request.ts b/packages/opencode/src/session/llm/request.ts
+index e000d6c..bba8053 100644
+--- a/packages/opencode/src/session/llm/request.ts
++++ b/packages/opencode/src/session/llm/request.ts
+@@ -9,13 +9,13 @@ import type { MessageV2 } from "../message-v2"
+ import type { Provider } from "@/provider/provider"
+ import { ProviderTransform } from "@/provider/transform"
+ import { SystemPrompt } from "../system"
+-import { InstallationVersion } from "@opencode-ai/core/installation/version"
++import { InstallationClientVersion } from "@opencode-ai/core/installation/version"
+ import { Effect, Record } from "effect"
+ import { jsonSchema, tool as aiTool, type ModelMessage, type Tool } from "ai"
+ import type { Plugin } from "@/plugin"
+ import { mergeDeep } from "remeda"
+ 
+-const USER_AGENT = `opencode/${InstallationVersion}`
++const USER_AGENT = `opencode/${InstallationClientVersion}`
+ 
+ type PrepareInput = {
+   readonly user: SessionV1.User
+diff --git a/packages/opencode/src/tool/websearch.ts b/packages/opencode/src/tool/websearch.ts
+index d08ae1d..b4563fc 100644
+--- a/packages/opencode/src/tool/websearch.ts
++++ b/packages/opencode/src/tool/websearch.ts
+@@ -4,7 +4,7 @@ import * as Tool from "./tool"
+ import * as McpWebSearch from "./mcp-websearch"
+ import DESCRIPTION from "./websearch.txt"
+ import { checksum } from "@opencode-ai/core/util/encode"
+-import { InstallationVersion } from "@opencode-ai/core/installation/version"
++import { InstallationClientVersion } from "@opencode-ai/core/installation/version"
+ import { RuntimeFlags } from "@/effect/runtime-flags"
+ 
+ export const Parameters = Schema.Struct({
+@@ -52,7 +52,7 @@ export function webSearchModelName(extra: Tool.Context["extra"]) {
+ }
+ 
+ function parallelAuthHeaders() {
+-  const headers = { "User-Agent": `opencode/${InstallationVersion}` }
++  const headers = { "User-Agent": `opencode/${InstallationClientVersion}` }
+   if (!process.env.PARALLEL_API_KEY) return headers
+   return { ...headers, Authorization: `Bearer ${process.env.PARALLEL_API_KEY}` }
+ }

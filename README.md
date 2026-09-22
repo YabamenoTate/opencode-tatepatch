@@ -16,7 +16,7 @@ A computer must be free to switch between multiple keys and accounts at will to 
 
 ### Distraction-Free Workspace
 - **Removed:** Go subscription upsell dialogs and retry limits.
-- **Removed:** External cloud sharing (replaced with local JSON file export).
+- **Removed:** External cloud sharing (share button, menus, commands, and publishing UI).
 - **Removed:** Help icon (which previously linked to an external Discord server / feedback tracker).
 
 ### Server-Side Storage Proxy
@@ -35,6 +35,11 @@ Anyone typing in Japanese, Chinese, or other IME environments knows the frustrat
 - **Enter** now strictly inserts a **newline** (no more accidental sending).
 - **Ctrl+Enter** / **Cmd+Enter** is used to **send** the message.
 - A subtle "Enter for newline" hint is added to the UI tray.
+
+### Home Trash (Archive) Management
+Archived sessions are no longer hidden forever. The Home view gains a **Trash** toggle that lists archived sessions with **Restore** and **Delete** actions.
+- Restore sends `archived: null` so the session returns to the regular list without losing its history.
+- The server/schema accept a nullable `archived` timestamp for full round-trip restoration.
 
 ## Installation & Usage
 
@@ -114,17 +119,18 @@ If you want to revert back to the original unmodified binary:
 }
 ```
 
-### Patch Inventory (7 patches)
+### Patch Inventory (8 patches)
 
 | # | Patch | Target | Description |
 |---|-------|--------|-------------|
-| 1 | `version.patch` | Version string | Appends `(Tate Patched)` to CLI version output |
+| 1 | `version.patch` | Version split | Shows `(Tate Patched 4)` in UI (CLI `--version`, health, TUI), while outbound User-Agents identify as clean `opencode/1.18.31` via `InstallationClientVersion` |
 | 2 | `webapp-storage-proxy.patch` | Local persistence | Proxies webapp localStorage requests to server and persists layout config locally |
 | 3 | `auth-pool.patch` | Multi-account pool | Implements auth key pool management (CRUD backend APIs, WebUI connected badge & config page, CLI commands, and auto-rotation on quota error) including localized language keys |
 | 4 | `ctrl-enter-send.patch` | Keyboard input | Rebinds Enter to newline and Ctrl/Cmd+Enter to send, adding UI tray hint with all translations |
 | 5 | `remove-help-button.patch` | Help button | Removes the sidebar help icon linking to an external Discord server |
-| 6 | `remove-share.patch` | Cloud share | Replaces the cloud session publishing feature with local JSON export, including localized labels |
+| 6 | `remove-share.patch` | Cloud share | Removes the cloud session publishing feature entirely (menus, commands, share button) |
 | 7 | `remove-upsell.patch` | Billing ads | Strips away Go subscription billing promotion banners and error messages |
+| 8 | `trash.patch` | Trash (archive) | Adds the Home trash tray (archive/restore/delete), makes the `archived` timestamp nullable for `archived: null` restore, and adds a trash icon plus all translations |
 
 ## Contributing
 
@@ -170,7 +176,7 @@ Tate Patchは、中央集権的な依存関係を排し、プライバシーを�
 
 ### ノイズのないクリーンな作業環境
 - **Goアップセルの排除**: 使用上限に達した際の有料プランへの誘導広告や文言を完全に削除しました。
-- **ローカルエクスポート化**: クラウドへの公開を伴う「共有」機能を廃止し、セッションをローカルにJSONファイルとして書き出す「エクスポート」機能に変更しました。
+- **共有機能の完全削除**: クラウドへの公開を伴う「共有」機能（共有ボタン、メニュー、コマンド、公開UI）を全て削除しました。
 - **ヘルプボタンの削除**: 外部のDiscordサーバーや開発元への接続経路となるだけのサイドバーアイコンを削除しました。
 
 ### サーバーサイドストレージプロキシ
@@ -188,6 +194,12 @@ Tate Patchは、中央集権的な依存関係を排し、プライバシーを�
 - **Enter**キーは純粋に**改行**として動作するように変更し、誤送信の余地をなくしました。
 - メッセージの**送信**には、明示的な意思表示として**Ctrl+Enter**（Macでは**Cmd+Enter**）を使用します。
 - 入力トレイの右端に「Enterで改行」のヒントが表示されます。
+
+### ホーム画面のゴミ箱（アーカイブ管理）
+アーカイブしたセッションを確認・操作できる**ゴミ箱**をホーム画面に追加しました。
+- ゴミ箱はアーカイブ済みセッションの一覧を表示し、**復元**・**削除**が可能です。
+- 復元は `archived: null` を送信するため、履歴を失わず通常の一覧へ戻せます。
+- サーバー・スキーマ側も `archived` タイムスタンプを nullable として受け付けるよう修正しました。
 
 ## インストールと使い方
 
@@ -267,17 +279,18 @@ Tate Patchは、中央集権的な依存関係を排し、プライバシーを�
 }
 ```
 
-### パッチ構成一覧（計7個）
+### パッチ構成一覧（計8個）
 
 | # | パッチ名 | 対象 | 説明 |
 |---|---------|------|------|
-| 1 | `version.patch` | バージョン表記 | CLIバージョン表示に `(Tate Patched)` を追加 |
+| 1 | `version.patch` | バージョン表記 | UIでは `(Tate Patched 4)` を表示しつつ、対外的なUser-Agentは `InstallationClientVersion` によりクリーンな `opencode/1.18.31` として識別（表示と送信の分離） |
 | 2 | `webapp-storage-proxy.patch` | 設定のローカル永続化 | localStorageの操作をサーバーへ転送し、レイアウト設定をPC上に保存 |
 | 3 | `auth-pool.patch` | 複数アカウントプール | APIキーのローカルプール管理機能（バックエンドAPI、CLI/WebUI管理画面、Connectedバッジ、クォータ時の自動ローテーション）と関連言語ラベルを実装 |
 | 4 | `ctrl-enter-send.patch` | キーボード入力 | Enterを改行、Ctrl+Enterを送信にマッピング変更し、入力欄のヒント（多言語対応）を追加 |
 | 5 | `remove-help-button.patch` | ヘルプリンク削除 | サイドバー上の外部Discordサーバーへ遷移するヘルプボタンを削除 |
-| 6 | `remove-share.patch` | 共有のローカル化 | セッションのクラウド共有を廃止し、ローカルJSONエクスポートに置換（関連言語ラベルを内包） |
+| 6 | `remove-share.patch` | 共有機能の削除 | セッションのクラウド共有機能（共有ボタン・メニュー・コマンド）を完全に削除 |
 | 7 | `remove-upsell.patch` | 広告・宣伝の排除 | Goサブスクリプションの宣伝バナーや利用制限メッセージを排除 |
+| 8 | `trash.patch` | ゴミ箱（アーカイブ） | ホーム画面にゴミ箱（アーカイブリスト・復元・削除）を追加し、`archived: null` 復元のため `archived` タイムスタンプをnullable化（ゴミ箱アイコン・多言語ラベルを含む） |
 
 ## 開発と貢献について
 

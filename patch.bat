@@ -18,6 +18,9 @@ set "PATCHES_DIR=%TATEPATCH_DIR%patches"
 set "WORK_DIR=%TATEPATCH_DIR%_work"
 set "SOURCE_DIR=%WORK_DIR%\source"
 set "TATEPATCH_VERSION=v1.18.31 (Tate Patched 4)"
+REM OPENCODE_VERSION define = UI/display version (no leading "v": UI adds it
+REM itself). Outbound User-Agents are clean "1.18.31" via InstallationClientVersion.
+set "TATEPATCH_OPENCODE_VERSION=1.18.31 (Tate Patched 4)"
 set "OPENCODE_TAG=v1.18.31"
 set "BACKUP_FILE=%TATEPATCH_DIR%opencode-official-backup.exe"
  
@@ -108,6 +111,7 @@ for %%p in (
     remove-help-button.patch
     remove-share.patch
     remove-upsell.patch
+    trash.patch
 ) do (
     if exist "%PATCHES_DIR%\%%p" (
         echo Applying %%p ...
@@ -134,7 +138,7 @@ REM Build web app
 echo.
 echo ^=^=^> Building web app
 set "OPENCODE_CHANNEL=prod"
-set "OPENCODE_VERSION=%TATEPATCH_VERSION%"
+set "OPENCODE_VERSION=%TATEPATCH_OPENCODE_VERSION%"
 pushd "%SOURCE_DIR%\packages\app"
 bun run build
 if %errorlevel% neq 0 (
@@ -148,7 +152,7 @@ popd
 REM Build binary
 echo.
 echo ^=^=^> Building opencode binary (this may take a while...)
-set "OPENCODE_VERSION=%TATEPATCH_VERSION%"
+set "OPENCODE_VERSION=%TATEPATCH_OPENCODE_VERSION%"
 bun run "%SOURCE_DIR%\packages\opencode\script\build.ts" --single
 
 REM Find built binary (.exe or extensionless, exclude directory names)

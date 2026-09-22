@@ -1,0 +1,2146 @@
+diff --git a/packages/app/src/context/global-sync/home-session-index.test.ts b/packages/app/src/context/global-sync/home-session-index.test.ts
+index 9b94f1d..4e40cc7 100644
+--- a/packages/app/src/context/global-sync/home-session-index.test.ts
++++ b/packages/app/src/context/global-sync/home-session-index.test.ts
+@@ -1,10 +1,8 @@
+ import { describe, expect, test } from "bun:test"
+-import { QueryClient } from "@tanstack/solid-query"
+-import type { Session, SessionV2Info } from "@opencode-ai/sdk/v2/client"
++import type { SessionV2Info } from "@opencode-ai/sdk/v2/client"
+ import {
+   applyHomeSessionEvent,
+   appendHomeSessionEvent,
+-  createHomeSessionIndexCache,
+   HOME_V2_SESSION_PAGE_LIMIT,
+   loadHomeSessionIndex,
+   homeSessionIndexSessions,
+@@ -153,33 +151,4 @@ describe("Home V2 session index", () => {
+     expect(homeSessionIndexRefresh("global.disposed", true).refetch).toBe(true)
+     expect(homeSessionIndexRefresh("session.next.moved", true).refetch).toBe(true)
+   })
+-
+-  test("removes a session from the loaded Home index", () => {
+-    const queryClient = new QueryClient()
+-    const cache = createHomeSessionIndexCache(queryClient, "server")
+-    const sessions = [
+-      { id: "a", time: { created: 1, updated: 1 } },
+-      { id: "b", time: { created: 1, updated: 1 } },
+-    ] as Session[]
+-    queryClient.setQueryData(cache.indexKey, { sessions, eventSequence: 0 })
+-
+-    cache.remove("a")
+-
+-    const index = queryClient.getQueryData<{ sessions: Session[] }>(cache.indexKey)
+-    expect(index?.sessions.map((item) => item.id)).toEqual(["b"])
+-  })
+-
+-  test("keeps the session out of the Home list when the index is not mounted", () => {
+-    const queryClient = new QueryClient()
+-    const cache = createHomeSessionIndexCache(queryClient, "server")
+-    const sessions = [
+-      { id: "a", time: { created: 1, updated: 1 } },
+-      { id: "b", time: { created: 1, updated: 1 } },
+-    ] as Session[]
+-
+-    cache.remove("a")
+-
+-    expect(queryClient.getQueryData(cache.indexKey)).toBeUndefined()
+-    expect(cache.sessions({ sessions, eventSequence: 0 }, undefined).map((item) => item.id)).toEqual(["b"])
+-  })
+ })
+diff --git a/packages/app/src/context/global-sync/home-session-index.ts b/packages/app/src/context/global-sync/home-session-index.ts
+index 781c39c..03a085e 100644
+--- a/packages/app/src/context/global-sync/home-session-index.ts
++++ b/packages/app/src/context/global-sync/home-session-index.ts
+@@ -85,7 +85,6 @@ export function createHomeSessionIndexCache(queryClient: QueryClient, server: st
+   const indexKey = homeSessionIndexKey(server)
+   const eventsKey = homeSessionEventsKey(server)
+   let connected = false
+-  const removed = new Set<string>()
+ 
+   return {
+     indexKey,
+@@ -98,8 +97,7 @@ export function createHomeSessionIndexCache(queryClient: QueryClient, server: st
+       queryClient.setQueryData<HomeSessionEvents>(eventsKey, (current) => trimHomeSessionEvents(current, sequence))
+     },
+     sessions(index: HomeSessionIndex | undefined, events: HomeSessionEvents | undefined) {
+-      const sessions = homeSessionIndexSessions(index, events)
+-      return removed.size === 0 ? sessions : sessions.filter((session) => !removed.has(session.id))
++      return homeSessionIndexSessions(index, events)
+     },
+     apply(event: HomeSessionEvent) {
+       if (!queryClient.getQueryState(indexKey)) return
+@@ -118,16 +116,6 @@ export function createHomeSessionIndexCache(queryClient: QueryClient, server: st
+       }
+       queryClient.setQueryData<HomeSessionEvents>(eventsKey, { sequence: next.sequence, entries: [] })
+     },
+-    remove(sessionID: string) {
+-      removed.add(sessionID)
+-      if (!queryClient.getQueryState(indexKey)) return
+-      queryClient.setQueryData<HomeSessionIndex>(indexKey, (index) => {
+-        if (!index) return index
+-        const at = index.sessions.findIndex((session) => session.id === sessionID)
+-        if (at === -1) return index
+-        return { ...index, sessions: index.sessions.toSpliced(at, 1) }
+-      })
+-    },
+     refresh(event: Event["type"]) {
+       const result = homeSessionIndexRefresh(event, connected)
+       connected = result.connected
+diff --git a/packages/app/src/i18n/am.ts b/packages/app/src/i18n/am.ts
+index 6e29fff..ed91ead 100644
+--- a/packages/app/src/i18n/am.ts
++++ b/packages/app/src/i18n/am.ts
+@@ -1100,7 +1100,14 @@ export const dict = {
+   "session.delete.failed.title": "ክፍለ-ጊዜን መሰረዝ አልተሳካም",
+   "session.delete.title": "ክፍለ ጊዜን ሰርዝ",
+   "session.delete.confirm": 'ክፍለ-ጊዜውን ይሰርዙ"{{name}}?',
+-  "session.delete.button": "ክፍለ ጊዜን ሰርዝ",
++  "trash.title": "ቆሻሻ",
++  "trash.button": "ቆሻሻ",
++  "trash.close": "ቆሻሻን ዝጋ",
++  "trash.empty": "ምንም የተጠበቁ ክፍለ ጊዜዎች የሉም",
++  "trash.restore": "ወደነበረበት መመለስ",
++  "trash.restore.success": "ክፍለ ጊዜ ተመልሷል",
++  "trash.delete.success": "ክፍለ ጊዜ ተሰርዟል",
++"session.delete.button": "ክፍለ ጊዜን ሰርዝ",
+   "workspace.new": "አዲስ workspace",
+   "workspace.type.local": "አካባቢ",
+   "workspace.type.sandbox": "ማጠሪያ",
+diff --git a/packages/app/src/i18n/ar.ts b/packages/app/src/i18n/ar.ts
+index 00cba21..7f3a927 100644
+--- a/packages/app/src/i18n/ar.ts
++++ b/packages/app/src/i18n/ar.ts
+@@ -1051,7 +1051,14 @@ export const dict = {
+   "session.delete.failed.title": "فشل حذف الجلسة",
+   "session.delete.title": "حذف الجلسة",
+   "session.delete.confirm": 'حذف الجلسة "{{name}}"؟',
+-  "session.delete.button": "حذف الجلسة",
++  "trash.title": "سلة المهملات",
++  "trash.button": "سلة المهملات",
++  "trash.close": "إغلاق سلة المهملات",
++  "trash.empty": "لا توجد جلسات مؤرشفة",
++  "trash.restore": "استعادة",
++  "trash.restore.success": "تمت استعادة الجلسة",
++  "trash.delete.success": "تم حذف الجلسة",
++"session.delete.button": "حذف الجلسة",
+   "workspace.new": "مساحة عمل جديدة",
+   "workspace.type.local": "محلي",
+   "workspace.type.sandbox": "بيئة معزولة",
+diff --git a/packages/app/src/i18n/az.ts b/packages/app/src/i18n/az.ts
+index 90901c6..a6fe9d4 100644
+--- a/packages/app/src/i18n/az.ts
++++ b/packages/app/src/i18n/az.ts
+@@ -1139,7 +1139,14 @@ export const dict = {
+   "session.delete.failed.title": "Sessiya silinə bilmədi",
+   "session.delete.title": "Sessiyanı sil",
+   "session.delete.confirm": '"{{name}}" sessiyasını silmək istəyirsiniz?',
+-  "session.delete.button": "Sessiyanı sil",
++  "trash.title": "Zibil",
++  "trash.button": "Zibil",
++  "trash.close": "Zibili bağla",
++  "trash.empty": "Arxivlənmiş sessiya yoxdur",
++  "trash.restore": "Bərpa et",
++  "trash.restore.success": "Sessiya bərpa edildi",
++  "trash.delete.success": "Sessiya silindi",
++"session.delete.button": "Sessiyanı sil",
+   "workspace.new": "Yeni iş sahəsi",
+   "workspace.type.local": "yerli",
+   "workspace.type.sandbox": "sandbox",
+diff --git a/packages/app/src/i18n/bg.ts b/packages/app/src/i18n/bg.ts
+index 646079e..6d358da 100644
+--- a/packages/app/src/i18n/bg.ts
++++ b/packages/app/src/i18n/bg.ts
+@@ -1140,7 +1140,14 @@ export const dict = {
+   "session.delete.failed.title": "Неуспешно изтриване на сесията",
+   "session.delete.title": "Изтриване на сесия",
+   "session.delete.confirm": "Да се ​​изтрие ли сесията „{{name}}“?",
+-  "session.delete.button": "Изтриване на сесия",
++  "trash.title": "Кошче",
++  "trash.button": "Кошче",
++  "trash.close": "Затваряне на кошчето",
++  "trash.empty": "Няма архивирани сесии",
++  "trash.restore": "Възстановяване",
++  "trash.restore.success": "Сесията е възстановена",
++  "trash.delete.success": "Сесията е изтрита",
++"session.delete.button": "Изтриване на сесия",
+   "workspace.new": "Ново работно пространство",
+   "workspace.type.local": "местен",
+   "workspace.type.sandbox": "пясъчник",
+diff --git a/packages/app/src/i18n/bn.ts b/packages/app/src/i18n/bn.ts
+index eaf58d4..1bbdf09 100644
+--- a/packages/app/src/i18n/bn.ts
++++ b/packages/app/src/i18n/bn.ts
+@@ -1122,7 +1122,14 @@ export const dict: Record<string, string> = {
+   "session.delete.failed.title": "সেশন মুছে ফেলতে ব্যর্থ হয়েছে৷",
+   "session.delete.title": "সেশন মুছুন",
+   "session.delete.confirm": 'সেশন "{{name}}" মুছবেন?',
+-  "session.delete.button": "সেশন মুছুন",
++  "trash.title": "ট্র্যাশ",
++  "trash.button": "ট্র্যাশ",
++  "trash.close": "ট্র্যাশ বন্ধ করুন",
++  "trash.empty": "কোনো আর্কাইভ করা সেশন নেই",
++  "trash.restore": "পুনরুদ্ধার",
++  "trash.restore.success": "সেশন পুনরুদ্ধার করা হয়েছে",
++  "trash.delete.success": "সেশন মুছে ফেলা হয়েছে",
++"session.delete.button": "সেশন মুছুন",
+   "workspace.new": "নতুন ওয়ার্কস্পেস",
+   "workspace.type.local": "স্থানীয়",
+   "workspace.type.sandbox": "স্যান্ডবক্স",
+diff --git a/packages/app/src/i18n/br.ts b/packages/app/src/i18n/br.ts
+index 961cbef..9f7647e 100644
+--- a/packages/app/src/i18n/br.ts
++++ b/packages/app/src/i18n/br.ts
+@@ -1059,7 +1059,14 @@ export const dict = {
+   "session.delete.failed.title": "Falha ao excluir sessão",
+   "session.delete.title": "Excluir sessão",
+   "session.delete.confirm": 'Excluir sessão "{{name}}"?',
+-  "session.delete.button": "Excluir sessão",
++  "trash.title": "Trash",
++  "trash.button": "Trash",
++  "trash.close": "Close trash",
++  "trash.empty": "No archived sessions",
++  "trash.restore": "Restore",
++  "trash.restore.success": "Session restored",
++  "trash.delete.success": "Session deleted",
++"session.delete.button": "Excluir sessão",
+   "workspace.new": "Novo espaço de trabalho",
+   "workspace.type.local": "local",
+   "workspace.type.sandbox": "sandbox",
+diff --git a/packages/app/src/i18n/bs.ts b/packages/app/src/i18n/bs.ts
+index 14eee74..2fc7a9d 100644
+--- a/packages/app/src/i18n/bs.ts
++++ b/packages/app/src/i18n/bs.ts
+@@ -1134,7 +1134,14 @@ export const dict = {
+   "session.delete.failed.title": "Neuspjelo brisanje sesije",
+   "session.delete.title": "Izbriši sesiju",
+   "session.delete.confirm": 'Izbriši sesiju "{{name}}"?',
+-  "session.delete.button": "Izbriši sesiju",
++  "trash.title": "Kanta za smeće",
++  "trash.button": "Kanta za smeće",
++  "trash.close": "Zatvori kantu za smeće",
++  "trash.empty": "Nema arhiviranih sesija",
++  "trash.restore": "Vrati",
++  "trash.restore.success": "Sesija je vraćena",
++  "trash.delete.success": "Sesija je obrisana",
++"session.delete.button": "Izbriši sesiju",
+ 
+   "workspace.new": "Novi radni prostor",
+   "workspace.type.local": "lokalno",
+diff --git a/packages/app/src/i18n/ca.ts b/packages/app/src/i18n/ca.ts
+index 2883efc..9e63d08 100644
+--- a/packages/app/src/i18n/ca.ts
++++ b/packages/app/src/i18n/ca.ts
+@@ -1143,7 +1143,14 @@ export const dict = {
+   "session.delete.failed.title": "No s'ha pogut suprimir la sessió",
+   "session.delete.title": "Suprimeix la sessió",
+   "session.delete.confirm": 'Voleu suprimir la sessió "{{name}}"?',
+-  "session.delete.button": "Suprimeix la sessió",
++  "trash.title": "Paperera",
++  "trash.button": "Paperera",
++  "trash.close": "Tanca la paperera",
++  "trash.empty": "No hi ha sessions arxivades",
++  "trash.restore": "Restaura",
++  "trash.restore.success": "Sessió restaurada",
++  "trash.delete.success": "Sessió eliminada",
++"session.delete.button": "Suprimeix la sessió",
+   "workspace.new": "Nou espai de treball",
+   "workspace.type.local": "locals",
+   "workspace.type.sandbox": "caixa de sorra",
+diff --git a/packages/app/src/i18n/cs.ts b/packages/app/src/i18n/cs.ts
+index 779c889..1733f4a 100644
+--- a/packages/app/src/i18n/cs.ts
++++ b/packages/app/src/i18n/cs.ts
+@@ -1133,7 +1133,14 @@ export const dict = {
+   "session.delete.failed.title": "Smazání relace se nezdařilo",
+   "session.delete.title": "Odstranit relaci",
+   "session.delete.confirm": 'Odstranit relaci "{{name}}"?',
+-  "session.delete.button": "Odstranit relaci",
++  "trash.title": "Koš",
++  "trash.button": "Koš",
++  "trash.close": "Zavřít koš",
++  "trash.empty": "Žádné archivované relace",
++  "trash.restore": "Obnovit",
++  "trash.restore.success": "Relace obnovena",
++  "trash.delete.success": "Relace smazána",
++"session.delete.button": "Odstranit relaci",
+   "workspace.new": "Nový pracovní prostor",
+   "workspace.type.local": "místní",
+   "workspace.type.sandbox": "pískoviště",
+diff --git a/packages/app/src/i18n/da.ts b/packages/app/src/i18n/da.ts
+index a6d3c79..ce62f45 100644
+--- a/packages/app/src/i18n/da.ts
++++ b/packages/app/src/i18n/da.ts
+@@ -1008,7 +1008,14 @@ export const dict = {
+   "session.delete.failed.title": "Kunne ikke slette session",
+   "session.delete.title": "Slet session",
+   "session.delete.confirm": 'Slet session "{{name}}"?',
+-  "session.delete.button": "Slet session",
++  "trash.title": "Papirkurv",
++  "trash.button": "Papirkurv",
++  "trash.close": "Luk papirkurven",
++  "trash.empty": "Ingen arkiverede sessioner",
++  "trash.restore": "Gendan",
++  "trash.restore.success": "Session gendannet",
++  "trash.delete.success": "Session slettet",
++"session.delete.button": "Slet session",
+ 
+   "workspace.new": "Nyt arbejdsområde",
+   "workspace.type.local": "lokal",
+diff --git a/packages/app/src/i18n/de.ts b/packages/app/src/i18n/de.ts
+index 8fa52a8..308c687 100644
+--- a/packages/app/src/i18n/de.ts
++++ b/packages/app/src/i18n/de.ts
+@@ -952,7 +952,14 @@ export const dict = {
+   "session.delete.failed.title": "Sitzung konnte nicht gelöscht werden",
+   "session.delete.title": "Sitzung löschen",
+   "session.delete.confirm": 'Sitzung "{{name}}" löschen?',
+-  "session.delete.button": "Sitzung löschen",
++  "trash.title": "Papierkorb",
++  "trash.button": "Papierkorb",
++  "trash.close": "Papierkorb schließen",
++  "trash.empty": "Keine archivierten Sitzungen",
++  "trash.restore": "Wiederherstellen",
++  "trash.restore.success": "Sitzung wiederhergestellt",
++  "trash.delete.success": "Sitzung gelöscht",
++"session.delete.button": "Sitzung löschen",
+   "workspace.new": "Neuer Arbeitsbereich",
+   "workspace.type.local": "lokal",
+   "workspace.type.sandbox": "Sandbox",
+diff --git a/packages/app/src/i18n/dv.ts b/packages/app/src/i18n/dv.ts
+index 4ea4a2f..7d73bb0 100644
+--- a/packages/app/src/i18n/dv.ts
++++ b/packages/app/src/i18n/dv.ts
+@@ -1147,7 +1147,14 @@ export const dict = {
+   "session.delete.failed.title": "ސެޝަން ޑިލީޓް ކުރަން ނާކާމިޔާބުވިއެވެ",
+   "session.delete.title": "ސެޝަން ފުހެލުން",
+   "session.delete.confirm": 'ސެޝަން "{{name}}" ފުހެލަންތަ؟',
+-  "session.delete.button": "ސެޝަން ފުހެލުން",
++  "trash.title": "Trash",
++  "trash.button": "Trash",
++  "trash.close": "Close trash",
++  "trash.empty": "No archived sessions",
++  "trash.restore": "Restore",
++  "trash.restore.success": "Session restored",
++  "trash.delete.success": "Session deleted",
++"session.delete.button": "ސެޝަން ފުހެލުން",
+   "workspace.new": "އާ ވޯކްސްޕޭސް",
+   "workspace.type.local": "ލޯކަލް",
+   "workspace.type.sandbox": "ސޭންޑްބޮކްސް އެވެ",
+diff --git a/packages/app/src/i18n/dz.ts b/packages/app/src/i18n/dz.ts
+index ab0c108..4d8e20b 100644
+--- a/packages/app/src/i18n/dz.ts
++++ b/packages/app/src/i18n/dz.ts
+@@ -1151,7 +1151,14 @@ export const dict: Record<string, string> = {
+   "session.delete.failed.title": "ལཱ་ཡུན་བཏོན་གཏང་ནི་ལུ་འཐུས་ཤོར་འབྱུང་ཡོདཔ།",
+   "session.delete.title": "ལཱ་ཡུན་བཏོན་གཏང་།",
+   "session.delete.confirm": 'ལཱ་ཡུན་ "{{name}}" བཏོན་གཏང་ནི་ཨིན་ན?',
+-  "session.delete.button": "ལཱ་ཡུན་བཏོན་གཏང་།",
++  "trash.title": "Trash",
++  "trash.button": "Trash",
++  "trash.close": "Close trash",
++  "trash.empty": "No archived sessions",
++  "trash.restore": "Restore",
++  "trash.restore.success": "Session restored",
++  "trash.delete.success": "Session deleted",
++"session.delete.button": "ལཱ་ཡུན་བཏོན་གཏང་།",
+   "workspace.new": "ལཱ་གི་ས་སྒོ་གསརཔ།",
+   "workspace.type.local": "ས་གནས་ཀྱི",
+   "workspace.type.sandbox": "བྱེ་སྒམ།",
+diff --git a/packages/app/src/i18n/el.ts b/packages/app/src/i18n/el.ts
+index 99b2f4a..f8c78b9 100644
+--- a/packages/app/src/i18n/el.ts
++++ b/packages/app/src/i18n/el.ts
+@@ -1143,7 +1143,14 @@ export const dict = {
+   "session.delete.failed.title": "Αποτυχία διαγραφής συνεδρίας",
+   "session.delete.title": "Διαγραφή συνεδρίας",
+   "session.delete.confirm": 'Διαγραφή συνεδρίας "{{name}}";',
+-  "session.delete.button": "Διαγραφή συνεδρίας",
++  "trash.title": "Κάδος απορριμμάτων",
++  "trash.button": "Κάδος απορριμμάτων",
++  "trash.close": "Κλείσιμο κάδου απορριμμάτων",
++  "trash.empty": "Δεν υπάρχουν αρχειοθετημένες συνεδρίες",
++  "trash.restore": "Επαναφορά",
++  "trash.restore.success": "Η συνεδρία επαναφέρθηκε",
++  "trash.delete.success": "Η συνεδρία διαγράφηκε",
++"session.delete.button": "Διαγραφή συνεδρίας",
+   "workspace.new": "Νέος χώρος εργασίας",
+   "workspace.type.local": "τοπικό",
+   "workspace.type.sandbox": "απομονωμένο περιβάλλον",
+diff --git a/packages/app/src/i18n/en.ts b/packages/app/src/i18n/en.ts
+index 8669aac..54b12a3 100644
+--- a/packages/app/src/i18n/en.ts
++++ b/packages/app/src/i18n/en.ts
+@@ -1127,7 +1127,16 @@ export const dict = {
+   "session.delete.failed.title": "Failed to delete session",
+   "session.delete.title": "Delete session",
+   "session.delete.confirm": 'Delete session "{{name}}"?',
+-  "session.delete.button": "Delete session",
++  "trash.title": "Trash",
++  "trash.button": "Trash",
++  "trash.close": "Close trash",
++  "trash.empty": "No archived sessions",
++  "trash.restore": "Restore",
++  "trash.delete": "Delete permanently",
++  "trash.restore.success": "Session restored",
++  "trash.delete.success": "Session deleted",
++  "session.delete.permanent": "Delete permanently",
++"session.delete.button": "Delete session",
+ 
+   "workspace.new": "New workspace",
+   "workspace.type.local": "local",
+diff --git a/packages/app/src/i18n/es.ts b/packages/app/src/i18n/es.ts
+index 77483c6..34dc9ef 100644
+--- a/packages/app/src/i18n/es.ts
++++ b/packages/app/src/i18n/es.ts
+@@ -1142,7 +1142,14 @@ export const dict = {
+   "session.delete.failed.title": "Fallo al eliminar sesión",
+   "session.delete.title": "Eliminar sesión",
+   "session.delete.confirm": '¿Eliminar sesión "{{name}}"?',
+-  "session.delete.button": "Eliminar sesión",
++  "trash.title": "Papelera",
++  "trash.button": "Papelera",
++  "trash.close": "Cerrar la papelera",
++  "trash.empty": "No hay sesiones archivadas",
++  "trash.restore": "Restaurar",
++  "trash.restore.success": "Sesión restaurada",
++  "trash.delete.success": "Sesión eliminada",
++"session.delete.button": "Eliminar sesión",
+ 
+   "workspace.new": "Nuevo espacio de trabajo",
+   "workspace.type.local": "local",
+diff --git a/packages/app/src/i18n/et.ts b/packages/app/src/i18n/et.ts
+index f71f55b..2dcebf5 100644
+--- a/packages/app/src/i18n/et.ts
++++ b/packages/app/src/i18n/et.ts
+@@ -1121,7 +1121,14 @@ export const dict = {
+   "session.delete.failed.title": "Seansi kustutamine ebaõnnestus",
+   "session.delete.title": "Kustuta seanss",
+   "session.delete.confirm": 'Kas kustutada seanss "{{name}}"?',
+-  "session.delete.button": "Kustuta seanss",
++  "trash.title": "Prügikast",
++  "trash.button": "Prügikast",
++  "trash.close": "Sule prügikast",
++  "trash.empty": "Arhiveeritud seansse pole",
++  "trash.restore": "Taasta",
++  "trash.restore.success": "Seanss taastatud",
++  "trash.delete.success": "Seanss kustutatud",
++"session.delete.button": "Kustuta seanss",
+   "workspace.new": "Uus tööruum",
+   "workspace.type.local": "kohalik",
+   "workspace.type.sandbox": "liivakast",
+diff --git a/packages/app/src/i18n/fa.ts b/packages/app/src/i18n/fa.ts
+index 4278383..852f2bb 100644
+--- a/packages/app/src/i18n/fa.ts
++++ b/packages/app/src/i18n/fa.ts
+@@ -1125,7 +1125,14 @@ export const dict = {
+   "session.delete.failed.title": "جلسه حذف نشد",
+   "session.delete.title": "حذف جلسه",
+   "session.delete.confirm": "جلسه «{{name}}» حذف شود؟",
+-  "session.delete.button": "حذف جلسه",
++  "trash.title": "سطل زباله",
++  "trash.button": "سطل زباله",
++  "trash.close": "بستن سطل زباله",
++  "trash.empty": "هیچ جلسه‌ای بایگانی نشده است",
++  "trash.restore": "بازیابی",
++  "trash.restore.success": "جلسه بازیابی شد",
++  "trash.delete.success": "جلسه حذف شد",
++"session.delete.button": "حذف جلسه",
+   "workspace.new": "فضای کاری جدید",
+   "workspace.type.local": "محلی",
+   "workspace.type.sandbox": "جعبه شنی",
+diff --git a/packages/app/src/i18n/fi.ts b/packages/app/src/i18n/fi.ts
+index 746d2d5..27c0b79 100644
+--- a/packages/app/src/i18n/fi.ts
++++ b/packages/app/src/i18n/fi.ts
+@@ -1030,7 +1030,14 @@ export const dict = {
+   "session.delete.failed.title": "Istunnon poistaminen epäonnistui",
+   "session.delete.title": "Poista istunto",
+   "session.delete.confirm": 'Poistetaanko istunto "{{name}}"?',
+-  "session.delete.button": "Poista istunto",
++  "trash.title": "Roskakori",
++  "trash.button": "Roskakori",
++  "trash.close": "Sulje roskakori",
++  "trash.empty": "Ei arkistoituja istuntoja",
++  "trash.restore": "Palauta",
++  "trash.restore.success": "Istunto palautettu",
++  "trash.delete.success": "Istunto poistettu",
++"session.delete.button": "Poista istunto",
+   "workspace.new": "Uusi työtila",
+   "workspace.type.local": "paikallinen",
+   "workspace.type.sandbox": "hiekkalaatikko",
+diff --git a/packages/app/src/i18n/fo.ts b/packages/app/src/i18n/fo.ts
+index 499666f..07b6238 100644
+--- a/packages/app/src/i18n/fo.ts
++++ b/packages/app/src/i18n/fo.ts
+@@ -1124,7 +1124,14 @@ export const dict = {
+   "session.delete.failed.title": "Tað eydnaðist ikki at strika setu",
+   "session.delete.title": "Strika setu",
+   "session.delete.confirm": 'Strika setuna "{{name}}"?',
+-  "session.delete.button": "Strika setu",
++  "trash.title": "Trash",
++  "trash.button": "Trash",
++  "trash.close": "Close trash",
++  "trash.empty": "No archived sessions",
++  "trash.restore": "Restore",
++  "trash.restore.success": "Session restored",
++  "trash.delete.success": "Session deleted",
++"session.delete.button": "Strika setu",
+   "workspace.new": "Nýtt workspace",
+   "workspace.type.local": "lokalt",
+   "workspace.type.sandbox": "sandkassi",
+diff --git a/packages/app/src/i18n/fr.ts b/packages/app/src/i18n/fr.ts
+index 175efdd..b74deb3 100644
+--- a/packages/app/src/i18n/fr.ts
++++ b/packages/app/src/i18n/fr.ts
+@@ -1069,7 +1069,14 @@ export const dict = {
+   "session.delete.failed.title": "Échec de la suppression de la session",
+   "session.delete.title": "Supprimer la session",
+   "session.delete.confirm": 'Supprimer la session "{{name}}" ?',
+-  "session.delete.button": "Supprimer la session",
++  "trash.title": "Corbeille",
++  "trash.button": "Corbeille",
++  "trash.close": "Fermer la corbeille",
++  "trash.empty": "Aucune session archivée",
++  "trash.restore": "Restaurer",
++  "trash.restore.success": "Session restaurée",
++  "trash.delete.success": "Session supprimée",
++"session.delete.button": "Supprimer la session",
+   "workspace.new": "Nouvel espace de travail",
+   "workspace.type.local": "local",
+   "workspace.type.sandbox": "bac à sable",
+diff --git a/packages/app/src/i18n/hi.ts b/packages/app/src/i18n/hi.ts
+index 85a3095..e409d27 100644
+--- a/packages/app/src/i18n/hi.ts
++++ b/packages/app/src/i18n/hi.ts
+@@ -1134,7 +1134,14 @@ export const dict = {
+   "session.delete.failed.title": "सेशन को हटाने में विफल",
+   "session.delete.title": "सेशन हटाएं",
+   "session.delete.confirm": 'सेशन "{{name}}" हटाएं?',
+-  "session.delete.button": "सेशन हटाएं",
++  "trash.title": "ट्रैश",
++  "trash.button": "ट्रैश",
++  "trash.close": "ट्रैश बंद करें",
++  "trash.empty": "कोई संग्रहीत सत्र नहीं",
++  "trash.restore": "पुनर्स्थापित करें",
++  "trash.restore.success": "सत्र पुनर्स्थापित किया गया",
++  "trash.delete.success": "सत्र हटा दिया गया",
++"session.delete.button": "सेशन हटाएं",
+   "workspace.new": "नया वर्कस्पेस",
+   "workspace.type.local": "स्थानीय",
+   "workspace.type.sandbox": "सैंडबॉक्स",
+diff --git a/packages/app/src/i18n/hr.ts b/packages/app/src/i18n/hr.ts
+index 770d32f..b72a1d5 100644
+--- a/packages/app/src/i18n/hr.ts
++++ b/packages/app/src/i18n/hr.ts
+@@ -1138,7 +1138,14 @@ export const dict = {
+   "session.delete.failed.title": "Brisanje sesije nije uspjelo",
+   "session.delete.title": "Izbriši sesiju",
+   "session.delete.confirm": 'Izbrisati sesiju "{{name}}"?',
+-  "session.delete.button": "Izbriši sesiju",
++  "trash.title": "Koš za smeće",
++  "trash.button": "Koš za smeće",
++  "trash.close": "Zatvori koš za smeće",
++  "trash.empty": "Nema arhiviranih sesija",
++  "trash.restore": "Vrati",
++  "trash.restore.success": "Sesija vraćena",
++  "trash.delete.success": "Sesija obrisana",
++"session.delete.button": "Izbriši sesiju",
+   "workspace.new": "Novi radni prostor",
+   "workspace.type.local": "lokalni",
+   "workspace.type.sandbox": "pješčanik",
+diff --git a/packages/app/src/i18n/hu.ts b/packages/app/src/i18n/hu.ts
+index dc4a100..544a95e 100644
+--- a/packages/app/src/i18n/hu.ts
++++ b/packages/app/src/i18n/hu.ts
+@@ -1140,7 +1140,14 @@ export const dict = {
+   "session.delete.failed.title": "Nem sikerült törölni a munkamenetet",
+   "session.delete.title": "Delete munkamenet",
+   "session.delete.confirm": "Delete „{{name}}” munkamenet?",
+-  "session.delete.button": "Delete munkamenet",
++  "trash.title": "Lomtár",
++  "trash.button": "Lomtár",
++  "trash.close": "Lomtár bezárása",
++  "trash.empty": "Nincs archivált munkamenet",
++  "trash.restore": "Visszaállítás",
++  "trash.restore.success": "Munkamenet visszaállítva",
++  "trash.delete.success": "Munkamenet törölve",
++"session.delete.button": "Delete munkamenet",
+   "workspace.new": "Új munkaterület",
+   "workspace.type.local": "helyi",
+   "workspace.type.sandbox": "homokozó",
+diff --git a/packages/app/src/i18n/hy.ts b/packages/app/src/i18n/hy.ts
+index 2ca5752..55a2c4a 100644
+--- a/packages/app/src/i18n/hy.ts
++++ b/packages/app/src/i18n/hy.ts
+@@ -1135,7 +1135,14 @@ export const dict = {
+   "session.delete.failed.title": "Չհաջողվեց ջնջել նիստը",
+   "session.delete.title": "Ջնջել նիստը",
+   "session.delete.confirm": "Ջնջե՞լ «{{name}}» նիստը",
+-  "session.delete.button": "Ջնջել նիստը",
++  "trash.title": "Աղբաման",
++  "trash.button": "Աղբաման",
++  "trash.close": "Փակել աղբամանը",
++  "trash.empty": "Արխիվացված սեսիաներ չկան",
++  "trash.restore": "Վերականգնել",
++  "trash.restore.success": "Սեսիան վերականգնվել է",
++  "trash.delete.success": "Սեսիան ջնջվել է",
++"session.delete.button": "Ջնջել նիստը",
+   "workspace.new": "Նոր աշխատանքային տարածք",
+   "workspace.type.local": "տեղական",
+   "workspace.type.sandbox": "Sandbox",
+diff --git a/packages/app/src/i18n/id.ts b/packages/app/src/i18n/id.ts
+index 5975444..5eff812 100644
+--- a/packages/app/src/i18n/id.ts
++++ b/packages/app/src/i18n/id.ts
+@@ -1220,7 +1220,14 @@ export const dict = {
+   "session.delete.failed.title": "Gagal menghapus sesi",
+   "session.delete.title": "Hapus sesi",
+   "session.delete.confirm": 'Hapus sesi "{{name}}"?',
+-  "session.delete.button": "Hapus sesi",
++  "trash.title": "Tempat Sampah",
++  "trash.button": "Tempat Sampah",
++  "trash.close": "Tutup tempat sampah",
++  "trash.empty": "Tidak ada sesi yang diarsipkan",
++  "trash.restore": "Pulihkan",
++  "trash.restore.success": "Sesi dipulihkan",
++  "trash.delete.success": "Sesi dihapus",
++"session.delete.button": "Hapus sesi",
+ 
+   "workspace.new": "Ruang kerja baru",
+   "workspace.type.local": "lokal",
+diff --git a/packages/app/src/i18n/is.ts b/packages/app/src/i18n/is.ts
+index af904ab..b8c6d8c 100644
+--- a/packages/app/src/i18n/is.ts
++++ b/packages/app/src/i18n/is.ts
+@@ -1127,7 +1127,14 @@ export const dict = {
+   "session.delete.failed.title": "Ekki tókst að eyða lotu",
+   "session.delete.title": "Eyða setu",
+   "session.delete.confirm": 'Eyða setunni "{{name}}"?',
+-  "session.delete.button": "Eyða setu",
++  "trash.title": "Ruslárki",
++  "trash.button": "Ruslárki",
++  "trash.close": "Loka ruslárkinu",
++  "trash.empty": "Engar geymdar lotur",
++  "trash.restore": "Endurheimta",
++  "trash.restore.success": "Lota endurheimt",
++  "trash.delete.success": "Lotu eytt",
++"session.delete.button": "Eyða setu",
+   "workspace.new": "Nýtt vinnurými",
+   "workspace.type.local": "staðbundið",
+   "workspace.type.sandbox": "sandkassi",
+diff --git a/packages/app/src/i18n/it.ts b/packages/app/src/i18n/it.ts
+index 5a53a4e..f8157e2 100644
+--- a/packages/app/src/i18n/it.ts
++++ b/packages/app/src/i18n/it.ts
+@@ -1054,7 +1054,14 @@ export const dict = {
+   "session.delete.failed.title": "Impossibile eliminare la sessione",
+   "session.delete.title": "Elimina sessione",
+   "session.delete.confirm": 'Eliminare la sessione "{{name}}"?',
+-  "session.delete.button": "Elimina sessione",
++  "trash.title": "Cestino",
++  "trash.button": "Cestino",
++  "trash.close": "Chiudi il cestino",
++  "trash.empty": "Nessuna sessione archiviata",
++  "trash.restore": "Ripristina",
++  "trash.restore.success": "Sessione ripristinata",
++  "trash.delete.success": "Sessione eliminata",
++"session.delete.button": "Elimina sessione",
+   "workspace.new": "Nuova area di lavoro",
+   "workspace.type.local": "locale",
+   "workspace.type.sandbox": "sandbox",
+diff --git a/packages/app/src/i18n/ja.ts b/packages/app/src/i18n/ja.ts
+index 41322a8..5fd81ea 100644
+--- a/packages/app/src/i18n/ja.ts
++++ b/packages/app/src/i18n/ja.ts
+@@ -1041,7 +1041,16 @@ export const dict = {
+   "session.delete.failed.title": "セッションの削除に失敗しました",
+   "session.delete.title": "セッションの削除",
+   "session.delete.confirm": 'セッション "{{name}}" を削除しますか？',
+-  "session.delete.button": "セッションを削除",
++  "trash.title": "ゴミ箱",
++  "trash.button": "ゴミ箱",
++  "trash.close": "ゴミ箱を閉じる",
++  "trash.empty": "アーカイブされたセッションはありません",
++  "trash.restore": "復元",
++  "trash.delete": "完全消去",
++  "trash.restore.success": "セッションを復元しました",
++  "trash.delete.success": "セッションを削除しました",
++  "session.delete.permanent": "完全消去",
++"session.delete.button": "セッションを削除",
+   "workspace.new": "新しいワークスペース",
+   "workspace.type.local": "ローカル",
+   "workspace.type.sandbox": "サンドボックス",
+diff --git a/packages/app/src/i18n/ka.ts b/packages/app/src/i18n/ka.ts
+index e928717..d35cf0d 100644
+--- a/packages/app/src/i18n/ka.ts
++++ b/packages/app/src/i18n/ka.ts
+@@ -1126,7 +1126,14 @@ export const dict = {
+   "session.delete.failed.title": "სესიის წაშლა ვერ მოხერხდა",
+   "session.delete.title": "სესიის წაშლა",
+   "session.delete.confirm": "წაშალე სესია „{{name}}“?",
+-  "session.delete.button": "სესიის წაშლა",
++  "trash.title": "ურნა",
++  "trash.button": "ურნა",
++  "trash.close": "ურნის დახურვა",
++  "trash.empty": "არქივირებული სესიები არ არის",
++  "trash.restore": "აღდგენა",
++  "trash.restore.success": "სესია აღდგენილია",
++  "trash.delete.success": "სესია წაშლილია",
++"session.delete.button": "სესიის წაშლა",
+   "workspace.new": "ახალი სამუშაო სივრცე",
+   "workspace.type.local": "ადგილობრივი",
+   "workspace.type.sandbox": "Sandbox",
+diff --git a/packages/app/src/i18n/km.ts b/packages/app/src/i18n/km.ts
+index 378933c..c6b8761 100644
+--- a/packages/app/src/i18n/km.ts
++++ b/packages/app/src/i18n/km.ts
+@@ -1121,7 +1121,14 @@ export const dict = {
+   "session.delete.failed.title": "បរាជ័យក្នុងការលុបសម័យ",
+   "session.delete.title": "លុបសម័យ",
+   "session.delete.confirm": 'លុបសម័យ "{{name}}"?',
+-  "session.delete.button": "លុបសម័យ",
++  "trash.title": "ធុងសំរាម",
++  "trash.button": "ធុងសំរាម",
++  "trash.close": "បិទធុងសំរាម",
++  "trash.empty": "គ្មានវគ្គបានរក្សាទុក",
++  "trash.restore": "ស្ដារឡើងវិញ",
++  "trash.restore.success": "វគ្គត្រូវបានស្ដារឡើងវិញ",
++  "trash.delete.success": "វគ្គត្រូវបានលុប",
++"session.delete.button": "លុបសម័យ",
+   "workspace.new": "កន្លែងធ្វើការថ្មី។",
+   "workspace.type.local": "ក្នុងស្រុក",
+   "workspace.type.sandbox": "ប្រអប់ខ្សាច់",
+diff --git a/packages/app/src/i18n/ko.ts b/packages/app/src/i18n/ko.ts
+index a260230..a2ed48a 100644
+--- a/packages/app/src/i18n/ko.ts
++++ b/packages/app/src/i18n/ko.ts
+@@ -766,7 +766,14 @@ export const dict = {
+   "session.delete.failed.title": "세션 삭제 실패",
+   "session.delete.title": "세션 삭제",
+   "session.delete.confirm": '"{{name}}" 세션을 삭제하시겠습니까?',
+-  "session.delete.button": "세션 삭제",
++  "trash.title": "휴지통",
++  "trash.button": "휴지통",
++  "trash.close": "휴지통 닫기",
++  "trash.empty": "보관된 세션이 없습니다",
++  "trash.restore": "복원",
++  "trash.restore.success": "세션이 복원되었습니다",
++  "trash.delete.success": "세션이 삭제되었습니다",
++"session.delete.button": "세션 삭제",
+   "workspace.new": "새 작업 공간",
+   "workspace.type.local": "로컬",
+   "workspace.type.sandbox": "샌드박스",
+diff --git a/packages/app/src/i18n/lo.ts b/packages/app/src/i18n/lo.ts
+index 8bb290f..4a76d36 100644
+--- a/packages/app/src/i18n/lo.ts
++++ b/packages/app/src/i18n/lo.ts
+@@ -1118,7 +1118,14 @@ export const dict = {
+   "session.delete.failed.title": "ລົ້ມເຫລວໃນການລຶບເຊດຊັນ",
+   "session.delete.title": "ລຶບເຊດຊັນ",
+   "session.delete.confirm": 'ລຶບເຊດຊັນ "{{name}}" ບໍ?',
+-  "session.delete.button": "ລຶບເຊດຊັນ",
++  "trash.title": "Trash",
++  "trash.button": "Trash",
++  "trash.close": "Close trash",
++  "trash.empty": "No archived sessions",
++  "trash.restore": "Restore",
++  "trash.restore.success": "Session restored",
++  "trash.delete.success": "Session deleted",
++"session.delete.button": "ລຶບເຊດຊັນ",
+   "workspace.new": "ພື້ນທີ່ເຮັດວຽກໃໝ່",
+   "workspace.type.local": "ທ້ອງຖິ່ນ",
+   "workspace.type.sandbox": "ກ່ອງຊາຍ",
+diff --git a/packages/app/src/i18n/lt.ts b/packages/app/src/i18n/lt.ts
+index c5aaf20..2ecae83 100644
+--- a/packages/app/src/i18n/lt.ts
++++ b/packages/app/src/i18n/lt.ts
+@@ -1143,7 +1143,14 @@ export const dict = {
+   "session.delete.failed.title": "Nepavyko ištrinti sesijos",
+   "session.delete.title": "Ištrinti seansą",
+   "session.delete.confirm": 'Ištrinti seansą "{{name}}"?',
+-  "session.delete.button": "Ištrinti seansą",
++  "trash.title": "Šiukšlinė",
++  "trash.button": "Šiukšlinė",
++  "trash.close": "Uždaryti šiukšlinę",
++  "trash.empty": "Nėra archyvuotų seansų",
++  "trash.restore": "Atkurti",
++  "trash.restore.success": "Seansas atkurtas",
++  "trash.delete.success": "Seansas ištrintas",
++"session.delete.button": "Ištrinti seansą",
+   "workspace.new": "Nauja darbo vieta",
+   "workspace.type.local": "vietinis",
+   "workspace.type.sandbox": "smėlio dėžė",
+diff --git a/packages/app/src/i18n/lv.ts b/packages/app/src/i18n/lv.ts
+index 8db9eb3..59aaae1 100644
+--- a/packages/app/src/i18n/lv.ts
++++ b/packages/app/src/i18n/lv.ts
+@@ -1132,7 +1132,14 @@ export const dict = {
+   "session.delete.failed.title": "Neizdevās dzēst sesiju",
+   "session.delete.title": "Dzēst sesiju",
+   "session.delete.confirm": 'Dzēst sesiju "{{name}}"?',
+-  "session.delete.button": "Dzēst sesiju",
++  "trash.title": "Atkritumu grozs",
++  "trash.button": "Atkritumu grozs",
++  "trash.close": "Aizvērt atkritumu grozu",
++  "trash.empty": "Nav arhivētu sesiju",
++  "trash.restore": "Atjaunot",
++  "trash.restore.success": "Sesija atjaunota",
++  "trash.delete.success": "Sesija dzēsta",
++"session.delete.button": "Dzēst sesiju",
+   "workspace.new": "Jauna darba vide",
+   "workspace.type.local": "lokāla",
+   "workspace.type.sandbox": "smilškaste",
+diff --git a/packages/app/src/i18n/mk.ts b/packages/app/src/i18n/mk.ts
+index 90de24e..06a47a6 100644
+--- a/packages/app/src/i18n/mk.ts
++++ b/packages/app/src/i18n/mk.ts
+@@ -1136,7 +1136,14 @@ export const dict = {
+   "session.delete.failed.title": "Не успеа да се избрише сесијата",
+   "session.delete.title": "Избришете ја сесијата",
+   "session.delete.confirm": "Да се ​​избрише сесијата „{{name}}“?",
+-  "session.delete.button": "Избришете ја сесијата",
++  "trash.title": "Ѓубре",
++  "trash.button": "Ѓубре",
++  "trash.close": "Затвори ѓубре",
++  "trash.empty": "Нема архивирани сесии",
++  "trash.restore": "Врати",
++  "trash.restore.success": "Сесијата е вратена",
++  "trash.delete.success": "Сесијата е избришана",
++"session.delete.button": "Избришете ја сесијата",
+   "workspace.new": "Нов работен простор",
+   "workspace.type.local": "локални",
+   "workspace.type.sandbox": "песок",
+diff --git a/packages/app/src/i18n/mn.ts b/packages/app/src/i18n/mn.ts
+index 57faaf8..259f305 100644
+--- a/packages/app/src/i18n/mn.ts
++++ b/packages/app/src/i18n/mn.ts
+@@ -1138,7 +1138,14 @@ export const dict = {
+   "session.delete.failed.title": "Сешн устгаж чадсангүй",
+   "session.delete.title": "Сеанс устгах",
+   "session.delete.confirm": '"{{name}}" сессийг устгах уу?',
+-  "session.delete.button": "Сеанс устгах",
++  "trash.title": "Хогийн сав",
++  "trash.button": "Хогийн сав",
++  "trash.close": "Хогийн савыг хаах",
++  "trash.empty": "Архивласан сесс алга",
++  "trash.restore": "Сэргээх",
++  "trash.restore.success": "Сесс сэргээгдсэн",
++  "trash.delete.success": "Сесс устгагдсан",
++"session.delete.button": "Сеанс устгах",
+   "workspace.new": "Шинэ ажлын талбар",
+   "workspace.type.local": "орон нутгийн",
+   "workspace.type.sandbox": "хамгаалагдсан хязгаарлагдмал орчин",
+diff --git a/packages/app/src/i18n/ms.ts b/packages/app/src/i18n/ms.ts
+index a46d6b6..e3592ec 100644
+--- a/packages/app/src/i18n/ms.ts
++++ b/packages/app/src/i18n/ms.ts
+@@ -1127,7 +1127,14 @@ export const dict = {
+   "session.delete.failed.title": "Gagal memadam sesi",
+   "session.delete.title": "Padam sesi",
+   "session.delete.confirm": 'Padam sesi "{{name}}"?',
+-  "session.delete.button": "Padam sesi",
++  "trash.title": "Tong Sampah",
++  "trash.button": "Tong Sampah",
++  "trash.close": "Tutup tong sampah",
++  "trash.empty": "Tiada sesi yang diarkibkan",
++  "trash.restore": "Pulihkan",
++  "trash.restore.success": "Sesi dipulihkan",
++  "trash.delete.success": "Sesi dipadam",
++"session.delete.button": "Padam sesi",
+   "workspace.new": "Ruang kerja baharu",
+   "workspace.type.local": "setempat",
+   "workspace.type.sandbox": "kotak pasir",
+diff --git a/packages/app/src/i18n/my.ts b/packages/app/src/i18n/my.ts
+index 65ff1c9..dcbe7ba 100644
+--- a/packages/app/src/i18n/my.ts
++++ b/packages/app/src/i18n/my.ts
+@@ -1146,7 +1146,14 @@ export const dict = {
+   "session.delete.failed.title": "စက်ရှင်ကို ဖျက်၍မရပါ။",
+   "session.delete.title": "စက်ရှင်ကို ဖျက်ပါ။",
+   "session.delete.confirm": 'စက်ရှင် "{{name}}" ကို ဖျက်မလား။',
+-  "session.delete.button": "စက်ရှင်ကို ဖျက်ပါ။",
++  "trash.title": "အမှိုက်ပုံး",
++  "trash.button": "အမှိုက်ပုံး",
++  "trash.close": "အမှိုက်ပုံး ပိတ်မည်",
++  "trash.empty": "သိမ်းထားသော ဆက်ရှင်များ မရှိပါ",
++  "trash.restore": "ပြန်လည်ထားရှိမည်",
++  "trash.restore.success": "ဆက်ရှင် ပြန်လည်ထားရှိပြီး",
++  "trash.delete.success": "ဆက်ရှင် ဖျက်ပြီးပါပြီ",
++"session.delete.button": "စက်ရှင်ကို ဖျက်ပါ။",
+   "workspace.new": "အလုပ်နေရာအသစ်",
+   "workspace.type.local": "ပြည်တွင်း",
+   "workspace.type.sandbox": "သဲပုံး",
+diff --git a/packages/app/src/i18n/ne.ts b/packages/app/src/i18n/ne.ts
+index 53d6fd7..16c67ed 100644
+--- a/packages/app/src/i18n/ne.ts
++++ b/packages/app/src/i18n/ne.ts
+@@ -1127,7 +1127,14 @@ export const dict: Record<string, string> = {
+   "session.delete.failed.title": "सत्र मेटाउन असफल भयो",
+   "session.delete.title": "सत्र मेटाउनुहोस्",
+   "session.delete.confirm": 'सत्र "{{name}}" मेटाउने हो?',
+-  "session.delete.button": "सत्र मेटाउनुहोस्",
++  "trash.title": "रद्दी",
++  "trash.button": "रद्दी",
++  "trash.close": "रद्दी बन्द गर्नुहोस्",
++  "trash.empty": "कुनै अभिलेखित सत्र छैन",
++  "trash.restore": "पुनर्स्थापना गर्नुहोस्",
++  "trash.restore.success": "सत्र पुनर्स्थापित भयो",
++  "trash.delete.success": "सत्र मेटियो",
++"session.delete.button": "सत्र मेटाउनुहोस्",
+   "workspace.new": "नयाँ कार्यस्थान",
+   "workspace.type.local": "स्थानीय",
+   "workspace.type.sandbox": "स्यान्डबक्स",
+diff --git a/packages/app/src/i18n/nl.ts b/packages/app/src/i18n/nl.ts
+index de3a07b..6d976e8 100644
+--- a/packages/app/src/i18n/nl.ts
++++ b/packages/app/src/i18n/nl.ts
+@@ -1141,7 +1141,14 @@ export const dict = {
+   "session.delete.failed.title": "Kan sessie niet verwijderen",
+   "session.delete.title": "Sessie verwijderen",
+   "session.delete.confirm": 'Sessie "{{name}}" verwijderen?',
+-  "session.delete.button": "Sessie verwijderen",
++  "trash.title": "Prullenbak",
++  "trash.button": "Prullenbak",
++  "trash.close": "Prullenbak sluiten",
++  "trash.empty": "Geen gearchiveerde sessies",
++  "trash.restore": "Herstellen",
++  "trash.restore.success": "Sessie hersteld",
++  "trash.delete.success": "Sessie verwijderd",
++"session.delete.button": "Sessie verwijderen",
+   "workspace.new": "Nieuwe werkruimte",
+   "workspace.type.local": "lokaal",
+   "workspace.type.sandbox": "sandbox",
+diff --git a/packages/app/src/i18n/no.ts b/packages/app/src/i18n/no.ts
+index 7632e57..91c0dcd 100644
+--- a/packages/app/src/i18n/no.ts
++++ b/packages/app/src/i18n/no.ts
+@@ -961,7 +961,14 @@ export const dict = {
+   "session.delete.failed.title": "Kunne ikke slette sesjon",
+   "session.delete.title": "Slett sesjon",
+   "session.delete.confirm": 'Slette sesjonen "{{name}}"?',
+-  "session.delete.button": "Slett sesjon",
++  "trash.title": "Papirkurv",
++  "trash.button": "Papirkurv",
++  "trash.close": "Lukk papirkurven",
++  "trash.empty": "Ingen arkiverte økter",
++  "trash.restore": "Gjenopprett",
++  "trash.restore.success": "Økt gjenopprettet",
++  "trash.delete.success": "Økt slettet",
++"session.delete.button": "Slett sesjon",
+ 
+   "workspace.new": "Nytt arbeidsområde",
+   "workspace.type.local": "lokal",
+diff --git a/packages/app/src/i18n/pa.ts b/packages/app/src/i18n/pa.ts
+index 1823bd1..87068f9 100644
+--- a/packages/app/src/i18n/pa.ts
++++ b/packages/app/src/i18n/pa.ts
+@@ -1132,7 +1132,14 @@ export const dict = {
+   "session.delete.failed.title": "سیشن نو مٹان اچ ناکام رہیا",
+   "session.delete.title": "سیشن مٹاؤ",
+   "session.delete.confirm": 'سیشن "{{name}}" نوں مٹا دیو؟',
+-  "session.delete.button": "سیشن مٹاؤ",
++  "trash.title": "ਰੱਦੀ",
++  "trash.button": "ਰੱਦੀ",
++  "trash.close": "ਰੱਦੀ ਬੰਦ ਕਰੋ",
++  "trash.empty": "ਕੋਈ ਆਰਕਾਈਵ ਸੈਸ਼ਨ ਨਹੀਂ",
++  "trash.restore": "ਬਹਾਲ ਕਰੋ",
++  "trash.restore.success": "ਸੈਸ਼ਨ ਬਹਾਲ ਕੀਤਾ ਗਿਆ",
++  "trash.delete.success": "ਸੈਸ਼ਨ ਮਿਟਾ ਦਿੱਤਾ ਗਿਆ",
++"session.delete.button": "سیشن مٹاؤ",
+   "workspace.new": "نویں ورک سپیس",
+   "workspace.type.local": "مقامی",
+   "workspace.type.sandbox": "سینڈ باکس",
+diff --git a/packages/app/src/i18n/pl.ts b/packages/app/src/i18n/pl.ts
+index 3b1b908..a6bbea4 100644
+--- a/packages/app/src/i18n/pl.ts
++++ b/packages/app/src/i18n/pl.ts
+@@ -1061,7 +1061,14 @@ export const dict = {
+   "session.delete.failed.title": "Nie udało się usunąć sesji",
+   "session.delete.title": "Usuń sesję",
+   "session.delete.confirm": 'Usunąć sesję "{{name}}"?',
+-  "session.delete.button": "Usuń sesję",
++  "trash.title": "Kosz",
++  "trash.button": "Kosz",
++  "trash.close": "Zamknij kosz",
++  "trash.empty": "Brak zarchiwizowanych sesji",
++  "trash.restore": "Przywróć",
++  "trash.restore.success": "Sesja przywrócona",
++  "trash.delete.success": "Sesja usunięta",
++"session.delete.button": "Usuń sesję",
+   "workspace.new": "Nowa przestrzeń robocza",
+   "workspace.type.local": "lokalna",
+   "workspace.type.sandbox": "piaskownica",
+diff --git a/packages/app/src/i18n/ro.ts b/packages/app/src/i18n/ro.ts
+index 74a7c45..9b07fd7 100644
+--- a/packages/app/src/i18n/ro.ts
++++ b/packages/app/src/i18n/ro.ts
+@@ -1132,7 +1132,14 @@ export const dict = {
+   "session.delete.failed.title": "Ștergerea sesiunii a eșuat",
+   "session.delete.title": "Șterge sesiunea",
+   "session.delete.confirm": "Ștergi sesiunea „{{name}}”?",
+-  "session.delete.button": "Șterge sesiunea",
++  "trash.title": "Coș de gunoi",
++  "trash.button": "Coș de gunoi",
++  "trash.close": "Închide coșul de gunoi",
++  "trash.empty": "Nicio sesiune arhivată",
++  "trash.restore": "Restaurează",
++  "trash.restore.success": "Sesiune restaurată",
++  "trash.delete.success": "Sesiune ștearsă",
++"session.delete.button": "Șterge sesiunea",
+   "workspace.new": "Spațiu de lucru nou",
+   "workspace.type.local": "local",
+   "workspace.type.sandbox": "sandbox",
+diff --git a/packages/app/src/i18n/ru.ts b/packages/app/src/i18n/ru.ts
+index e62d0f8..90c863c 100644
+--- a/packages/app/src/i18n/ru.ts
++++ b/packages/app/src/i18n/ru.ts
+@@ -1139,7 +1139,14 @@ export const dict = {
+   "session.delete.failed.title": "Не удалось удалить сессию",
+   "session.delete.title": "Удалить сессию",
+   "session.delete.confirm": 'Удалить сессию "{{name}}"?',
+-  "session.delete.button": "Удалить сессию",
++  "trash.title": "Корзина",
++  "trash.button": "Корзина",
++  "trash.close": "Закрыть корзину",
++  "trash.empty": "Нет архивированных сессий",
++  "trash.restore": "Восстановить",
++  "trash.restore.success": "Сессия восстановлена",
++  "trash.delete.success": "Сессия удалена",
++"session.delete.button": "Удалить сессию",
+ 
+   "workspace.new": "Новое рабочее пространство",
+   "workspace.type.local": "локальное",
+diff --git a/packages/app/src/i18n/si.ts b/packages/app/src/i18n/si.ts
+index bc25623..c802ce6 100644
+--- a/packages/app/src/i18n/si.ts
++++ b/packages/app/src/i18n/si.ts
+@@ -1123,7 +1123,14 @@ export const dict: Record<string, string> = {
+   "session.delete.failed.title": "සැසිය මැකීමට අසමත් විය",
+   "session.delete.title": "සැසිය මකන්න",
+   "session.delete.confirm": '"{{name}}" සැසිය මකන්නද?',
+-  "session.delete.button": "සැසිය මකන්න",
++  "trash.title": "කසළ බඳුන",
++  "trash.button": "කසළ බඳුන",
++  "trash.close": "කසළ බඳුන වසන්න",
++  "trash.empty": "සංරක්ෂිත සැසි නොමැත",
++  "trash.restore": "ප්‍රතිස්ථාපනය",
++  "trash.restore.success": "සැසිය ප්‍රතිස්ථාපනය විය",
++  "trash.delete.success": "සැසිය මකා දමන ලදී",
++"session.delete.button": "සැසිය මකන්න",
+   "workspace.new": "නව වැඩබිම",
+   "workspace.type.local": "දේශීය",
+   "workspace.type.sandbox": "වැලිපිල්ල",
+diff --git a/packages/app/src/i18n/sk.ts b/packages/app/src/i18n/sk.ts
+index 13cd97f..9423896 100644
+--- a/packages/app/src/i18n/sk.ts
++++ b/packages/app/src/i18n/sk.ts
+@@ -1129,7 +1129,14 @@ export const dict = {
+   "session.delete.failed.title": "Nepodarilo sa odstrániť reláciu",
+   "session.delete.title": "Odstrániť reláciu",
+   "session.delete.confirm": "Odstrániť reláciu „{{name}}“?",
+-  "session.delete.button": "Odstrániť reláciu",
++  "trash.title": "Kôš",
++  "trash.button": "Kôš",
++  "trash.close": "Zavrieť kôš",
++  "trash.empty": "Žiadne archivované relácie",
++  "trash.restore": "Obnoviť",
++  "trash.restore.success": "Relácia obnovená",
++  "trash.delete.success": "Relácia odstránená",
++"session.delete.button": "Odstrániť reláciu",
+   "workspace.new": "Nový pracovný priestor",
+   "workspace.type.local": "lokálny",
+   "workspace.type.sandbox": "sandbox",
+diff --git a/packages/app/src/i18n/sl.ts b/packages/app/src/i18n/sl.ts
+index 2335145..d8c7df1 100644
+--- a/packages/app/src/i18n/sl.ts
++++ b/packages/app/src/i18n/sl.ts
+@@ -1133,7 +1133,14 @@ export const dict = {
+   "session.delete.failed.title": "Brisanje seje ni uspelo",
+   "session.delete.title": "Izbriši sejo",
+   "session.delete.confirm": 'Izbrišem sejo "{{name}}"?',
+-  "session.delete.button": "Izbriši sejo",
++  "trash.title": "Smetnjak",
++  "trash.button": "Smetnjak",
++  "trash.close": "Zapri smetnjak",
++  "trash.empty": "Ni arhiviranih sej",
++  "trash.restore": "Obnovi",
++  "trash.restore.success": "Seja obnovljena",
++  "trash.delete.success": "Seja izbrisana",
++"session.delete.button": "Izbriši sejo",
+   "workspace.new": "Nov delovni prostor",
+   "workspace.type.local": "lokalni",
+   "workspace.type.sandbox": "peskovnik",
+diff --git a/packages/app/src/i18n/sq.ts b/packages/app/src/i18n/sq.ts
+index a975596..474567e 100644
+--- a/packages/app/src/i18n/sq.ts
++++ b/packages/app/src/i18n/sq.ts
+@@ -1133,7 +1133,14 @@ export const dict = {
+   "session.delete.failed.title": "Fshirja e sesionit dështoi",
+   "session.delete.title": "Fshi sesionin",
+   "session.delete.confirm": 'Të fshihet sesioni "{{name}}"?',
+-  "session.delete.button": "Fshi sesionin",
++  "trash.title": "Koshi i plehrave",
++  "trash.button": "Koshi i plehrave",
++  "trash.close": "Mbyll koshin e plehrave",
++  "trash.empty": "Nuk ka seanca të arkivuara",
++  "trash.restore": "Rivendos",
++  "trash.restore.success": "Seanca u rivendos",
++  "trash.delete.success": "Seanca u fshi",
++"session.delete.button": "Fshi sesionin",
+   "workspace.new": "Hapësirë e re pune",
+   "workspace.type.local": "lokale",
+   "workspace.type.sandbox": "mjedis i izoluar",
+diff --git a/packages/app/src/i18n/sr.ts b/packages/app/src/i18n/sr.ts
+index 8ce11c2..e242871 100644
+--- a/packages/app/src/i18n/sr.ts
++++ b/packages/app/src/i18n/sr.ts
+@@ -1131,7 +1131,14 @@ export const dict = {
+   "session.delete.failed.title": "Брисање сесије није успело",
+   "session.delete.title": "Избриши сесију",
+   "session.delete.confirm": "Избрисати сесију „{{name}}“?",
+-  "session.delete.button": "Избриши сесију",
++  "trash.title": "Корпа за отпатке",
++  "trash.button": "Корпа за отпатке",
++  "trash.close": "Затвори корпу за отпатке",
++  "trash.empty": "Нема архивираних сесија",
++  "trash.restore": "Врати",
++  "trash.restore.success": "Сесија је враћена",
++  "trash.delete.success": "Сесија је обрисана",
++"session.delete.button": "Избриши сесију",
+   "workspace.new": "Нови радни простор",
+   "workspace.type.local": "локални",
+   "workspace.type.sandbox": "сандбок",
+diff --git a/packages/app/src/i18n/sv.ts b/packages/app/src/i18n/sv.ts
+index b67fd1c..6a9af91 100644
+--- a/packages/app/src/i18n/sv.ts
++++ b/packages/app/src/i18n/sv.ts
+@@ -1131,7 +1131,14 @@ export const dict = {
+   "session.delete.failed.title": "Det gick inte att ta bort sessionen",
+   "session.delete.title": "Ta bort session",
+   "session.delete.confirm": 'Ta bort session "{{name}}"?',
+-  "session.delete.button": "Ta bort session",
++  "trash.title": "Papperskorg",
++  "trash.button": "Papperskorg",
++  "trash.close": "Stäng papperskorgen",
++  "trash.empty": "Inga arkiverade sessioner",
++  "trash.restore": "Återställ",
++  "trash.restore.success": "Session återställd",
++  "trash.delete.success": "Session borttagen",
++"session.delete.button": "Ta bort session",
+   "workspace.new": "Ny arbetsyta",
+   "workspace.type.local": "lokal",
+   "workspace.type.sandbox": "sandlåda",
+diff --git a/packages/app/src/i18n/tg.ts b/packages/app/src/i18n/tg.ts
+index 67ed593..386beba 100644
+--- a/packages/app/src/i18n/tg.ts
++++ b/packages/app/src/i18n/tg.ts
+@@ -1134,7 +1134,14 @@ export const dict = {
+   "session.delete.failed.title": "Сеансро нест карда натавонист",
+   "session.delete.title": "Сеансро нест кунед",
+   "session.delete.confirm": 'Сеанси "{{name}}" нест карда шавад?',
+-  "session.delete.button": "Сеансро нест кунед",
++  "trash.title": "Партовдон",
++  "trash.button": "Партовдон",
++  "trash.close": "Пӯшидани партовдон",
++  "trash.empty": "Сессияҳои бойгоншуда вуҷуд надоранд",
++  "trash.restore": "Барқарор кардан",
++  "trash.restore.success": "Сессия барқарор шуд",
++  "trash.delete.success": "Сессия нест карда шуд",
++"session.delete.button": "Сеансро нест кунед",
+   "workspace.new": "Майдони нави корӣ",
+   "workspace.type.local": "маҳаллӣ",
+   "workspace.type.sandbox": "қуттии қум",
+diff --git a/packages/app/src/i18n/th.ts b/packages/app/src/i18n/th.ts
+index 995f8fe..db36975 100644
+--- a/packages/app/src/i18n/th.ts
++++ b/packages/app/src/i18n/th.ts
+@@ -1115,7 +1115,14 @@ export const dict = {
+   "session.delete.failed.title": "ไม่สามารถลบเซสชัน",
+   "session.delete.title": "ลบเซสชัน",
+   "session.delete.confirm": 'ลบเซสชัน "{{name}}" หรือไม่?',
+-  "session.delete.button": "ลบเซสชัน",
++  "trash.title": "ถังขยะ",
++  "trash.button": "ถังขยะ",
++  "trash.close": "ปิดถังขยะ",
++  "trash.empty": "ไม่มีเซสชันที่เก็บถาวร",
++  "trash.restore": "กู้คืน",
++  "trash.restore.success": "คืนค่าเซสชันแล้ว",
++  "trash.delete.success": "ลบเซสชันแล้ว",
++"session.delete.button": "ลบเซสชัน",
+ 
+   "workspace.new": "พื้นที่ทำงานใหม่",
+   "workspace.type.local": "ในเครื่อง",
+diff --git a/packages/app/src/i18n/tk.ts b/packages/app/src/i18n/tk.ts
+index 40fddbe..c1a6b80 100644
+--- a/packages/app/src/i18n/tk.ts
++++ b/packages/app/src/i18n/tk.ts
+@@ -1129,7 +1129,14 @@ export const dict = {
+   "session.delete.failed.title": "Sessiýany pozup bilmedi",
+   "session.delete.title": "Sessiýany poz",
+   "session.delete.confirm": '"{{name}}" sessiýasyny pozmalymy?',
+-  "session.delete.button": "Sessiýany poz",
++  "trash.title": "Zibil",
++  "trash.button": "Zibil",
++  "trash.close": "Zibilni ýap",
++  "trash.empty": "Arhiwlendirilen sessilar ýok",
++  "trash.restore": "Dikelt",
++  "trash.restore.success": "Sessiýa dikeldildi",
++  "trash.delete.success": "Sessiýa öçürildi",
++"session.delete.button": "Sessiýany poz",
+   "workspace.new": "Täze workspace",
+   "workspace.type.local": "ýerli",
+   "workspace.type.sandbox": "sandyk",
+diff --git a/packages/app/src/i18n/tr.ts b/packages/app/src/i18n/tr.ts
+index b0a2d72..e6c4602 100644
+--- a/packages/app/src/i18n/tr.ts
++++ b/packages/app/src/i18n/tr.ts
+@@ -1141,7 +1141,14 @@ export const dict = {
+   "session.delete.failed.title": "Oturum silinemedi",
+   "session.delete.title": "Oturumu sil",
+   "session.delete.confirm": '"{{name}}" oturumu silinsin mi?',
+-  "session.delete.button": "Oturumu sil",
++  "trash.title": "Çöp Kutusu",
++  "trash.button": "Çöp Kutusu",
++  "trash.close": "Çöp kutusunu kapat",
++  "trash.empty": "Arşivlenmiş oturum yok",
++  "trash.restore": "Geri yükle",
++  "trash.restore.success": "Oturum geri yüklendi",
++  "trash.delete.success": "Oturum silindi",
++"session.delete.button": "Oturumu sil",
+ 
+   "workspace.new": "Yeni çalışma alanı",
+   "workspace.type.local": "yerel",
+diff --git a/packages/app/src/i18n/uk.ts b/packages/app/src/i18n/uk.ts
+index fcdec79..a7e816d 100644
+--- a/packages/app/src/i18n/uk.ts
++++ b/packages/app/src/i18n/uk.ts
+@@ -1244,7 +1244,14 @@ export const dict = {
+   "session.delete.failed.title": "Не вдалося видалити сесію",
+   "session.delete.title": "Видалити сесію",
+   "session.delete.confirm": 'Видалити сесію "{{name}}"?',
+-  "session.delete.button": "Видалити сесію",
++  "trash.title": "Кошик",
++  "trash.button": "Кошик",
++  "trash.close": "Закрити кошик",
++  "trash.empty": "Немає архівованих сесій",
++  "trash.restore": "Відновити",
++  "trash.restore.success": "Сесію відновлено",
++  "trash.delete.success": "Сесію видалено",
++"session.delete.button": "Видалити сесію",
+ 
+   "workspace.new": "Нова робоча область",
+   "workspace.type.local": "локальна",
+diff --git a/packages/app/src/i18n/ur.ts b/packages/app/src/i18n/ur.ts
+index e970883..c54c2f7 100644
+--- a/packages/app/src/i18n/ur.ts
++++ b/packages/app/src/i18n/ur.ts
+@@ -1135,7 +1135,14 @@ export const dict = {
+   "session.delete.failed.title": "سیشن کو حذف کرنے میں ناکام",
+   "session.delete.title": "سیشن کو حذف کریں۔",
+   "session.delete.confirm": 'سیشن "{{name}}" کو حذف کریں؟',
+-  "session.delete.button": "سیشن کو حذف کریں۔",
++  "trash.title": "ردی کی ٹوکری",
++  "trash.button": "ردی کی ٹوکری",
++  "trash.close": "ردی کی ٹوکری بند کریں",
++  "trash.empty": "کوئی محفوظ شدہ سیشن نہیں",
++  "trash.restore": "بحال کریں",
++  "trash.restore.success": "سیشن بحال ہو گیا",
++  "trash.delete.success": "سیشن حذف ہو گیا",
++"session.delete.button": "سیشن کو حذف کریں۔",
+   "workspace.new": "نئی ورک اسپیس",
+   "workspace.type.local": "مقامی",
+   "workspace.type.sandbox": "سینڈ باکس",
+diff --git a/packages/app/src/i18n/uz.ts b/packages/app/src/i18n/uz.ts
+index 15397fb..bafdaa0 100644
+--- a/packages/app/src/i18n/uz.ts
++++ b/packages/app/src/i18n/uz.ts
+@@ -1141,7 +1141,14 @@ export const dict = {
+   "session.delete.failed.title": "Seansni oʻchirib boʻlmadi",
+   "session.delete.title": "Seansni o'chirish",
+   "session.delete.confirm": '"{{name}}" seansi o‘chirilsinmi?',
+-  "session.delete.button": "Seansni o'chirish",
++  "trash.title": "Axlat qutisi",
++  "trash.button": "Axlat qutisi",
++  "trash.close": "Axlat qutisini yopish",
++  "trash.empty": "Arxivlangan sessiyalar yo'q",
++  "trash.restore": "Tiklash",
++  "trash.restore.success": "Sessiya tiklandi",
++  "trash.delete.success": "Sessiya o'chirildi",
++"session.delete.button": "Seansni o'chirish",
+   "workspace.new": "Yangi ish maydoni",
+   "workspace.type.local": "mahalliy",
+   "workspace.type.sandbox": "qum qutisi",
+diff --git a/packages/app/src/i18n/vi.ts b/packages/app/src/i18n/vi.ts
+index f92208d..c5d1b60 100644
+--- a/packages/app/src/i18n/vi.ts
++++ b/packages/app/src/i18n/vi.ts
+@@ -1140,7 +1140,14 @@ export const dict = {
+   "session.delete.failed.title": "Không thể xóa phiên",
+   "session.delete.title": "Xóa phiên",
+   "session.delete.confirm": 'Xóa phiên "{{name}}"?',
+-  "session.delete.button": "Xóa phiên",
++  "trash.title": "Thùng rác",
++  "trash.button": "Thùng rác",
++  "trash.close": "Đóng thùng rác",
++  "trash.empty": "Không có phiên đã lưu trữ",
++  "trash.restore": "Khôi phục",
++  "trash.restore.success": "Phiên đã được khôi phục",
++  "trash.delete.success": "Phiên đã bị xóa",
++"session.delete.button": "Xóa phiên",
+   "workspace.new": "Không gian làm việc mới",
+   "workspace.type.local": "cục bộ",
+   "workspace.type.sandbox": "sandbox",
+diff --git a/packages/app/src/i18n/zh.ts b/packages/app/src/i18n/zh.ts
+index c2504cd..5550930 100644
+--- a/packages/app/src/i18n/zh.ts
++++ b/packages/app/src/i18n/zh.ts
+@@ -1106,7 +1106,14 @@ export const dict = {
+   "session.delete.failed.title": "删除会话失败",
+   "session.delete.title": "删除会话",
+   "session.delete.confirm": '删除会话 "{{name}}"？',
+-  "session.delete.button": "删除会话",
++  "trash.title": "回收站",
++  "trash.button": "回收站",
++  "trash.close": "关闭回收站",
++  "trash.empty": "没有已归档的会话",
++  "trash.restore": "恢复",
++  "trash.restore.success": "会话已恢复",
++  "trash.delete.success": "会话已删除",
++"session.delete.button": "删除会话",
+ 
+   "workspace.new": "新建工作区",
+   "workspace.type.local": "本地",
+diff --git a/packages/app/src/i18n/zht.ts b/packages/app/src/i18n/zht.ts
+index 3b471f5..c1b1433 100644
+--- a/packages/app/src/i18n/zht.ts
++++ b/packages/app/src/i18n/zht.ts
+@@ -1102,7 +1102,14 @@ export const dict = {
+   "session.delete.failed.title": "刪除工作階段失敗",
+   "session.delete.title": "刪除工作階段",
+   "session.delete.confirm": "要刪除工作階段「{{name}}」嗎？",
+-  "session.delete.button": "刪除工作階段",
++  "trash.title": "資源回收桶",
++  "trash.button": "資源回收桶",
++  "trash.close": "關閉資源回收桶",
++  "trash.empty": "沒有已封存的交談",
++  "trash.restore": "還原",
++  "trash.restore.success": "交談已還原",
++  "trash.delete.success": "交談已刪除",
++"session.delete.button": "刪除工作階段",
+ 
+   "workspace.new": "新增工作區",
+   "workspace.type.local": "本機",
+diff --git a/packages/app/src/pages/home/home-sessions-controller.tsx b/packages/app/src/pages/home/home-sessions-controller.tsx
+index f306f20..693651a 100644
+--- a/packages/app/src/pages/home/home-sessions-controller.tsx
++++ b/packages/app/src/pages/home/home-sessions-controller.tsx
+@@ -1,9 +1,9 @@
+ import type { Session } from "@opencode-ai/sdk/v2/client"
+ import { preloadMarkdown } from "@opencode-ai/session-ui/markdown-cache"
+ import { useDialog } from "@opencode-ai/ui/context/dialog"
+-import { useQuery } from "@tanstack/solid-query"
++import { useQuery, useQueryClient } from "@tanstack/solid-query"
+ import { DateTime } from "luxon"
+-import { type Accessor, createEffect, createMemo, createRoot, type JSX, startTransition } from "solid-js"
++import { type Accessor, createEffect, createMemo, createRoot, createSignal, type JSX, startTransition } from "solid-js"
+ import { produce } from "solid-js/store"
+ import { useCommand } from "@/context/command"
+ import {
+@@ -18,8 +18,11 @@ import { sessionHasOpenTab, useTabs } from "@/context/tabs"
+ import { compareSessionTime, displayName, errorMessage, projectForSession } from "@/pages/layout/helpers"
+ import { useSessionTabAvatarState } from "@/pages/layout/project-avatar-state"
+ import { pathKey } from "@/utils/path-key"
++import { sessionTitle } from "@/utils/session-title"
+ import { showToast } from "@/utils/toast"
+ import { Binary } from "@opencode-ai/core/util/binary"
++import { Dialog } from "@opencode-ai/ui/dialog"
++import { ButtonV2 } from "@opencode-ai/ui/v2/button-v2"
+ import { archiveHomeSession } from "../home-session-archive"
+ import type { HomeController } from "./home-controller"
+ 
+@@ -43,6 +46,7 @@ export function createHomeSessionsController(home: HomeController) {
+   const command = useCommand()
+   const dialog = useDialog()
+   const language = useLanguage()
++  const queryClient = useQueryClient()
+   const projectDirectories = createMemo(() => {
+     const project = home.project.selected()
+     if (!project) return home.project.list().flatMap(directories)
+@@ -98,6 +102,101 @@ export function createHomeSessionsController(home: HomeController) {
+   const groups = createMemo(() => groupSessions(records(), language))
+   const prefetched = new Set<string>()
+ 
++  const focusedServerKey = createMemo(() => {
++    const conn = home.server.focused()
++    return conn ? ServerConnection.key(conn) : "disconnected"
++  })
++  const [trashOpen, setTrashOpen] = createSignal(false)
++  const [trashBusy, setTrashBusy] = createSignal(false)
++  const trashQuery = useQuery(() => ({
++    queryKey: ["home", "session-archived", focusedServerKey(), projectDirectories().slice().sort().join("\0")],
++    enabled: trashOpen() && !!home.server.focusedContext(),
++    staleTime: 30_000,
++    queryFn: async ({ signal }): Promise<HomeSessionRecord[]> => {
++      const ctx = home.server.focusedContext()
++      if (!ctx) return []
++      const projects = home.project.list()
++      const lists = await Promise.all(
++        [...new Set(projectDirectories())].map((directory) =>
++          ctx.sdk.client.session.list({ directory, roots: true, limit: 1000, archived: true }, { signal }),
++        ),
++      )
++      const seen = new Set<string>()
++      const output: HomeSessionRecord[] = []
++      for (const list of lists) {
++        for (const session of list.data ?? []) {
++          if (seen.has(session.id)) continue
++          seen.add(session.id)
++          const directory = pathKey(session.directory)
++          const project =
++            projects.find(
++              (item) =>
++                pathKey(item.worktree) === directory ||
++                item.sandboxes?.some((sandbox) => pathKey(sandbox) === directory),
++            ) ?? projectForSession(session, projects, projectByID())
++          if (!project) continue
++          output.push({ session, project, projectName: displayName(project) })
++        }
++      }
++      return output.sort((a, b) => (b.session.time.archived ?? 0) - (a.session.time.archived ?? 0))
++    },
++  }))
++  const trashRecords = () => trashQuery.data ?? []
++  const invalidateTrash = () => {
++    void queryClient.invalidateQueries({ queryKey: ["home", "session-archived"], type: "all" })
++  }
++  const toggleTrash = () => setTrashOpen(!trashOpen())
++
++  const restoreSession = async (session: Session) => {
++    const ctx = home.server.focusedContext()
++    if (!ctx) return
++    setTrashBusy(true)
++    try {
++      await ctx.sdk.client.session.update({
++        sessionID: session.id,
++        directory: session.directory,
++        time: { archived: null },
++      })
++      void trashQuery.refetch()
++      void sessionLoad.refetch()
++      showToast({ title: language.t("trash.restore.success") })
++    } catch (cause) {
++      showToast({
++        title: language.t("common.requestFailed"),
++        description: errorMessage(cause, language.t("common.requestFailed")),
++      })
++    } finally {
++      setTrashBusy(false)
++    }
++  }
++
++  const deleteSession = (session: Session) => {
++    const ctx = home.server.focusedContext()
++    if (!ctx) return
++    dialog.show(() => (
++      <HomeSessionDeleteConfirm
++        session={session}
++        language={language}
++        onDelete={async () => {
++          setTrashBusy(true)
++          try {
++            await ctx.sdk.api.session.remove({ sessionID: session.id, directory: session.directory })
++            void trashQuery.refetch()
++            void sessionLoad.refetch()
++            showToast({ title: language.t("trash.delete.success") })
++          } catch (cause) {
++            showToast({
++              title: language.t("common.requestFailed"),
++              description: errorMessage(cause, language.t("common.requestFailed")),
++            })
++          } finally {
++            setTrashBusy(false)
++          }
++        }}
++      />
++    ))
++  }
++
+   createEffect(() => {
+     const ctx = home.server.focusedContext()
+     const conn = home.server.focused()
+@@ -172,6 +271,13 @@ export function createHomeSessionsController(home: HomeController) {
+       groups,
+       loading: () => sessionLoad.isLoading,
+       searchRecords: allRecords,
++      trashOpen,
++      trashLoading: () => trashQuery.isLoading,
++      trashRecords,
++      trashBusy,
++      onToggleTrash: toggleTrash,
++      onRestoreSession: restoreSession,
++      onDeleteSession: deleteSession,
+     },
+     session: {
+       showProjectName: () => !home.project.selected(),
+@@ -226,7 +332,6 @@ export function createHomeSessionsController(home: HomeController) {
+                 if (match.found) draft.session.splice(match.index, 1)
+               }),
+             )
+-            homeSessions().remove(session.id)
+           },
+           onError: (cause) =>
+             showToast({
+@@ -234,6 +339,8 @@ export function createHomeSessionsController(home: HomeController) {
+               description: errorMessage(cause, language.t("common.requestFailed")),
+             }),
+         })
++        invalidateTrash()
++        void sessionLoad.refetch()
+       },
+     },
+     tab: {
+@@ -247,6 +354,52 @@ function directories(project: LocalProject) {
+   return [project.worktree, ...(project.sandboxes ?? [])]
+ }
+ 
++function HomeSessionDeleteConfirm(props: {
++  session: Session
++  language: ReturnType<typeof useLanguage>
++  onDelete: () => Promise<void>
++}) {
++  const dialog = useDialog()
++  return (
++    <Dialog
++      title={props.language.t("session.delete.title")}
++      action={
++        <ButtonV2
++          variant="ghost"
++          icon="close"
++          class="size-8"
++          aria-label={props.language.t("common.close")}
++          onClick={() => dialog.close()}
++        />
++      }
++    >
++      <div class="flex flex-col gap-6">
++        <p class="text-[13px] leading-5 text-v2-text-text-base">
++          {props.language.t("session.delete.confirm", {
++            name: sessionTitle(props.session.title) || props.session.id,
++          })}
++        </p>
++        <div class="flex items-center justify-end gap-2">
++          <ButtonV2 variant="neutral" onClick={() => dialog.close()}>
++            {props.language.t("common.cancel")}
++          </ButtonV2>
++          <ButtonV2
++            variant="danger"
++            icon="xmark-small"
++            data-action="home-session-delete-confirm"
++            onClick={() => {
++              void props.onDelete()
++              dialog.close()
++            }}
++          >
++            {props.language.t("session.delete.permanent")}
++          </ButtonV2>
++        </div>
++      </div>
++    </Dialog>
++  )
++}
++
+ function buildHomeSessionRecords(input: {
+   sessions: () => Session[]
+   projectDirectories: () => string[]
+diff --git a/packages/app/src/pages/home/home-sessions-view.tsx b/packages/app/src/pages/home/home-sessions-view.tsx
+index 72f2f37..91b666e 100644
+--- a/packages/app/src/pages/home/home-sessions-view.tsx
++++ b/packages/app/src/pages/home/home-sessions-view.tsx
+@@ -19,7 +19,7 @@ import {
+   type OpenSessionOptions,
+ } from "./home-sessions-controller"
+ 
+-const SHOW_HOME_SESSION_ARCHIVE = false
++const SHOW_HOME_SESSION_ARCHIVE = true
+ const HOME_SECTION_LABEL = "text-v2-text-text-muted [font-weight:440]"
+ const HOME_SESSION_SEARCH_RESULTS_ID = "home-session-search-results"
+ 
+@@ -54,6 +54,13 @@ export type HomeSessionsViewProps = {
+   onCreateSession: () => void
+   onOpenSession: (session: Session, options?: OpenSessionOptions) => void
+   onArchiveSession: (session: Session) => Promise<void>
++  trashOpen: Accessor<boolean>
++  trashLoading: Accessor<boolean>
++  trashRecords: Accessor<HomeSessionRecord[]>
++  trashBusy: Accessor<boolean>
++  onToggleTrash: () => void
++  onRestoreSession: (session: Session) => Promise<void>
++  onDeleteSession: (session: Session) => void
+   onSetHoverTarget: (element: HTMLElement) => void
+   onSetThumbTrack: (element: HTMLDivElement) => void
+   onSetContent: (element: HTMLDivElement) => void
+@@ -81,7 +88,7 @@ export function HomeSessionsView(props: HomeSessionsViewProps) {
+       <div class="sticky top-0 z-30 shrink-0 bg-v2-background-bg-base pb-3 pt-6 lg:pt-12" onWheel={props.onWheel}>
+         <HomeSessionSearch {...props} />
+         <Suspense>
+-          <Show when={props.groups().length > 0 && props.canCreateSession()}>
++          <Show when={props.groups().length > 0 && props.canCreateSession() && !props.trashOpen()}>
+             <div class="pointer-events-none absolute right-0 top-[84px] z-20 flex lg:top-[108px]">
+               <ButtonV2
+                 data-action="home-new-session"
+@@ -95,6 +102,26 @@ export function HomeSessionsView(props: HomeSessionsViewProps) {
+               </ButtonV2>
+             </div>
+           </Show>
++          <Show when={SHOW_HOME_SESSION_ARCHIVE}>
++            <div class="pointer-events-none absolute right-0 top-[110px] z-20 flex lg:top-[136px]">
++              <TooltipV2
++                class="pointer-events-auto flex shrink-0 items-center"
++                placement="bottom"
++                value={props.language.t(props.trashOpen() ? "trash.close" : "trash.title")}
++              >
++                <IconButtonV2
++                  data-action="home-session-trash"
++                  variant="ghost-muted"
++                  size="normal"
++                  icon={<IconV2 name={props.trashOpen() ? "close" : "archive"} />}
++                  aria-label={props.language.t(props.trashOpen() ? "trash.close" : "trash.title")}
++                  aria-pressed={props.trashOpen()}
++                  classList={{ "bg-v2-background-bg-layer-04 text-v2-text-text-base": props.trashOpen() }}
++                  onClick={props.onToggleTrash}
++                />
++              </TooltipV2>
++            </div>
++          </Show>
+         </Suspense>
+       </div>
+       <div class="pointer-events-none sticky top-[84px] z-40 h-0 -mr-3 lg:top-[108px]">
+@@ -113,32 +140,58 @@ export function HomeSessionsView(props: HomeSessionsViewProps) {
+           }
+         >
+           <Show
+-            when={props.groups().length > 0}
++            when={props.trashOpen()}
+             fallback={
+-              <HomeSessionsEmpty
+-                onNewSession={props.canCreateSession() ? props.onCreateSession : undefined}
+-                language={props.language}
+-              />
++              <Show
++                when={props.groups().length > 0}
++                fallback={
++                  <HomeSessionsEmpty
++                    onNewSession={props.canCreateSession() ? props.onCreateSession : undefined}
++                    language={props.language}
++                  />
++                }
++              >
++                <div ref={props.onSetContent} class="flex flex-col pt-3 pr-3 pb-16">
++                  <For each={props.groups()}>
++                    {(group, index) => (
++                      <>
++                        <HomeSessionGroupHeader
++                          title={group.title}
++                          titleOpacity={props.titleOpacity(group.id)}
++                          onSetRef={(element) => props.onSetHeader(group.id, element)}
++                          elevated={index() === 0}
++                        />
++                        <div
++                          class={`flex min-w-0 flex-col gap-px pt-4 ${index() === props.groups().length - 1 ? "" : "mb-6"}`}
++                        >
++                          <For each={group.sessions}>{(record) => <HomeSessionRow {...props} record={record} />}</For>
++                        </div>
++                      </>
++                    )}
++                  </For>
++                </div>
++              </Show>
+             }
+           >
+             <div ref={props.onSetContent} class="flex flex-col pt-3 pr-3 pb-16">
+-              <For each={props.groups()}>
+-                {(group, index) => (
+-                  <>
+-                    <HomeSessionGroupHeader
+-                      title={group.title}
+-                      titleOpacity={props.titleOpacity(group.id)}
+-                      onSetRef={(element) => props.onSetHeader(group.id, element)}
+-                      elevated={index() === 0}
+-                    />
+-                    <div
+-                      class={`flex min-w-0 flex-col gap-px pt-4 ${index() === props.groups().length - 1 ? "" : "mb-6"}`}
+-                    >
+-                      <For each={group.sessions}>{(record) => <HomeSessionRow {...props} record={record} />}</For>
+-                    </div>
+-                  </>
+-                )}
+-              </For>
++              <HomeSessionGroupHeader title={props.language.t("trash.title")} titleOpacity={1} onSetRef={() => {}} />
++              <Show
++                when={!props.trashLoading()}
++                fallback={
++                  <div class="flex h-16 items-center justify-center text-v2-text-text-muted">
++                    <Spinner class="size-4" />
++                  </div>
++                }
++              >
++                <Show
++                  when={props.trashRecords().length > 0}
++                  fallback={<HomeSessionsTrashEmpty language={props.language} />}
++                >
++                  <div class="flex min-w-0 flex-col gap-px pt-4">
++                    <For each={props.trashRecords()}>{(record) => <HomeSessionTrashRow {...props} record={record} />}</For>
++                  </div>
++                </Show>
++              </Show>
+             </div>
+           </Show>
+         </Suspense>
+@@ -480,6 +533,103 @@ function HomeSessionRow(props: HomeSessionsViewProps & { record: HomeSessionReco
+   )
+ }
+ 
++function HomeSessionTrashRow(props: HomeSessionsViewProps & { record: HomeSessionRecord }) {
++  const title = createMemo(() => sessionTitle(props.record.session.title) || props.record.session.id)
++  const showProjectName = () => props.showProjectName() && props.record.projectName
++
++  return (
++    <div
++      class="group/session relative flex h-10 min-w-0 items-center rounded-[6px]"
++      classList={{ group: !!showProjectName() }}
++    >
++      <button
++        type="button"
++        data-component="home-session-trash-row"
++        class={`
++          flex h-10 min-w-0 w-full flex-1 shrink-0 cursor-default items-center gap-2 rounded-[6px] border-0
++          bg-transparent py-3 pl-3 pr-14 text-left text-v2-text-text-muted [font-weight:530]
++          transition-[background-color,color,box-shadow] duration-[120ms] ease-in-out
++          hover:bg-v2-overlay-simple-overlay-hover focus-visible:bg-v2-overlay-simple-overlay-hover focus-visible:outline-none
++        `}
++        onMouseDown={(event) => {
++          if (event.button === 1) event.preventDefault()
++        }}
++        onClick={(event) => props.onOpenSession(props.record.session, { background: isBackgroundOpen(event) })}
++        onAuxClick={(event) => {
++          if (!isBackgroundOpen(event)) return
++          event.preventDefault()
++          props.onOpenSession(props.record.session, { background: true })
++        }}
++      >
++        <HomeSessionLeadingController
++          server={props.server}
++          isOpenTab={props.isOpenTab}
++          record={props.record}
++          revealProjectOnHover={!!showProjectName()}
++        />
++        <HomeSessionTitle title={title()} showProjectName={!!showProjectName()} />
++        <Show when={showProjectName()}>
++          <HomeSessionProjectName name={props.record.projectName} />
++        </Show>
++      </button>
++      <div class="absolute right-1.5 top-1/2 flex -translate-y-1/2 items-center gap-1">
++        <Show
++          when={props.trashBusy()}
++          fallback={
++            <>
++              <TooltipV2 class="flex shrink-0 items-center" placement="bottom" value={props.language.t("trash.restore")}>
++                <IconButtonV2
++                  data-action="home-session-restore"
++                  variant="ghost-muted"
++                  size="large"
++                  icon={<IconV2 name="reset" />}
++                  aria-label={props.language.t("trash.restore")}
++                  onClick={(event) => {
++                    event.preventDefault()
++                    event.stopPropagation()
++                    void props.onRestoreSession(props.record.session)
++                  }}
++                />
++              </TooltipV2>
++              <TooltipV2 class="flex shrink-0 items-center" placement="bottom" value={props.language.t("trash.delete")}>
++                <IconButtonV2
++                  data-action="home-session-delete"
++                  variant="ghost-muted"
++                  size="large"
++                  icon={<IconV2 name="xmark-small" />}
++                  aria-label={props.language.t("trash.delete")}
++                  onClick={(event) => {
++                    event.preventDefault()
++                    event.stopPropagation()
++                    props.onDeleteSession(props.record.session)
++                  }}
++                />
++              </TooltipV2>
++            </>
++          }
++        >
++          <Spinner class="size-4 text-v2-text-text-faint" />
++        </Show>
++      </div>
++    </div>
++  )
++}
++
++function HomeSessionsTrashEmpty(props: { language: ReturnType<typeof useLanguage> }) {
++  return (
++    <div class="flex min-h-full flex-col items-center gap-4 px-6 pt-[52px] text-center">
++      <div
++        class={`
++          shrink-0 text-[13px] leading-[13px] tracking-[-0.04px]
++          text-v2-text-text-base [font-weight:530]
++        `}
++      >
++        {props.language.t("trash.empty")}
++      </div>
++    </div>
++  )
++}
++
+ function HomeSessionTitle(props: { title: string; showProjectName: boolean; search?: boolean }) {
+   return (
+     <span
+diff --git a/packages/app/src/pages/home/home-sessions.tsx b/packages/app/src/pages/home/home-sessions.tsx
+index 7bda4dd..e60a466 100644
+--- a/packages/app/src/pages/home/home-sessions.tsx
++++ b/packages/app/src/pages/home/home-sessions.tsx
+@@ -27,6 +27,13 @@ export function HomeSessions(props: {
+       onCreateSession={props.sessions.session.create}
+       onOpenSession={props.sessions.session.open}
+       onArchiveSession={props.sessions.session.archive}
++      trashOpen={props.sessions.data.trashOpen}
++      trashLoading={props.sessions.data.trashLoading}
++      trashRecords={props.sessions.data.trashRecords}
++      trashBusy={props.sessions.data.trashBusy}
++      onToggleTrash={props.sessions.data.onToggleTrash}
++      onRestoreSession={props.sessions.data.onRestoreSession}
++      onDeleteSession={props.sessions.data.onDeleteSession}
+       onSetHoverTarget={props.scroll.viewport.setHoverTarget}
+       onSetThumbTrack={props.scroll.viewport.setThumbTrack}
+       onSetContent={props.scroll.header.setContent}
+diff --git a/packages/app/src/pages/session/session-archive.ts b/packages/app/src/pages/session/session-archive.ts
+index 3968869..717dd09 100644
+--- a/packages/app/src/pages/session/session-archive.ts
++++ b/packages/app/src/pages/session/session-archive.ts
+@@ -1,4 +1,5 @@
+ import { useNavigate } from "@solidjs/router"
++import { useQueryClient } from "@tanstack/solid-query"
+ import { produce } from "solid-js/store"
+ import { notifySessionTabsRemoved } from "@/components/titlebar-session-events"
+ import { useLanguage } from "@/context/language"
+@@ -17,6 +18,7 @@ export function useSessionArchive() {
+   const sdk = useSDK()
+   const sync = useSync()
+   const serverSync = useServerSync()
++  const queryClient = useQueryClient()
+   const tabs = useTabs()
+   const { params } = useSessionKey()
+ 
+@@ -58,9 +60,10 @@ export function useSessionArchive() {
+           }),
+         )
+         sync().session.evict(sessionID)
+-        serverSync().homeSessions.remove(sessionID)
+         navigateAfterRemoval(sessionID, session.parentID, nextSession?.id)
+         notifySessionTabsRemoved({ directory: sdk().directory, sessionIDs: [sessionID] })
++        void queryClient.invalidateQueries({ queryKey: serverSync().homeSessions.indexKey, exact: true })
++        void queryClient.invalidateQueries({ queryKey: ["home", "session-archived"], type: "all" })
+       })
+       .catch((err) => {
+         showToast({
+diff --git a/packages/app/src/utils/server-compat.ts b/packages/app/src/utils/server-compat.ts
+index 1df1338..1ba9181 100644
+--- a/packages/app/src/utils/server-compat.ts
++++ b/packages/app/src/utils/server-compat.ts
+@@ -71,7 +71,7 @@ function sessionInfo(session: Session): SessionInfo {
+     },
+     cost: session.cost ?? 0,
+     tokens: session.tokens ?? { input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } },
+-    time: session.time,
++    time: { ...session.time, archived: session.time.archived ?? undefined },
+     title: session.title,
+     location: { directory: session.directory, workspaceID: session.workspaceID },
+     subpath: session.path,
+diff --git a/packages/opencode/src/server/routes/instance/httpapi/groups/session.ts b/packages/opencode/src/server/routes/instance/httpapi/groups/session.ts
+index 959a303..d75450e 100644
+--- a/packages/opencode/src/server/routes/instance/httpapi/groups/session.ts
++++ b/packages/opencode/src/server/routes/instance/httpapi/groups/session.ts
+@@ -35,6 +35,7 @@ export const ListQuery = Schema.Struct({
+   start: Schema.optional(Schema.NumberFromString),
+   search: Schema.optional(Schema.String),
+   limit: Schema.optional(Schema.NumberFromString),
++  archived: Schema.optional(QueryBoolean),
+ })
+ export const DiffQuery = Schema.Struct({
+   ...WorkspaceRoutingQueryFields,
+diff --git a/packages/opencode/src/server/routes/instance/httpapi/handlers/session.ts b/packages/opencode/src/server/routes/instance/httpapi/handlers/session.ts
+index 6625850..fe99a88 100644
+--- a/packages/opencode/src/server/routes/instance/httpapi/handlers/session.ts
++++ b/packages/opencode/src/server/routes/instance/httpapi/handlers/session.ts
+@@ -71,6 +71,7 @@ export const sessionHandlers = HttpApiBuilder.group(InstanceHttpApi, "session",
+         start: ctx.query.start,
+         search: ctx.query.search,
+         limit: ctx.query.limit,
++        archived: ctx.query.archived,
+       })
+     })
+ 
+diff --git a/packages/opencode/src/session/session.ts b/packages/opencode/src/session/session.ts
+index a2a91cd..424776b 100644
+--- a/packages/opencode/src/session/session.ts
++++ b/packages/opencode/src/session/session.ts
+@@ -18,7 +18,7 @@ import { NotFoundError } from "@/storage/storage"
+ import { eq } from "drizzle-orm"
+ import { and } from "drizzle-orm"
+ import { gte } from "drizzle-orm"
+-import { isNull } from "drizzle-orm"
++import { isNotNull, isNull } from "drizzle-orm"
+ import { desc } from "drizzle-orm"
+ import { like } from "drizzle-orm"
+ import { sql } from "drizzle-orm"
+@@ -197,7 +197,8 @@ const Share = Schema.Struct({
+ 
+ // Legacy HTTP accepted negative values here. Keep archive timestamps permissive
+ // while excluding non-finite values that cannot round-trip through JSON.
+-export const ArchivedTimestamp = Schema.Finite
++// Nullable so a client can un-archive (restore) a session with `archived: null`.
++export const ArchivedTimestamp = Schema.NullOr(Schema.Finite)
+ 
+ const Time = Schema.Struct({
+   created: NonNegativeInt,
+@@ -308,6 +309,7 @@ export type ListInput = {
+   start?: number
+   search?: string
+   limit?: number
++  archived?: boolean
+ }
+ 
+ export type GlobalListInput = {
+@@ -426,7 +428,7 @@ export interface Interface {
+   readonly touch: (sessionID: SessionID) => Effect.Effect<void>
+   readonly get: (id: SessionID) => Effect.Effect<Info, NotFound>
+   readonly setTitle: (input: { sessionID: SessionID; title: string }) => Effect.Effect<void>
+-  readonly setArchived: (input: { sessionID: SessionID; time?: number }) => Effect.Effect<void>
++  readonly setArchived: (input: { sessionID: SessionID; time?: number | null }) => Effect.Effect<void>
+   readonly setMetadata: (input: typeof SetMetadataInput.Type) => Effect.Effect<void>
+   readonly setAgentModel: (input: {
+     sessionID: SessionID
+@@ -754,7 +756,10 @@ const layer: Layer.Layer<
+       yield* patch(input.sessionID, { title: input.title }).pipe(Effect.orDie)
+     })
+ 
+-    const setArchived = Effect.fn("Session.setArchived")(function* (input: { sessionID: SessionID; time?: number }) {
++    const setArchived = Effect.fn("Session.setArchived")(function* (input: {
++      sessionID: SessionID
++      time?: number | null
++    }) {
+       yield* patch(input.sessionID, { time: { archived: input.time } }).pipe(Effect.orDie)
+     })
+ 
+@@ -985,6 +990,9 @@ function listByProject(
+   if (input.roots) {
+     conditions.push(isNull(SessionTable.parent_id))
+   }
++  if (input.archived !== undefined) {
++    conditions.push(input.archived ? isNotNull(SessionTable.time_archived) : isNull(SessionTable.time_archived))
++  }
+   if (input.start) {
+     conditions.push(gte(SessionTable.time_updated, input.start))
+   }
+diff --git a/packages/opencode/test/server/httpapi-session.test.ts b/packages/opencode/test/server/httpapi-session.test.ts
+index 9d7643c..a292ce5 100644
+--- a/packages/opencode/test/server/httpapi-session.test.ts
++++ b/packages/opencode/test/server/httpapi-session.test.ts
+@@ -844,6 +844,86 @@ describe("session HttpApi", () => {
+     { git: true, config: { formatter: false, lsp: false } },
+   )
+ 
++  it.instance(
++    "includes archived roots in the session list and restores them",
++    () =>
++      Effect.gen(function* () {
++        const test = yield* TestInstance
++        const headers = { "x-opencode-directory": test.directory, "content-type": "application/json" }
++        const session = yield* createSession({ title: "trash" })
++        const list = () =>
++          Effect.gen(function* () {
++            return yield* json<Session.Info[]>(
++              yield* request(`${SessionPaths.list}?roots=true`, {
++                headers: { "x-opencode-directory": test.directory },
++              }),
++            )
++          })
++
++        const initial = yield* list()
++        expect(initial.map((item) => item.id)).toContain(session.id)
++
++        const archived = yield* json<Session.Info>(
++          yield* request(pathFor(SessionPaths.update, { sessionID: session.id }), {
++            method: "PATCH",
++            headers,
++            body: JSON.stringify({ time: { archived: 1 } }),
++          }),
++        )
++        expect(archived.time.archived).toBe(1)
++
++        const afterArchive = yield* list()
++        expect(afterArchive.find((item) => item.id === session.id)?.time.archived).toBe(1)
++
++        const restored = yield* json<Session.Info>(
++          yield* request(pathFor(SessionPaths.update, { sessionID: session.id }), {
++            method: "PATCH",
++            headers,
++            body: JSON.stringify({ time: { archived: null } }),
++          }),
++        )
++        expect(restored.time.archived).toBeUndefined()
++
++        const afterRestore = yield* list()
++        const restoredEntry = afterRestore.find((item) => item.id === session.id)
++        expect(restoredEntry?.id).toBe(session.id)
++        expect(restoredEntry?.time.archived).toBeUndefined()
++      }),
++    { git: true, config: { formatter: false, lsp: false } },
++  )
++
++  it.instance(
++    "filters archived roots with the archived query parameter",
++    () =>
++      Effect.gen(function* () {
++        const test = yield* TestInstance
++        const headers = { "x-opencode-directory": test.directory, "content-type": "application/json" }
++        const session = yield* createSession({ title: "trash filter" })
++        yield* json<Session.Info>(
++          yield* request(pathFor(SessionPaths.update, { sessionID: session.id }), {
++            method: "PATCH",
++            headers,
++            body: JSON.stringify({ time: { archived: 1 } }),
++          }),
++        )
++
++        const active = yield* json<Session.Info[]>(
++          yield* request(`${SessionPaths.list}?roots=true&archived=false`, {
++            headers: { "x-opencode-directory": test.directory },
++          }),
++        )
++        expect(active.find((item) => item.id === session.id)?.time.archived).toBeUndefined()
++
++        const archived = yield* json<Session.Info[]>(
++          yield* request(`${SessionPaths.list}?roots=true&archived=true`, {
++            headers: { "x-opencode-directory": test.directory },
++          }),
++        )
++        expect(archived.find((item) => item.id === session.id)?.time.archived).toBe(1)
++      }),
++    { git: true, config: { formatter: false, lsp: false } },
++  )
++
+   it.instance(
+     "uses project-scoped path and directory precedence",
+     () =>
+diff --git a/packages/schema/src/v1/session.ts b/packages/schema/src/v1/session.ts
+index b2b712d..40d56e8 100644
+--- a/packages/schema/src/v1/session.ts
++++ b/packages/schema/src/v1/session.ts
+@@ -562,7 +562,7 @@ export const SessionInfo = Schema.Struct({
+     created: NonNegativeInt,
+     updated: NonNegativeInt,
+     compacting: optional(NonNegativeInt),
+-    archived: optional(Schema.Finite),
++    archived: optional(Schema.NullOr(Schema.Finite)),
+   }),
+   permission: optional(PermissionV1.Ruleset),
+   revert: optional(SessionRevert),
+diff --git a/packages/sdk/js/src/v2/gen/sdk.gen.ts b/packages/sdk/js/src/v2/gen/sdk.gen.ts
+index a2bcd42..60eac83 100644
+--- a/packages/sdk/js/src/v2/gen/sdk.gen.ts
++++ b/packages/sdk/js/src/v2/gen/sdk.gen.ts
+@@ -3375,6 +3375,7 @@ export class Session2 extends HeyApiClient {
+       start?: number
+       search?: string
+       limit?: number
++      archived?: boolean | "true" | "false"
+     },
+     options?: Options<never, ThrowOnError>,
+   ) {
+@@ -3391,6 +3392,7 @@ export class Session2 extends HeyApiClient {
+             { in: "query", key: "start" },
+             { in: "query", key: "search" },
+             { in: "query", key: "limit" },
++            { in: "query", key: "archived" },
+           ],
+         },
+       ],
+@@ -3567,7 +3569,7 @@ export class Session2 extends HeyApiClient {
+       }
+       permission?: PermissionRuleset
+       time?: {
+-        archived?: number
++        archived?: number | null
+       }
+     },
+     options?: Options<never, ThrowOnError>,
+diff --git a/packages/sdk/js/src/v2/gen/types.gen.ts b/packages/sdk/js/src/v2/gen/types.gen.ts
+index b3ca8ef..b1ef0e5 100644
+--- a/packages/sdk/js/src/v2/gen/types.gen.ts
++++ b/packages/sdk/js/src/v2/gen/types.gen.ts
+@@ -209,7 +209,7 @@ export type Session = {
+     created: number
+     updated: number
+     compacting?: number
+-    archived?: number
++    archived?: number | null
+   }
+   permission?: PermissionRuleset
+   revert?: {
+@@ -2242,7 +2242,7 @@ export type GlobalSession = {
+     created: number
+     updated: number
+     compacting?: number
+-    archived?: number
++    archived?: number | null
+   }
+   permission?: PermissionRuleset
+   revert?: {
+@@ -3929,7 +3929,7 @@ export type SessionV2Info = {
+   time: {
+     created: number
+     updated: number
+-    archived?: number
++    archived?: number | null
+   }
+   title: string
+   location: LocationRef
+@@ -9456,6 +9456,7 @@ export type SessionListData = {
+     start?: number
+     search?: string
+     limit?: number
++    archived?: boolean | "true" | "false"
+   }
+   url: "/session"
+ }
+@@ -9626,7 +9627,7 @@ export type SessionUpdateData = {
+     }
+     permission?: PermissionRuleset
+     time?: {
+-      archived?: number
++      archived?: number | null
+     }
+   }
+   path: {
+diff --git a/packages/ui/src/v2/components/icon.tsx b/packages/ui/src/v2/components/icon.tsx
+index b22d314..a76acc3 100644
+--- a/packages/ui/src/v2/components/icon.tsx
++++ b/packages/ui/src/v2/components/icon.tsx
+@@ -149,6 +149,10 @@ const icons = {
+     viewBox: "0 0 16 16",
+     body: `<path d="M13.1112 13.5555V14.0555H13.6112V13.5555H13.1112ZM2.889 13.5555H2.389L2.389 14.0555H2.889V13.5555ZM3.38901 5.55546L3.38901 5.05546L2.38901 5.05546L2.38901 5.55546L2.88901 5.55546L3.38901 5.55546ZM14.4446 2.44434H14.9446V1.94434L14.4446 1.94434L14.4446 2.44434ZM14.4446 5.55545L14.4446 6.05545L14.9446 6.05545V5.55545H14.4446ZM1.55566 5.55546L1.05566 5.55545L1.05566 6.05546L1.55566 6.05546L1.55566 5.55546ZM1.5557 2.44436L1.5557 1.94436L1.05571 1.94436L1.0557 2.44435L1.5557 2.44436ZM13.1112 5.55546H12.6112V13.5555H13.1112H13.6112V5.55546H13.1112ZM2.889 13.5555H3.389L3.38901 5.55546L2.88901 5.55546L2.38901 5.55546L2.389 13.5555H2.889ZM14.4446 2.44434H13.9446V5.55545H14.4446H14.9446V2.44434H14.4446ZM1.55566 5.55546L2.05566 5.55547L2.0557 2.44436L1.5557 2.44436L1.0557 2.44435L1.05566 5.55545L1.55566 5.55546ZM6.22234 8.22213V8.72213H9.7779V8.22213V7.72213H6.22234V8.22213ZM13.1112 13.5555V13.0555H2.889V13.5555V14.0555H13.1112V13.5555ZM1.5557 2.44436L1.5557 2.94436L14.4446 2.94434L14.4446 2.44434L14.4446 1.94434L1.5557 1.94436L1.5557 2.44436ZM14.4446 5.55545L14.4446 5.05545L1.55566 5.05546L1.55566 5.55546L1.55566 6.05546L14.4446 6.05545L14.4446 5.55545Z" fill="currentColor"/>`,
+   },
++  trash: {
++    viewBox: "0 0 20 20",
++    body: `<path d="M4.58342 17.9134L4.58369 17.4134L4.22787 17.5384L4.22766 18.0384H4.58342V17.9134ZM15.4167 17.9134V18.0384H15.7725L15.7723 17.5384L15.4167 17.9134ZM2.08342 3.95508V3.45508H1.58342V3.95508H2.08342V4.45508V3.95508ZM17.9167 4.45508V4.95508H18.4167V4.45508H17.9167V3.95508V4.45508ZM4.16677 4.58008L3.66701 4.5996L4.22816 17.5379L4.72792 17.4934L5.22767 17.4489L4.66652 4.54055L4.16677 4.58008ZM4.58342 18.0384V17.9134H15.4167V18.0384V18.5384H4.58342V18.0384ZM15.4167 17.9134L15.8332 17.5379L16.2498 4.5996L15.7501 4.58008L15.2503 4.56055L14.8337 17.4989L15.4167 17.9134ZM15.8334 4.58008V4.08008H4.16677V4.58008V5.08008H15.8334V4.58008ZM2.08342 4.45508V4.95508H4.16677V4.58008V4.08008H2.08342V4.45508ZM15.8334 4.58008V5.08008H17.9167V4.45508V3.95508H15.8334V4.58008ZM6.83951 4.35149L7.432 4.55047C7.79251 3.47701 8.80699 2.70508 10.0001 2.70508V2.20508V1.70508C8.25392 1.70508 6.77335 2.83539 6.24702 4.15251L6.83951 4.35149ZM10.0001 2.20508V2.70508C11.1932 2.70508 12.2077 3.47701 12.5682 4.55047L13.1607 4.35149L13.7532 4.15251C13.2269 2.83539 11.7463 1.70508 10.0001 1.70508V2.20508Z" fill="currentColor"/>`,
++  },
+ }
+ 
+ const spriteID = "opencode-v2-icon-sprite"

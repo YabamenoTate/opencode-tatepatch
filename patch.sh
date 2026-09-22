@@ -28,6 +28,9 @@ BUNDLE_DIR="$WORK_DIR/bundle"
 SOURCE_DIR="$WORK_DIR/source"
 
 TATEPATCH_VERSION="v1.18.31 (Tate Patched 4)"
+# OPENCODE_VERSION define = UI/display version (no leading "v": UI adds it
+# itself). Outbound User-Agents are clean "1.18.31" via InstallationClientVersion.
+TATEPATCH_OPENCODE_VERSION="1.18.31 (Tate Patched 4)"
 OPENCODE_TAG="v1.18.31"
 BACKUP_FILE="$TATEPATCH_DIR/opencode-official-backup"
 
@@ -135,6 +138,7 @@ do_patch() {
     "remove-help-button.patch"
     "remove-share.patch"
     "remove-upsell.patch"
+    "trash.patch"
   )
 
   for patch_name in "${ordered_patches[@]}"; do
@@ -158,13 +162,13 @@ do_patch() {
   # web app のビルド (binary に埋め込む)
   header "Building web app"
   OPENCODE_CHANNEL=prod \
-  OPENCODE_VERSION="$TATEPATCH_VERSION" \
+  OPENCODE_VERSION="$TATEPATCH_OPENCODE_VERSION" \
   bun run --cwd "$SOURCE_DIR/packages/app" build 2>&1 | tail -3
 
   # binary のビルド
   header "Building opencode binary"
   info "This may take a while..."
-  OPENCODE_VERSION="$TATEPATCH_VERSION" \
+  OPENCODE_VERSION="$TATEPATCH_OPENCODE_VERSION" \
   bun run "$SOURCE_DIR/packages/opencode/script/build.ts" --single 2>&1 | tail -5
 
   # ビルド成果物の検索

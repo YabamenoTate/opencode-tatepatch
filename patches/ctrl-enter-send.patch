@@ -739,3 +739,905 @@ index 946ef1eae6..56ae91d26e 100644
    "prompt.attachment.remove": "移除附件",
    "prompt.action.send": "傳送",
    "prompt.action.stop": "停止",
+diff --git a/packages/session-ui/src/v2/components/prompt-input/index.tsx b/packages/session-ui/src/v2/components/prompt-input/index.tsx
+index ff4ff0f..bdec049 100644
+--- a/packages/session-ui/src/v2/components/prompt-input/index.tsx
++++ b/packages/session-ui/src/v2/components/prompt-input/index.tsx
+@@ -171,10 +171,15 @@ export function PromptInputV2(props: PromptInputV2Props) {
+             }}
+             onKeyDown={(event) => {
+               if (props.controller.onKeyDown(event)) return
+-              if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {
+-                event.preventDefault()
+-                if (event.repeat) return
+-                props.controller.submit()
++              if (event.key === "Enter" && !event.isComposing) {
++                if (event.ctrlKey || event.metaKey) {
++                  event.preventDefault()
++                  if (event.repeat) return
++                  props.controller.submit()
++                } else if (!event.shiftKey) {
++                  event.preventDefault()
++                  document.execCommand("insertText", false, "\n")
++                }
+               }
+             }}
+             onKeyUp={updateCursor}
+@@ -254,6 +259,11 @@ export function PromptInputV2(props: PromptInputV2Props) {
+               )}
+             </Show>
+           </div>
++          <Show when={state.mode === "normal"}>
++            <span class="ml-auto max-w-[50%] shrink-0 overflow-hidden text-ellipsis whitespace-nowrap select-none text-[11px] leading-4 tracking-[-0.04px] text-v2-text-text-faint [font-weight:440]">
++              {i18n.t("ui.promptInput.enterNewline")}
++            </span>
++          </Show>
+           <PromptInputV2SubmitButton
+             mode={state.mode}
+             stopping={view.submit.stopping()}
+diff --git a/packages/ui/src/i18n/am.ts b/packages/ui/src/i18n/am.ts
+index 01d5cd4..373c8db 100644
+--- a/packages/ui/src/i18n/am.ts
++++ b/packages/ui/src/i18n/am.ts
+@@ -124,7 +124,8 @@ export const dict: Record<string, string> = {
+   "ui.promptInput.chooseModel": "ሞዴል ምረጥ",
+   "ui.promptInput.chooseVariant": "የሞዴል ልዩነትን ምረጥ",
+   "ui.promptInput.send": "ላክ",
+-  "ui.promptInput.stop": "አቁም",
++  "ui.promptInput.enterNewline": "Enter for newline",
++"ui.promptInput.stop": "አቁም",
+   "ui.tabs.close": "ትርፉን ዝጋ",
+   "ui.textField.copyToClipboard": "ወደ ቅንጥብ ሰሌዳ ቅዳ",
+   "ui.textField.copyLink": "መገልበጥ አገናኝ",
+diff --git a/packages/ui/src/i18n/ar.ts b/packages/ui/src/i18n/ar.ts
+index b23c24b..a17b588 100644
+--- a/packages/ui/src/i18n/ar.ts
++++ b/packages/ui/src/i18n/ar.ts
+@@ -146,7 +146,8 @@ export const dict = {
+   "ui.promptInput.chooseModel": "اختيار نموذج",
+   "ui.promptInput.chooseVariant": "اختيار متغير النموذج",
+   "ui.promptInput.send": "إرسال",
+-  "ui.promptInput.stop": "إيقاف",
++  "ui.promptInput.enterNewline": "u200FEnter لسطر جديد",
++"ui.promptInput.stop": "إيقاف",
+ 
+   "ui.tabs.close": "إغلاق علامة التبويب",
+ 
+diff --git a/packages/ui/src/i18n/az.ts b/packages/ui/src/i18n/az.ts
+index d5fa9cb..1e17943 100644
+--- a/packages/ui/src/i18n/az.ts
++++ b/packages/ui/src/i18n/az.ts
+@@ -125,7 +125,8 @@ export const dict: Record<string, string> = {
+   "ui.promptInput.chooseModel": "Model seçin",
+   "ui.promptInput.chooseVariant": "Model variantını seçin",
+   "ui.promptInput.send": "Göndər",
+-  "ui.promptInput.stop": "Dayandır",
++  "ui.promptInput.enterNewline": "Enter for newline",
++"ui.promptInput.stop": "Dayandır",
+   "ui.tabs.close": "Tabı bağla",
+   "ui.textField.copyToClipboard": "Buferə kopyala",
+   "ui.textField.copyLink": "Linki kopyala",
+diff --git a/packages/ui/src/i18n/bg.ts b/packages/ui/src/i18n/bg.ts
+index ea10ab5..be162ce 100644
+--- a/packages/ui/src/i18n/bg.ts
++++ b/packages/ui/src/i18n/bg.ts
+@@ -125,7 +125,8 @@ export const dict = {
+   "ui.promptInput.chooseModel": "Изберете модел",
+   "ui.promptInput.chooseVariant": "Изберете вариант на модела",
+   "ui.promptInput.send": "Изпратете",
+-  "ui.promptInput.stop": "Спрете",
++  "ui.promptInput.enterNewline": "Enter for newline",
++"ui.promptInput.stop": "Спрете",
+   "ui.tabs.close": "Затваряне на раздела",
+   "ui.textField.copyToClipboard": "Копиране в клипборда",
+   "ui.textField.copyLink": "Копиране на връзката",
+diff --git a/packages/ui/src/i18n/bn.ts b/packages/ui/src/i18n/bn.ts
+index 74a6940..01a50e5 100644
+--- a/packages/ui/src/i18n/bn.ts
++++ b/packages/ui/src/i18n/bn.ts
+@@ -127,7 +127,8 @@ export const dict: Record<string, string> = {
+   "ui.promptInput.chooseModel": "মডেল নির্বাচন করুন",
+   "ui.promptInput.chooseVariant": "মডেল বৈকল্পিক চয়ন করুন",
+   "ui.promptInput.send": "পাঠান",
+-  "ui.promptInput.stop": "থামো",
++  "ui.promptInput.enterNewline": "Enter for newline",
++"ui.promptInput.stop": "থামো",
+   "ui.tabs.close": "ট্যাব বন্ধ করুন",
+   "ui.textField.copyToClipboard": "ক্লিপবোর্ডে কপি করুন",
+   "ui.textField.copyLink": "লিঙ্ক কপি করুন",
+diff --git a/packages/ui/src/i18n/br.ts b/packages/ui/src/i18n/br.ts
+index 19fc683..a77152c 100644
+--- a/packages/ui/src/i18n/br.ts
++++ b/packages/ui/src/i18n/br.ts
+@@ -134,7 +134,8 @@ export const dict = {
+   "ui.promptInput.chooseModel": "Escolher modelo",
+   "ui.promptInput.chooseVariant": "Escolher variante do modelo",
+   "ui.promptInput.send": "Enviar",
+-  "ui.promptInput.stop": "Parar",
++  "ui.promptInput.enterNewline": "Enter para nova linha",
++"ui.promptInput.stop": "Parar",
+ 
+   "ui.tabs.close": "Fechar aba",
+ 
+diff --git a/packages/ui/src/i18n/bs.ts b/packages/ui/src/i18n/bs.ts
+index 5b33f06..36b1704 100644
+--- a/packages/ui/src/i18n/bs.ts
++++ b/packages/ui/src/i18n/bs.ts
+@@ -138,7 +138,8 @@ export const dict = {
+   "ui.promptInput.chooseModel": "Odaberi model",
+   "ui.promptInput.chooseVariant": "Odaberi varijantu modela",
+   "ui.promptInput.send": "Pošalji",
+-  "ui.promptInput.stop": "Zaustavi",
++  "ui.promptInput.enterNewline": "Enter za novi red",
++"ui.promptInput.stop": "Zaustavi",
+ 
+   "ui.tabs.close": "Zatvori karticu",
+ 
+diff --git a/packages/ui/src/i18n/ca.ts b/packages/ui/src/i18n/ca.ts
+index 1141fa4..990f706 100644
+--- a/packages/ui/src/i18n/ca.ts
++++ b/packages/ui/src/i18n/ca.ts
+@@ -129,7 +129,8 @@ export const dict: Record<string, string> = {
+   "ui.promptInput.chooseModel": "Tria el model",
+   "ui.promptInput.chooseVariant": "Trieu la variant del model",
+   "ui.promptInput.send": "Enviar",
+-  "ui.promptInput.stop": "Atureu-vos",
++  "ui.promptInput.enterNewline": "Enter for newline",
++"ui.promptInput.stop": "Atureu-vos",
+   "ui.tabs.close": "Tanca la pestanya",
+   "ui.textField.copyToClipboard": "Copia al porta-retalls",
+   "ui.textField.copyLink": "Copia l'enllaç",
+diff --git a/packages/ui/src/i18n/cs.ts b/packages/ui/src/i18n/cs.ts
+index 58f508c..7f971fd 100644
+--- a/packages/ui/src/i18n/cs.ts
++++ b/packages/ui/src/i18n/cs.ts
+@@ -133,7 +133,8 @@ export const dict: Record<string, string> = {
+   "ui.promptInput.chooseModel": "Vyberte model",
+   "ui.promptInput.chooseVariant": "Vyberte variantu modelu",
+   "ui.promptInput.send": "Odeslat",
+-  "ui.promptInput.stop": "Zastavit",
++  "ui.promptInput.enterNewline": "Enter for newline",
++"ui.promptInput.stop": "Zastavit",
+   "ui.tabs.close": "Zavřít kartu",
+   "ui.textField.copyToClipboard": "Kopírovat do schránky",
+   "ui.textField.copyLink": "Zkopírujte odkaz",
+diff --git a/packages/ui/src/i18n/da.ts b/packages/ui/src/i18n/da.ts
+index a3f256c..ddb9fb9 100644
+--- a/packages/ui/src/i18n/da.ts
++++ b/packages/ui/src/i18n/da.ts
+@@ -210,7 +210,8 @@ export const dict = {
+   "ui.promptInput.chooseModel": "Vælg model",
+   "ui.promptInput.chooseVariant": "Vælg modelvariant",
+   "ui.promptInput.send": "Send",
+-  "ui.promptInput.stop": "Stop",
++  "ui.promptInput.enterNewline": "Enter for ny linje",
++"ui.promptInput.stop": "Stop",
+ 
+   "ui.tabs.close": "Luk fane",
+ }
+diff --git a/packages/ui/src/i18n/de.ts b/packages/ui/src/i18n/de.ts
+index ca86cba..9014498 100644
+--- a/packages/ui/src/i18n/de.ts
++++ b/packages/ui/src/i18n/de.ts
+@@ -216,6 +216,7 @@ export const dict = {
+   "ui.promptInput.chooseModel": "Modell auswählen",
+   "ui.promptInput.chooseVariant": "Modellvariante auswählen",
+   "ui.promptInput.send": "Senden",
+-  "ui.promptInput.stop": "Stoppen",
++  "ui.promptInput.enterNewline": "Enter für neue Zeile",
++"ui.promptInput.stop": "Stoppen",
+   "ui.tabs.close": "Tab schließen",
+ } satisfies Partial<Record<Keys, string>>
+diff --git a/packages/ui/src/i18n/dv.ts b/packages/ui/src/i18n/dv.ts
+index 9b7f26e..0a2fb81 100644
+--- a/packages/ui/src/i18n/dv.ts
++++ b/packages/ui/src/i18n/dv.ts
+@@ -126,7 +126,8 @@ export const dict: Record<string, string> = {
+   "ui.promptInput.chooseModel": "މޮޑެލް ހޮވާށެވެ",
+   "ui.promptInput.chooseVariant": "މޮޑެލް ވެރިއަންޓް ހޮވާށެވެ",
+   "ui.promptInput.send": "ފޮނުވުން",
+-  "ui.promptInput.stop": "ހުއްޓުން",
++  "ui.promptInput.enterNewline": "Enter for newline",
++"ui.promptInput.stop": "ހުއްޓުން",
+   "ui.tabs.close": "ޓެބް ބަންދުކުރުން",
+   "ui.textField.copyToClipboard": "ކްލިޕްބޯޑަށް ކޮޕީ ކުރާށެވެ",
+   "ui.textField.copyLink": "ކޮޕީ ލިންކް",
+diff --git a/packages/ui/src/i18n/dz.ts b/packages/ui/src/i18n/dz.ts
+index 545be67..c1604ee 100644
+--- a/packages/ui/src/i18n/dz.ts
++++ b/packages/ui/src/i18n/dz.ts
+@@ -127,7 +127,8 @@ export const dict: Record<string, string> = {
+   "ui.promptInput.chooseModel": "དཔེ་ཚད་གདམ་ཁ་རྐྱབས།",
+   "ui.promptInput.chooseVariant": "དཔེ་ཚད་འགྱུར་ཅན་གདམ་ཁ་རྐྱབས།",
+   "ui.promptInput.send": "བཏང༌ནི",
+-  "ui.promptInput.stop": "བཀག་པ",
++  "ui.promptInput.enterNewline": "Enter for newline",
++"ui.promptInput.stop": "བཀག་པ",
+   "ui.tabs.close": "མཆོང་ལྡེ་ཁ་བསྡམས།",
+   "ui.textField.copyToClipboard": "འཛིན་པང་ལུ་འདྲ་བཤུས་རྐྱབས།",
+   "ui.textField.copyLink": "འབྲེལ་མཐུད་འདྲ་བཤུས།",
+diff --git a/packages/ui/src/i18n/el.ts b/packages/ui/src/i18n/el.ts
+index 0c99714..40c46b7 100644
+--- a/packages/ui/src/i18n/el.ts
++++ b/packages/ui/src/i18n/el.ts
+@@ -125,7 +125,8 @@ export const dict: Record<string, string> = {
+   "ui.promptInput.chooseModel": "Επιλογή μοντέλου",
+   "ui.promptInput.chooseVariant": "Επιλογή παραλλαγής μοντέλου",
+   "ui.promptInput.send": "Αποστολή",
+-  "ui.promptInput.stop": "Διακοπή",
++  "ui.promptInput.enterNewline": "Enter for newline",
++"ui.promptInput.stop": "Διακοπή",
+   "ui.tabs.close": "Κλείσιμο καρτέλας",
+   "ui.textField.copyToClipboard": "Αντιγραφή στο πρόχειρο",
+   "ui.textField.copyLink": "Αντιγραφή συνδέσμου",
+diff --git a/packages/ui/src/i18n/en.ts b/packages/ui/src/i18n/en.ts
+index 54008fb..430a6ed 100644
+--- a/packages/ui/src/i18n/en.ts
++++ b/packages/ui/src/i18n/en.ts
+@@ -137,7 +137,8 @@ export const dict: Record<string, string> = {
+   "ui.promptInput.chooseModel": "Choose model",
+   "ui.promptInput.chooseVariant": "Choose model variant",
+   "ui.promptInput.send": "Send",
+-  "ui.promptInput.stop": "Stop",
++  "ui.promptInput.enterNewline": "Enter for newline",
++"ui.promptInput.stop": "Stop",
+ 
+   "ui.tabs.close": "Close tab",
+ 
+diff --git a/packages/ui/src/i18n/es.ts b/packages/ui/src/i18n/es.ts
+index 07d3f42..74f7512 100644
+--- a/packages/ui/src/i18n/es.ts
++++ b/packages/ui/src/i18n/es.ts
+@@ -134,7 +134,8 @@ export const dict = {
+   "ui.promptInput.chooseModel": "Elegir modelo",
+   "ui.promptInput.chooseVariant": "Elegir variante del modelo",
+   "ui.promptInput.send": "Enviar",
+-  "ui.promptInput.stop": "Detener",
++  "ui.promptInput.enterNewline": "Enter para nueva línea",
++"ui.promptInput.stop": "Detener",
+ 
+   "ui.tabs.close": "Cerrar pestaña",
+ 
+diff --git a/packages/ui/src/i18n/et.ts b/packages/ui/src/i18n/et.ts
+index 5c548c8..9f70623 100644
+--- a/packages/ui/src/i18n/et.ts
++++ b/packages/ui/src/i18n/et.ts
+@@ -125,7 +125,8 @@ export const dict: Record<string, string> = {
+   "ui.promptInput.chooseModel": "Valige mudel",
+   "ui.promptInput.chooseVariant": "Valige mudeli variant",
+   "ui.promptInput.send": "Saada",
+-  "ui.promptInput.stop": "Peata",
++  "ui.promptInput.enterNewline": "Enter for newline",
++"ui.promptInput.stop": "Peata",
+   "ui.tabs.close": "Sule vahekaart",
+   "ui.textField.copyToClipboard": "Kopeeri lõikelauale",
+   "ui.textField.copyLink": "Kopeeri link",
+diff --git a/packages/ui/src/i18n/fa.ts b/packages/ui/src/i18n/fa.ts
+index 54b356d..c915d69 100644
+--- a/packages/ui/src/i18n/fa.ts
++++ b/packages/ui/src/i18n/fa.ts
+@@ -125,7 +125,8 @@ export const dict: Record<string, string> = {
+   "ui.promptInput.chooseModel": "مدل را انتخاب کنید",
+   "ui.promptInput.chooseVariant": "نوع مدل را انتخاب کنید",
+   "ui.promptInput.send": "ارسال کنید",
+-  "ui.promptInput.stop": "توقف کنید",
++  "ui.promptInput.enterNewline": "Enter for newline",
++"ui.promptInput.stop": "توقف کنید",
+   "ui.tabs.close": "بستن برگه",
+   "ui.textField.copyToClipboard": "در کلیپ بورد کپی کنید",
+   "ui.textField.copyLink": "لینک را کپی کنید",
+diff --git a/packages/ui/src/i18n/fi.ts b/packages/ui/src/i18n/fi.ts
+index d3a26cb..1c3ed33 100644
+--- a/packages/ui/src/i18n/fi.ts
++++ b/packages/ui/src/i18n/fi.ts
+@@ -192,6 +192,7 @@ export const dict: Record<string, string> = {
+   "ui.promptInput.chooseModel": "Valitse malli",
+   "ui.promptInput.chooseVariant": "Valitse mallivariantti",
+   "ui.promptInput.send": "Lähetä",
+-  "ui.promptInput.stop": "Pysäytä",
++  "ui.promptInput.enterNewline": "Enter for newline",
++"ui.promptInput.stop": "Pysäytä",
+   "ui.tabs.close": "Sulje välilehti",
+ }
+diff --git a/packages/ui/src/i18n/fo.ts b/packages/ui/src/i18n/fo.ts
+index 098ea8f..f985445 100644
+--- a/packages/ui/src/i18n/fo.ts
++++ b/packages/ui/src/i18n/fo.ts
+@@ -125,7 +125,8 @@ export const dict: Record<string, string> = {
+   "ui.promptInput.chooseModel": "Vel modell",
+   "ui.promptInput.chooseVariant": "Vel modellvariant",
+   "ui.promptInput.send": "Send",
+-  "ui.promptInput.stop": "Steðga",
++  "ui.promptInput.enterNewline": "Enter for newline",
++"ui.promptInput.stop": "Steðga",
+   "ui.tabs.close": "Lat flipan aftur",
+   "ui.textField.copyToClipboard": "Avrita til klippiborð",
+   "ui.textField.copyLink": "Avrita leinkju",
+diff --git a/packages/ui/src/i18n/fr.ts b/packages/ui/src/i18n/fr.ts
+index c008c2a..a11b8e8 100644
+--- a/packages/ui/src/i18n/fr.ts
++++ b/packages/ui/src/i18n/fr.ts
+@@ -136,7 +136,8 @@ export const dict = {
+   "ui.promptInput.chooseModel": "Choisir le modèle",
+   "ui.promptInput.chooseVariant": "Choisir la variante du modèle",
+   "ui.promptInput.send": "Envoyer",
+-  "ui.promptInput.stop": "Arrêter",
++  "ui.promptInput.enterNewline": "Entrée pour nouvelle ligne",
++"ui.promptInput.stop": "Arrêter",
+ 
+   "ui.tabs.close": "Fermer l'onglet",
+ 
+diff --git a/packages/ui/src/i18n/hi.ts b/packages/ui/src/i18n/hi.ts
+index 6da92d2..af7064a 100644
+--- a/packages/ui/src/i18n/hi.ts
++++ b/packages/ui/src/i18n/hi.ts
+@@ -126,7 +126,8 @@ export const dict: Record<string, string> = {
+   "ui.promptInput.chooseModel": "मॉडल चुनें",
+   "ui.promptInput.chooseVariant": "मॉडल वेरिएंट चुनें",
+   "ui.promptInput.send": "भेजें",
+-  "ui.promptInput.stop": "रोकें",
++  "ui.promptInput.enterNewline": "Enter for newline",
++"ui.promptInput.stop": "रोकें",
+ 
+   "ui.tabs.close": "टैब बंद करें",
+   "ui.textField.copyToClipboard": "क्लिपबोर्ड पर कॉपी करें",
+diff --git a/packages/ui/src/i18n/hr.ts b/packages/ui/src/i18n/hr.ts
+index 4eb129c..ed94e58 100644
+--- a/packages/ui/src/i18n/hr.ts
++++ b/packages/ui/src/i18n/hr.ts
+@@ -130,7 +130,8 @@ export const dict: Record<string, string> = {
+   "ui.promptInput.chooseModel": "Odaberite model",
+   "ui.promptInput.chooseVariant": "Odaberite varijantu modela",
+   "ui.promptInput.send": "Poslati",
+-  "ui.promptInput.stop": "Zaustavi",
++  "ui.promptInput.enterNewline": "Enter for newline",
++"ui.promptInput.stop": "Zaustavi",
+   "ui.tabs.close": "Zatvori karticu",
+   "ui.textField.copyToClipboard": "Kopiraj u međuspremnik",
+   "ui.textField.copyLink": "Kopiraj vezu",
+diff --git a/packages/ui/src/i18n/hu.ts b/packages/ui/src/i18n/hu.ts
+index b4d61b4..407544e 100644
+--- a/packages/ui/src/i18n/hu.ts
++++ b/packages/ui/src/i18n/hu.ts
+@@ -127,7 +127,8 @@ export const dict: Record<string, string> = {
+   "ui.promptInput.chooseModel": "Válasszon modellt",
+   "ui.promptInput.chooseVariant": "Válasszon modellváltozatot",
+   "ui.promptInput.send": "Elküld",
+-  "ui.promptInput.stop": "Leállítás",
++  "ui.promptInput.enterNewline": "Enter for newline",
++"ui.promptInput.stop": "Leállítás",
+   "ui.tabs.close": "Lap bezárása",
+   "ui.textField.copyToClipboard": "Másolás a vágólapra",
+   "ui.textField.copyLink": "Link másolása",
+diff --git a/packages/ui/src/i18n/hy.ts b/packages/ui/src/i18n/hy.ts
+index 39f073c..d8ad237 100644
+--- a/packages/ui/src/i18n/hy.ts
++++ b/packages/ui/src/i18n/hy.ts
+@@ -125,7 +125,8 @@ export const dict: Record<string, string> = {
+   "ui.promptInput.chooseModel": "Ընտրեք մոդել",
+   "ui.promptInput.chooseVariant": "Ընտրեք մոդելի տարբերակը",
+   "ui.promptInput.send": "Ուղարկել",
+-  "ui.promptInput.stop": "Կանգնեցնել",
++  "ui.promptInput.enterNewline": "Enter for newline",
++"ui.promptInput.stop": "Կանգնեցնել",
+   "ui.tabs.close": "Փակել ներդիրը",
+   "ui.textField.copyToClipboard": "Պատճենել սեղմատախտակին",
+   "ui.textField.copyLink": "Պատճենել հղումը",
+diff --git a/packages/ui/src/i18n/id.ts b/packages/ui/src/i18n/id.ts
+index 22e4d46..9ff4f30 100644
+--- a/packages/ui/src/i18n/id.ts
++++ b/packages/ui/src/i18n/id.ts
+@@ -136,7 +136,8 @@ export const dict: Record<string, string> = {
+   "ui.promptInput.chooseModel": "Pilih model",
+   "ui.promptInput.chooseVariant": "Pilih varian model",
+   "ui.promptInput.send": "Kirim",
+-  "ui.promptInput.stop": "Hentikan",
++  "ui.promptInput.enterNewline": "Enter for newline",
++"ui.promptInput.stop": "Hentikan",
+ 
+   "ui.tabs.close": "Tutup tab",
+ 
+diff --git a/packages/ui/src/i18n/is.ts b/packages/ui/src/i18n/is.ts
+index 7b3bf0f..ebe7a61 100644
+--- a/packages/ui/src/i18n/is.ts
++++ b/packages/ui/src/i18n/is.ts
+@@ -125,7 +125,8 @@ export const dict: Record<string, string> = {
+   "ui.promptInput.chooseModel": "Veldu líkan",
+   "ui.promptInput.chooseVariant": "Veldu gerð afbrigði",
+   "ui.promptInput.send": "Senda",
+-  "ui.promptInput.stop": "Stöðva",
++  "ui.promptInput.enterNewline": "Enter for newline",
++"ui.promptInput.stop": "Stöðva",
+   "ui.tabs.close": "Loka flipa",
+   "ui.textField.copyToClipboard": "Afritaðu á klemmuspjald",
+   "ui.textField.copyLink": "Afritaðu tengil",
+diff --git a/packages/ui/src/i18n/it.ts b/packages/ui/src/i18n/it.ts
+index 9d104a6..dbb2516 100644
+--- a/packages/ui/src/i18n/it.ts
++++ b/packages/ui/src/i18n/it.ts
+@@ -130,7 +130,8 @@ export const dict: Record<string, string> = {
+   "ui.promptInput.chooseModel": "Scegli modello",
+   "ui.promptInput.chooseVariant": "Scegli variante del modello",
+   "ui.promptInput.send": "Invia",
+-  "ui.promptInput.stop": "Interrompi",
++  "ui.promptInput.enterNewline": "Enter for newline",
++"ui.promptInput.stop": "Interrompi",
+   "ui.tabs.close": "Chiudi scheda",
+   "ui.textField.copyToClipboard": "Copia negli appunti",
+   "ui.textField.copyLink": "Copia collegamento",
+diff --git a/packages/ui/src/i18n/ja.ts b/packages/ui/src/i18n/ja.ts
+index 1b32e05..f83065e 100644
+--- a/packages/ui/src/i18n/ja.ts
++++ b/packages/ui/src/i18n/ja.ts
+@@ -129,7 +129,8 @@ export const dict = {
+   "ui.promptInput.chooseModel": "モデルを選択",
+   "ui.promptInput.chooseVariant": "モデルバリアントを選択",
+   "ui.promptInput.send": "送信",
+-  "ui.promptInput.stop": "停止",
++  "ui.promptInput.enterNewline": "Enterで改行",
++"ui.promptInput.stop": "停止",
+ 
+   "ui.tabs.close": "タブを閉じる",
+ 
+diff --git a/packages/ui/src/i18n/ka.ts b/packages/ui/src/i18n/ka.ts
+index 68f19bc..bbfec04 100644
+--- a/packages/ui/src/i18n/ka.ts
++++ b/packages/ui/src/i18n/ka.ts
+@@ -125,7 +125,8 @@ export const dict: Record<string, string> = {
+   "ui.promptInput.chooseModel": "აირჩიე მოდელი",
+   "ui.promptInput.chooseVariant": "აირჩიე მოდელის ვარიანტი",
+   "ui.promptInput.send": "გაგზავნა",
+-  "ui.promptInput.stop": "შეჩერება",
++  "ui.promptInput.enterNewline": "Enter for newline",
++"ui.promptInput.stop": "შეჩერება",
+   "ui.tabs.close": "ჩანართის დახურვა",
+   "ui.textField.copyToClipboard": "ასლი ბუფერში",
+   "ui.textField.copyLink": "ბმულის კოპირება",
+diff --git a/packages/ui/src/i18n/km.ts b/packages/ui/src/i18n/km.ts
+index b50e9c5..5baf68b 100644
+--- a/packages/ui/src/i18n/km.ts
++++ b/packages/ui/src/i18n/km.ts
+@@ -126,7 +126,8 @@ export const dict = {
+   "ui.promptInput.chooseModel": "ជ្រើសរើសម៉ូដែល",
+   "ui.promptInput.chooseVariant": "ជ្រើសរើសវ៉ារ្យ៉ង់ម៉ូដែល",
+   "ui.promptInput.send": "ផ្ញើ",
+-  "ui.promptInput.stop": "ឈប់",
++  "ui.promptInput.enterNewline": "Enter for newline",
++"ui.promptInput.stop": "ឈប់",
+   "ui.tabs.close": "បិទផ្ទាំង",
+   "ui.textField.copyToClipboard": "ចម្លងទៅក្ដារតម្បៀតខ្ទាស់",
+   "ui.textField.copyLink": "ចម្លងតំណ",
+diff --git a/packages/ui/src/i18n/ko.ts b/packages/ui/src/i18n/ko.ts
+index 942fa87..f754a3b 100644
+--- a/packages/ui/src/i18n/ko.ts
++++ b/packages/ui/src/i18n/ko.ts
+@@ -106,7 +106,8 @@ export const dict = {
+   "ui.promptInput.chooseModel": "모델 선택",
+   "ui.promptInput.chooseVariant": "모델 변형 선택",
+   "ui.promptInput.send": "전송",
+-  "ui.promptInput.stop": "중지",
++  "ui.promptInput.enterNewline": "Enter로 줄바꿈",
++"ui.promptInput.stop": "중지",
+ 
+   "ui.tabs.close": "탭 닫기",
+ 
+diff --git a/packages/ui/src/i18n/lo.ts b/packages/ui/src/i18n/lo.ts
+index 5053377..979bc90 100644
+--- a/packages/ui/src/i18n/lo.ts
++++ b/packages/ui/src/i18n/lo.ts
+@@ -125,7 +125,8 @@ export const dict = {
+   "ui.promptInput.chooseModel": "ເລືອກຕົວແບບ",
+   "ui.promptInput.chooseVariant": "ເລືອກຕົວແປຕົວແບບ",
+   "ui.promptInput.send": "ສົ່ງ",
+-  "ui.promptInput.stop": "ຢຸດ",
++  "ui.promptInput.enterNewline": "Enter for newline",
++"ui.promptInput.stop": "ຢຸດ",
+   "ui.tabs.close": "ປິດແຖບ",
+   "ui.textField.copyToClipboard": "ສຳເນົາໃສ່ຄລິບບອດ",
+   "ui.textField.copyLink": "ສຳເນົາລິ້ງ",
+diff --git a/packages/ui/src/i18n/lt.ts b/packages/ui/src/i18n/lt.ts
+index da2e30d..213fbd9 100644
+--- a/packages/ui/src/i18n/lt.ts
++++ b/packages/ui/src/i18n/lt.ts
+@@ -133,7 +133,8 @@ export const dict: Record<string, string> = {
+   "ui.promptInput.chooseModel": "Pasirinkite modelį",
+   "ui.promptInput.chooseVariant": "Pasirinkite modelio variantą",
+   "ui.promptInput.send": "Siųsti",
+-  "ui.promptInput.stop": "Stabdyti",
++  "ui.promptInput.enterNewline": "Enter for newline",
++"ui.promptInput.stop": "Stabdyti",
+   "ui.tabs.close": "Uždaryti skirtuką",
+   "ui.textField.copyToClipboard": "Kopijuoti į mainų sritį",
+   "ui.textField.copyLink": "Nukopijuoti nuorodą",
+diff --git a/packages/ui/src/i18n/lv.ts b/packages/ui/src/i18n/lv.ts
+index 774b1af..07b49f5 100644
+--- a/packages/ui/src/i18n/lv.ts
++++ b/packages/ui/src/i18n/lv.ts
+@@ -129,7 +129,8 @@ export const dict: Record<string, string> = {
+   "ui.promptInput.chooseModel": "Izvēlies modeli",
+   "ui.promptInput.chooseVariant": "Izvēlies modeļa variantu",
+   "ui.promptInput.send": "Sūtīt",
+-  "ui.promptInput.stop": "Apturēt",
++  "ui.promptInput.enterNewline": "Enter for newline",
++"ui.promptInput.stop": "Apturēt",
+   "ui.tabs.close": "Aizvērt cilni",
+   "ui.textField.copyToClipboard": "Kopēt starpliktuvē",
+   "ui.textField.copyLink": "Kopēt saiti",
+diff --git a/packages/ui/src/i18n/mk.ts b/packages/ui/src/i18n/mk.ts
+index d154cac..324fd9e 100644
+--- a/packages/ui/src/i18n/mk.ts
++++ b/packages/ui/src/i18n/mk.ts
+@@ -125,7 +125,8 @@ export const dict = {
+   "ui.promptInput.chooseModel": "Изберете модел",
+   "ui.promptInput.chooseVariant": "Изберете варијанта на моделот",
+   "ui.promptInput.send": "Испрати",
+-  "ui.promptInput.stop": "Стоп",
++  "ui.promptInput.enterNewline": "Enter for newline",
++"ui.promptInput.stop": "Стоп",
+   "ui.tabs.close": "Затвори ја картичката",
+   "ui.textField.copyToClipboard": "Копирај во таблата со исечоци",
+   "ui.textField.copyLink": "Копирај ја врската",
+diff --git a/packages/ui/src/i18n/mn.ts b/packages/ui/src/i18n/mn.ts
+index dafe006..eeb1655 100644
+--- a/packages/ui/src/i18n/mn.ts
++++ b/packages/ui/src/i18n/mn.ts
+@@ -125,7 +125,8 @@ export const dict = {
+   "ui.promptInput.chooseModel": "Загвар сонгох",
+   "ui.promptInput.chooseVariant": "Загварын хувилбарыг сонгоно уу",
+   "ui.promptInput.send": "Илгээх",
+-  "ui.promptInput.stop": "Зогс",
++  "ui.promptInput.enterNewline": "Enter for newline",
++"ui.promptInput.stop": "Зогс",
+   "ui.tabs.close": "Табыг хаах",
+   "ui.textField.copyToClipboard": "Түр санах ойд хуулах",
+   "ui.textField.copyLink": "Холбоосыг хуулах",
+diff --git a/packages/ui/src/i18n/ms.ts b/packages/ui/src/i18n/ms.ts
+index f71223f..50ef1c7 100644
+--- a/packages/ui/src/i18n/ms.ts
++++ b/packages/ui/src/i18n/ms.ts
+@@ -125,7 +125,8 @@ export const dict: Record<string, string> = {
+   "ui.promptInput.chooseModel": "Pilih model",
+   "ui.promptInput.chooseVariant": "Pilih varian model",
+   "ui.promptInput.send": "Hantar",
+-  "ui.promptInput.stop": "Henti",
++  "ui.promptInput.enterNewline": "Enter for newline",
++"ui.promptInput.stop": "Henti",
+   "ui.tabs.close": "Tutup tab",
+   "ui.textField.copyToClipboard": "Salin ke papan klip",
+   "ui.textField.copyLink": "Salin pautan",
+diff --git a/packages/ui/src/i18n/my.ts b/packages/ui/src/i18n/my.ts
+index eab3b95..8fb5df6 100644
+--- a/packages/ui/src/i18n/my.ts
++++ b/packages/ui/src/i18n/my.ts
+@@ -126,7 +126,8 @@ export const dict = {
+   "ui.promptInput.chooseModel": "မော်ဒယ်ကို ရွေးပါ။",
+   "ui.promptInput.chooseVariant": "မော်ဒယ်အမျိုးအစားကို ရွေးပါ။",
+   "ui.promptInput.send": "ပို့ပါ။",
+-  "ui.promptInput.stop": "ရပ်ပါ။",
++  "ui.promptInput.enterNewline": "Enter for newline",
++"ui.promptInput.stop": "ရပ်ပါ။",
+   "ui.tabs.close": "တဘ်ကို ပိတ်ပါ။",
+   "ui.textField.copyToClipboard": "ကလစ်ဘုတ်သို့ ကူးယူပါ။",
+   "ui.textField.copyLink": "လင့်ခ်ကို ကူးယူပါ။",
+diff --git a/packages/ui/src/i18n/ne.ts b/packages/ui/src/i18n/ne.ts
+index bc3f840..2d58f47 100644
+--- a/packages/ui/src/i18n/ne.ts
++++ b/packages/ui/src/i18n/ne.ts
+@@ -127,7 +127,8 @@ export const dict: Record<string, string> = {
+   "ui.promptInput.chooseModel": "मोडेल छान्नुहोस्",
+   "ui.promptInput.chooseVariant": "मोडेल भेरियन्ट छान्नुहोस्",
+   "ui.promptInput.send": "पठाउनुहोस्",
+-  "ui.promptInput.stop": "रोक्नुहोस्",
++  "ui.promptInput.enterNewline": "Enter for newline",
++"ui.promptInput.stop": "रोक्नुहोस्",
+   "ui.tabs.close": "ट्याब बन्द गर्नुहोस्",
+   "ui.textField.copyToClipboard": "क्लिपबोर्डमा प्रतिलिपि गर्नुहोस्",
+   "ui.textField.copyLink": "लिङ्क प्रतिलिपि गर्नुहोस्",
+diff --git a/packages/ui/src/i18n/nl.ts b/packages/ui/src/i18n/nl.ts
+index 0a5fe58..de3a3ec 100644
+--- a/packages/ui/src/i18n/nl.ts
++++ b/packages/ui/src/i18n/nl.ts
+@@ -125,7 +125,8 @@ export const dict: Record<string, string> = {
+   "ui.promptInput.chooseModel": "Model kiezen",
+   "ui.promptInput.chooseVariant": "Modelvariant kiezen",
+   "ui.promptInput.send": "Verzenden",
+-  "ui.promptInput.stop": "Stoppen",
++  "ui.promptInput.enterNewline": "Enter for newline",
++"ui.promptInput.stop": "Stoppen",
+   "ui.tabs.close": "Tabblad sluiten",
+   "ui.textField.copyToClipboard": "Kopiëren naar klembord",
+   "ui.textField.copyLink": "Link kopiëren",
+diff --git a/packages/ui/src/i18n/no.ts b/packages/ui/src/i18n/no.ts
+index 0cdd653..2243833 100644
+--- a/packages/ui/src/i18n/no.ts
++++ b/packages/ui/src/i18n/no.ts
+@@ -109,7 +109,8 @@ export const dict: Record<Keys, string> = {
+   "ui.promptInput.chooseModel": "Velg modell",
+   "ui.promptInput.chooseVariant": "Velg modellvariant",
+   "ui.promptInput.send": "Send",
+-  "ui.promptInput.stop": "Stopp",
++  "ui.promptInput.enterNewline": "Enter for ny linje",
++"ui.promptInput.stop": "Stopp",
+ 
+   "ui.tabs.close": "Lukk fane",
+ 
+diff --git a/packages/ui/src/i18n/pa.ts b/packages/ui/src/i18n/pa.ts
+index 5ecb6b6..7a502c1 100644
+--- a/packages/ui/src/i18n/pa.ts
++++ b/packages/ui/src/i18n/pa.ts
+@@ -126,7 +126,8 @@ export const dict: Record<string, string> = {
+   "ui.promptInput.chooseModel": "ماڈل چنو",
+   "ui.promptInput.chooseVariant": "ماڈل دی قسم چنو",
+   "ui.promptInput.send": "گھلو",
+-  "ui.promptInput.stop": "روکو",
++  "ui.promptInput.enterNewline": "Enter for newline",
++"ui.promptInput.stop": "روکو",
+   "ui.tabs.close": "ٹیب بند کرو",
+   "ui.textField.copyToClipboard": "کلپ بورڈ تے کاپی کرو",
+   "ui.textField.copyLink": "لنک کاپی کرو",
+diff --git a/packages/ui/src/i18n/pl.ts b/packages/ui/src/i18n/pl.ts
+index 7181b00..fd43084 100644
+--- a/packages/ui/src/i18n/pl.ts
++++ b/packages/ui/src/i18n/pl.ts
+@@ -138,7 +138,8 @@ export const dict = {
+   "ui.promptInput.chooseModel": "Wybierz model",
+   "ui.promptInput.chooseVariant": "Wybierz wariant modelu",
+   "ui.promptInput.send": "Wyślij",
+-  "ui.promptInput.stop": "Zatrzymaj",
++  "ui.promptInput.enterNewline": "Enter = nowa linia",
++"ui.promptInput.stop": "Zatrzymaj",
+ 
+   "ui.tabs.close": "Zamknij kartę",
+ 
+diff --git a/packages/ui/src/i18n/ro.ts b/packages/ui/src/i18n/ro.ts
+index 6d187ca..1af2635 100644
+--- a/packages/ui/src/i18n/ro.ts
++++ b/packages/ui/src/i18n/ro.ts
+@@ -129,7 +129,8 @@ export const dict: Record<string, string> = {
+   "ui.promptInput.chooseModel": "Alege modelul",
+   "ui.promptInput.chooseVariant": "Alege varianta modelului",
+   "ui.promptInput.send": "Trimite",
+-  "ui.promptInput.stop": "Oprește",
++  "ui.promptInput.enterNewline": "Enter for newline",
++"ui.promptInput.stop": "Oprește",
+   "ui.tabs.close": "Închide fila",
+   "ui.textField.copyToClipboard": "Copiază în clipboard",
+   "ui.textField.copyLink": "Copiază linkul",
+diff --git a/packages/ui/src/i18n/ru.ts b/packages/ui/src/i18n/ru.ts
+index 2b73316..679ef9e 100644
+--- a/packages/ui/src/i18n/ru.ts
++++ b/packages/ui/src/i18n/ru.ts
+@@ -137,7 +137,8 @@ export const dict = {
+   "ui.promptInput.chooseModel": "Выбрать модель",
+   "ui.promptInput.chooseVariant": "Выбрать вариант модели",
+   "ui.promptInput.send": "Отправить",
+-  "ui.promptInput.stop": "Остановить",
++  "ui.promptInput.enterNewline": "Enter ↵",
++"ui.promptInput.stop": "Остановить",
+ 
+   "ui.tabs.close": "Закрыть вкладку",
+ 
+diff --git a/packages/ui/src/i18n/si.ts b/packages/ui/src/i18n/si.ts
+index 3550df3..dbfb1d8 100644
+--- a/packages/ui/src/i18n/si.ts
++++ b/packages/ui/src/i18n/si.ts
+@@ -125,7 +125,8 @@ export const dict: Record<string, string> = {
+   "ui.promptInput.chooseModel": "ආකෘතිය තෝරන්න",
+   "ui.promptInput.chooseVariant": "ආකෘති ප්රභේදය තෝරන්න",
+   "ui.promptInput.send": "යවන්න",
+-  "ui.promptInput.stop": "නවත්වන්න",
++  "ui.promptInput.enterNewline": "Enter for newline",
++"ui.promptInput.stop": "නවත්වන්න",
+   "ui.tabs.close": "ටැබ් එක වසන්න",
+   "ui.textField.copyToClipboard": "පසුරු පුවරුවට පිටපත් කරන්න",
+   "ui.textField.copyLink": "සබැඳිය පිටපත් කරන්න",
+diff --git a/packages/ui/src/i18n/sk.ts b/packages/ui/src/i18n/sk.ts
+index a8ec929..c60b6ab 100644
+--- a/packages/ui/src/i18n/sk.ts
++++ b/packages/ui/src/i18n/sk.ts
+@@ -133,7 +133,8 @@ export const dict: Record<string, string> = {
+   "ui.promptInput.chooseModel": "Vyberte model",
+   "ui.promptInput.chooseVariant": "Vyberte variant modelu",
+   "ui.promptInput.send": "Odoslať",
+-  "ui.promptInput.stop": "Zastaviť",
++  "ui.promptInput.enterNewline": "Enter for newline",
++"ui.promptInput.stop": "Zastaviť",
+   "ui.tabs.close": "Zavrieť kartu",
+   "ui.textField.copyToClipboard": "Kopírovať do schránky",
+   "ui.textField.copyLink": "Kopírovať odkaz",
+diff --git a/packages/ui/src/i18n/sl.ts b/packages/ui/src/i18n/sl.ts
+index 8d5718f..8a0c007 100644
+--- a/packages/ui/src/i18n/sl.ts
++++ b/packages/ui/src/i18n/sl.ts
+@@ -134,7 +134,8 @@ export const dict: Record<string, string> = {
+   "ui.promptInput.chooseModel": "Izberite model",
+   "ui.promptInput.chooseVariant": "Izberite različico modela",
+   "ui.promptInput.send": "Pošlji",
+-  "ui.promptInput.stop": "Ustavi",
++  "ui.promptInput.enterNewline": "Enter for newline",
++"ui.promptInput.stop": "Ustavi",
+   "ui.tabs.close": "Zapri zavihek",
+   "ui.textField.copyToClipboard": "Kopiraj v odložišče",
+   "ui.textField.copyLink": "Kopiraj povezavo",
+diff --git a/packages/ui/src/i18n/sq.ts b/packages/ui/src/i18n/sq.ts
+index 3c1cd24..4f8f6f6 100644
+--- a/packages/ui/src/i18n/sq.ts
++++ b/packages/ui/src/i18n/sq.ts
+@@ -125,7 +125,8 @@ export const dict: Record<string, string> = {
+   "ui.promptInput.chooseModel": "Zgjidhni modelin",
+   "ui.promptInput.chooseVariant": "Zgjidhni variantin e modelit",
+   "ui.promptInput.send": "Dërgo",
+-  "ui.promptInput.stop": "Ndalo",
++  "ui.promptInput.enterNewline": "Enter for newline",
++"ui.promptInput.stop": "Ndalo",
+   "ui.tabs.close": "Mbyll skedën",
+   "ui.textField.copyToClipboard": "Kopjo në kujtesën e fragmenteve",
+   "ui.textField.copyLink": "Kopjo lidhjen",
+diff --git a/packages/ui/src/i18n/sr.ts b/packages/ui/src/i18n/sr.ts
+index 9f090cd..fc9487e 100644
+--- a/packages/ui/src/i18n/sr.ts
++++ b/packages/ui/src/i18n/sr.ts
+@@ -130,7 +130,8 @@ export const dict = {
+   "ui.promptInput.chooseModel": "Изаберите модел",
+   "ui.promptInput.chooseVariant": "Изаберите варијанту модела",
+   "ui.promptInput.send": "Пошаљи",
+-  "ui.promptInput.stop": "Стоп",
++  "ui.promptInput.enterNewline": "Enter for newline",
++"ui.promptInput.stop": "Стоп",
+   "ui.tabs.close": "Затвори картицу",
+   "ui.textField.copyToClipboard": "Копирај у међуспремник",
+   "ui.textField.copyLink": "Копирај везу",
+diff --git a/packages/ui/src/i18n/sv.ts b/packages/ui/src/i18n/sv.ts
+index 3fcc6ff..fc45fb4 100644
+--- a/packages/ui/src/i18n/sv.ts
++++ b/packages/ui/src/i18n/sv.ts
+@@ -125,7 +125,8 @@ export const dict: Record<string, string> = {
+   "ui.promptInput.chooseModel": "Välj modell",
+   "ui.promptInput.chooseVariant": "Välj modellvariant",
+   "ui.promptInput.send": "Skicka",
+-  "ui.promptInput.stop": "Stoppa",
++  "ui.promptInput.enterNewline": "Enter for newline",
++"ui.promptInput.stop": "Stoppa",
+   "ui.tabs.close": "Stäng fliken",
+   "ui.textField.copyToClipboard": "Kopiera till urklipp",
+   "ui.textField.copyLink": "Kopiera länk",
+diff --git a/packages/ui/src/i18n/tg.ts b/packages/ui/src/i18n/tg.ts
+index 4c3e824..ec3488b 100644
+--- a/packages/ui/src/i18n/tg.ts
++++ b/packages/ui/src/i18n/tg.ts
+@@ -125,7 +125,8 @@ export const dict = {
+   "ui.promptInput.chooseModel": "Модели интихоб кунед",
+   "ui.promptInput.chooseVariant": "Варианти моделро интихоб кунед",
+   "ui.promptInput.send": "Фиристодан",
+-  "ui.promptInput.stop": "Ист",
++  "ui.promptInput.enterNewline": "Enter for newline",
++"ui.promptInput.stop": "Ист",
+   "ui.tabs.close": "Варақаро пӯшед",
+   "ui.textField.copyToClipboard": "Ба буфер нусхабардорӣ кунед",
+   "ui.textField.copyLink": "Истиноди нусхабардорӣ",
+diff --git a/packages/ui/src/i18n/th.ts b/packages/ui/src/i18n/th.ts
+index ae0d820..aeb6ffd 100644
+--- a/packages/ui/src/i18n/th.ts
++++ b/packages/ui/src/i18n/th.ts
+@@ -130,7 +130,8 @@ export const dict = {
+   "ui.promptInput.chooseModel": "เลือกโมเดล",
+   "ui.promptInput.chooseVariant": "เลือกรูปแบบโมเดล",
+   "ui.promptInput.send": "ส่ง",
+-  "ui.promptInput.stop": "หยุด",
++  "ui.promptInput.enterNewline": "Enter สำหรับขึ้นบรรทัดใหม่",
++"ui.promptInput.stop": "หยุด",
+ 
+   "ui.tabs.close": "ปิดแท็บ",
+ 
+diff --git a/packages/ui/src/i18n/tk.ts b/packages/ui/src/i18n/tk.ts
+index e1bf432..927822c 100644
+--- a/packages/ui/src/i18n/tk.ts
++++ b/packages/ui/src/i18n/tk.ts
+@@ -125,7 +125,8 @@ export const dict: Record<string, string> = {
+   "ui.promptInput.chooseModel": "Model saýlaň",
+   "ui.promptInput.chooseVariant": "Model görnüşini saýlaň",
+   "ui.promptInput.send": "Iber",
+-  "ui.promptInput.stop": "Dur",
++  "ui.promptInput.enterNewline": "Enter for newline",
++"ui.promptInput.stop": "Dur",
+   "ui.tabs.close": "Salgy ýapyň",
+   "ui.textField.copyToClipboard": "Paneli göçüriň",
+   "ui.textField.copyLink": "Baglanyşygy göçüriň",
+diff --git a/packages/ui/src/i18n/tr.ts b/packages/ui/src/i18n/tr.ts
+index e0b6fd0..c6fc0d2 100644
+--- a/packages/ui/src/i18n/tr.ts
++++ b/packages/ui/src/i18n/tr.ts
+@@ -136,7 +136,8 @@ export const dict = {
+   "ui.promptInput.chooseModel": "Model seç",
+   "ui.promptInput.chooseVariant": "Model varyantı seç",
+   "ui.promptInput.send": "Gönder",
+-  "ui.promptInput.stop": "Durdur",
++  "ui.promptInput.enterNewline": "Enter ile yeni satır",
++"ui.promptInput.stop": "Durdur",
+ 
+   "ui.tabs.close": "Sekmeyi kapat",
+ 
+diff --git a/packages/ui/src/i18n/uk.ts b/packages/ui/src/i18n/uk.ts
+index 9643b52..8b6c25a 100644
+--- a/packages/ui/src/i18n/uk.ts
++++ b/packages/ui/src/i18n/uk.ts
+@@ -145,7 +145,8 @@ export const dict: Record<string, string> = {
+   "ui.promptInput.chooseModel": "Вибрати модель",
+   "ui.promptInput.chooseVariant": "Вибрати варіант моделі",
+   "ui.promptInput.send": "Надіслати",
+-  "ui.promptInput.stop": "Зупинити",
++  "ui.promptInput.enterNewline": "Enter ↵",
++"ui.promptInput.stop": "Зупинити",
+ 
+   "ui.tabs.close": "Закрити вкладку",
+ 
+diff --git a/packages/ui/src/i18n/ur.ts b/packages/ui/src/i18n/ur.ts
+index b9aaa42..fc5f760 100644
+--- a/packages/ui/src/i18n/ur.ts
++++ b/packages/ui/src/i18n/ur.ts
+@@ -126,7 +126,8 @@ export const dict: Record<string, string> = {
+   "ui.promptInput.chooseModel": "ماڈل منتخب کریں",
+   "ui.promptInput.chooseVariant": "ماڈل کی قسم منتخب کریں",
+   "ui.promptInput.send": "بھیجیں",
+-  "ui.promptInput.stop": "روکیں",
++  "ui.promptInput.enterNewline": "Enter for newline",
++"ui.promptInput.stop": "روکیں",
+   "ui.tabs.close": "ٹیب بند کریں",
+   "ui.textField.copyToClipboard": "کلپ بورڈ پر کاپی کریں۔",
+   "ui.textField.copyLink": "لنک کاپی کریں۔",
+diff --git a/packages/ui/src/i18n/uz.ts b/packages/ui/src/i18n/uz.ts
+index c1a1e67..e12be5d 100644
+--- a/packages/ui/src/i18n/uz.ts
++++ b/packages/ui/src/i18n/uz.ts
+@@ -128,7 +128,8 @@ export const dict: Record<string, string> = {
+   "ui.promptInput.chooseModel": "Modelni tanlang",
+   "ui.promptInput.chooseVariant": "Model variantini tanlang",
+   "ui.promptInput.send": "Yuborish",
+-  "ui.promptInput.stop": "To'xtang",
++  "ui.promptInput.enterNewline": "Enter for newline",
++"ui.promptInput.stop": "To'xtang",
+   "ui.tabs.close": "Tabni yoping",
+   "ui.textField.copyToClipboard": "Buferga nusxalash",
+   "ui.textField.copyLink": "Havolani nusxalash",
+diff --git a/packages/ui/src/i18n/vi.ts b/packages/ui/src/i18n/vi.ts
+index c37ff1a..0932124 100644
+--- a/packages/ui/src/i18n/vi.ts
++++ b/packages/ui/src/i18n/vi.ts
+@@ -125,7 +125,8 @@ export const dict: Record<string, string> = {
+   "ui.promptInput.chooseModel": "Chọn mô hình",
+   "ui.promptInput.chooseVariant": "Chọn biến thể mô hình",
+   "ui.promptInput.send": "Gửi",
+-  "ui.promptInput.stop": "Dừng",
++  "ui.promptInput.enterNewline": "Enter for newline",
++"ui.promptInput.stop": "Dừng",
+   "ui.tabs.close": "Đóng tab",
+   "ui.textField.copyToClipboard": "Sao chép vào bảng tạm",
+   "ui.textField.copyLink": "Sao chép liên kết",
+diff --git a/packages/ui/src/i18n/zh.ts b/packages/ui/src/i18n/zh.ts
+index c5a33ef..69a48c5 100644
+--- a/packages/ui/src/i18n/zh.ts
++++ b/packages/ui/src/i18n/zh.ts
+@@ -132,7 +132,8 @@ export const dict = {
+   "ui.promptInput.chooseModel": "选择模型",
+   "ui.promptInput.chooseVariant": "选择模型变体",
+   "ui.promptInput.send": "发送",
+-  "ui.promptInput.stop": "停止",
++  "ui.promptInput.enterNewline": "Enter 换行",
++"ui.promptInput.stop": "停止",
+ 
+   "ui.tabs.close": "关闭标签页",
+ 
+diff --git a/packages/ui/src/i18n/zht.ts b/packages/ui/src/i18n/zht.ts
+index 736a796..0c2c96e 100644
+--- a/packages/ui/src/i18n/zht.ts
++++ b/packages/ui/src/i18n/zht.ts
+@@ -132,7 +132,8 @@ export const dict = {
+   "ui.promptInput.chooseModel": "選擇模型",
+   "ui.promptInput.chooseVariant": "選擇模型變體",
+   "ui.promptInput.send": "傳送",
+-  "ui.promptInput.stop": "停止",
++  "ui.promptInput.enterNewline": "Enter 換行",
++"ui.promptInput.stop": "停止",
+ 
+   "ui.tabs.close": "關閉分頁",
+ 
