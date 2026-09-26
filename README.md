@@ -15,7 +15,7 @@ A computer must be free to switch between multiple keys and accounts at will to 
 ## Key Features
 
 ### Distraction-Free Workspace
-- **Removed:** Go subscription upsell dialogs and retry limits.
+- **Removed:** Go subscription upsell dialogs, retry limits, and hard stops on quota errors.
 - **Removed:** External cloud sharing (share button, menus, commands, and publishing UI).
 - **Removed:** Help icon (which previously linked to an external Discord server / feedback tracker).
 
@@ -28,7 +28,9 @@ Why proxy through the server instead of keeping it in the browser? If CPU, works
 Store multiple API keys per provider in a local, user-restricted JSON file (`auth-pool.json`).
 - The CLI (`opencode auth login`) becomes an interactive account manager.
 - The WebUI gains a "Manage Accounts" screen after connecting a provider.
-- If a key hits rate limits, the system auto-rotates to the next key in your pool instead of prompting you to subscribe to a Go plan.
+- Errors never hard-stop your session: when a key hits rate limits or quota exhaustion, it rotates to the next pool key and resumes in about 2 seconds.
+- If every pooled key is cooling down, the retry waits only until the earliest key recovers.
+- Single-account use keeps the classic behavior: `Retry-After` is honored and the session keeps retrying instead of stopping.
 
 ### The Enter Key & Quota Protection
 Anyone typing in Japanese, Chinese, or other IME environments knows the frustration: you press `Enter` to confirm a character, type a bit too fast, hit `Enter` again, and your half-finished message is instantly sent. In the official OpenCode, this accident wastes your precious API rate limits.
@@ -125,7 +127,7 @@ If you want to revert back to the original unmodified binary:
 |---|-------|--------|-------------|
 | 1 | `version.patch` | Version split | Shows `(Tate Patched 4)` in UI (CLI `--version`, health, TUI), while outbound User-Agents identify as clean `opencode/1.18.31` via `InstallationClientVersion` |
 | 2 | `webapp-storage-proxy.patch` | Local persistence | Proxies webapp localStorage requests to server and persists layout config locally |
-| 3 | `auth-pool.patch` | Multi-account pool | Implements auth key pool management (CRUD backend APIs, WebUI connected badge & config page, CLI commands, and auto-rotation on quota error) including localized language keys |
+| 3 | `auth-pool.patch` | Multi-account pool | Implements auth key pool management (CRUD backend APIs, WebUI connected badge & config page, CLI commands) with auto-rotation on quota or long waits and a no-hard-stop retry policy, including localized language keys |
 | 4 | `ctrl-enter-send.patch` | Keyboard input | Rebinds Enter to newline and Ctrl/Cmd+Enter to send, adding UI tray hint with all translations |
 | 5 | `remove-help-button.patch` | Help button | Removes the sidebar help icon linking to an external Discord server |
 | 6 | `remove-share.patch` | Cloud share | Removes the cloud session publishing feature entirely (menus, commands, share button) |
@@ -175,7 +177,7 @@ Tate Patchは、中央集権的な依存関係を排し、プライバシーを�
 ## 主な機能
 
 ### ノイズのないクリーンな作業環境
-- **Goアップセルの排除**: 使用上限に達した際の有料プランへの誘導広告や文言を完全に削除しました。
+- **Goアップセルの排除**: 使用上限に達した際の有料プランへの誘導広告や文言、およびエラー時のセッション停止を完全に削除しました。
 - **共有機能の完全削除**: クラウドへの公開を伴う「共有」機能（共有ボタン、メニュー、コマンド、公開UI）を全て削除しました。
 - **ヘルプボタンの削除**: 外部のDiscordサーバーや開発元への接続経路となるだけのサイドバーアイコンを削除しました。
 
@@ -187,7 +189,9 @@ Tate Patchは、中央集権的な依存関係を排し、プライバシーを�
 プロバイダごとに複数のAPIキーを、ローカルの安全な `auth-pool.json`（ファイルパーミッションは所有者のみの `0o600`）に保存し、管理できます。
 - CLIコマンド (`opencode auth login`) を、対話型で複数のキーを切り替え・整理できるアカウント管理メニューへ変更しました。
 - WebUIの接続ダイアログにも、登録済みのキー一覧を直感的に操作できる「アカウント管理」画面を追加しました。
-- 使用中のキーが利用制限に達した際、サブスクリプション購入を促す代わりに、プール内の別のキーへ自動的にローテーションを行います。
+- エラー時にセッションが意図せず停止することはありません。利用制限やクォータ枯渇時はプール内の別キーへ自動ローテーションし、約2秒で再開します。
+- プール全体が待機中の場合は、最も早く回復するキーの待ち時間だけを待って再試行します。
+- 1アカウントのみで利用する場合も、プロバイダの `Retry-After` を尊重しながら再試行し続け、停止しません。
 
 ### Enterキーの挙動変更とクォータ保護
 日本語や中国語などのIME（かな漢字変換）環境において、文字の確定に`Enter`キーは欠かせません。しかし、公式のOpenCodeでは`Enter`キーが即座にメッセージ送信に結びついています。文字確定のつもりで誤ってダブルプレスすると、書きかけのメッセージが意図せず送信され、貴重なAPI利用枠（クォータ）を無駄に消費してしまいます。
@@ -285,7 +289,7 @@ Tate Patchは、中央集権的な依存関係を排し、プライバシーを�
 |---|---------|------|------|
 | 1 | `version.patch` | バージョン表記 | UIでは `(Tate Patched 4)` を表示しつつ、対外的なUser-Agentは `InstallationClientVersion` によりクリーンな `opencode/1.18.31` として識別（表示と送信の分離） |
 | 2 | `webapp-storage-proxy.patch` | 設定のローカル永続化 | localStorageの操作をサーバーへ転送し、レイアウト設定をPC上に保存 |
-| 3 | `auth-pool.patch` | 複数アカウントプール | APIキーのローカルプール管理機能（バックエンドAPI、CLI/WebUI管理画面、Connectedバッジ、クォータ時の自動ローテーション）と関連言語ラベルを実装 |
+| 3 | `auth-pool.patch` | 複数アカウントプール | APIキーのローカルプール管理機能（バックエンドAPI、CLI/WebUI管理画面、Connectedバッジ）と、クォータ・長時間待機時の自動ローテーション、および意図せぬ停止を防ぐリトライポリシー、関連言語ラベルを実装 |
 | 4 | `ctrl-enter-send.patch` | キーボード入力 | Enterを改行、Ctrl+Enterを送信にマッピング変更し、入力欄のヒント（多言語対応）を追加 |
 | 5 | `remove-help-button.patch` | ヘルプリンク削除 | サイドバー上の外部Discordサーバーへ遷移するヘルプボタンを削除 |
 | 6 | `remove-share.patch` | 共有機能の削除 | セッションのクラウド共有機能（共有ボタン・メニュー・コマンド）を完全に削除 |

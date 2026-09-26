@@ -1624,10 +1624,10 @@ index d56fa3d1f4..4f3c372205 100644
  }
 diff --git a/packages/opencode/src/auth/pool.ts b/packages/opencode/src/auth/pool.ts
 new file mode 100644
-index 0000000000..ac2631e8d4
+index 0000000000..8a139270ba
 --- /dev/null
 +++ b/packages/opencode/src/auth/pool.ts
-@@ -0,0 +1,279 @@
+@@ -0,0 +1,282 @@
 +import path from "path"
 +import crypto from "crypto"
 +import { Effect, Layer, Schema, Context, Option } from "effect"
@@ -1651,6 +1651,8 @@ index 0000000000..ac2631e8d4
 +  label?: string
 +  exhausted: boolean
 +  key?: string
++  // When every pooled key is cooling down: ms until the earliest recovery.
++  waitMs?: number
 +}
 +
 +export interface Interface {
@@ -1899,7 +1901,8 @@ index 0000000000..ac2631e8d4
 +      }
 +      if (!bestKey) bestKey = getMain(data, providerID)
 +      if (cooldownChanged) yield* writePool(fsys, data)
-+      return { switched: false, exhausted: false, key: bestKey } as RotateResult
++      const waitMs = Number.isFinite(bestTime) ? Math.max(0, bestTime - Date.now()) : undefined
++      return { switched: false, exhausted: false, key: bestKey, waitMs } as RotateResult
 +    })
 +
 +    return Service.of({ list, add, removeByKey, switchByKey, count, resetToMain, rotate })
@@ -2188,6 +2191,75 @@ index 49f43f0154..76bd4d173b 100644
        HttpApiEndpoint.post("log", ControlPaths.log, {
          query: LogQuery,
          payload: LogInput,
+diff --git a/packages/opencode/src/server/routes/instance/httpapi/groups/persist.ts b/packages/opencode/src/server/routes/instance/httpapi/groups/persist.ts
+new file mode 100644
+index 0000000000..3d6fb3f675
+--- /dev/null
++++ b/packages/opencode/src/server/routes/instance/httpapi/groups/persist.ts
+@@ -0,0 +1,63 @@
++import { HttpApi, HttpApiEndpoint, HttpApiGroup, OpenApi } from "effect/unstable/httpapi"
++import { Schema } from "effect"
++import { Authorization } from "../middleware/authorization"
++import { InstanceContextMiddleware } from "../middleware/instance-context"
++import { WorkspaceRoutingMiddleware, WorkspaceRoutingQuery } from "../middleware/workspace-routing"
++import { described } from "./metadata"
++
++const root = "/persist"
++
++const PersistParams = Schema.Struct({
++  key: Schema.String,
++})
++
++export const PersistApi = HttpApi.make("persist")
++  .add(
++    HttpApiGroup.make("persist")
++      .add(
++        HttpApiEndpoint.get("get", `${root}/:key`, {
++          params: PersistParams,
++          success: described(Schema.String, "Stored value"),
++          error: Schema.Struct({ message: Schema.String }),
++        }).annotateMerge(
++          OpenApi.annotations({
++            identifier: "persist.get",
++            summary: "Get persisted value",
++          }),
++        ),
++        HttpApiEndpoint.put("set", `${root}/:key`, {
++          params: PersistParams,
++          payload: Schema.String,
++          success: Schema.Void,
++          error: Schema.Struct({ message: Schema.String }),
++        }).annotateMerge(
++          OpenApi.annotations({
++            identifier: "persist.set",
++            summary: "Set persisted value",
++          }),
++        ),
++        HttpApiEndpoint.delete("remove", `${root}/:key`, {
++          params: PersistParams,
++          success: Schema.Void,
++          error: Schema.Struct({ message: Schema.String }),
++        }).annotateMerge(
++          OpenApi.annotations({
++            identifier: "persist.remove",
++            summary: "Remove persisted value",
++          }),
++        ),
++      )
++      .annotateMerge(
++        OpenApi.annotations({
++          title: "persist",
++          description: "Key-value persistence for UI state.",
++        }),
++      )
++      .middleware(Authorization),
++  )
++  .annotateMerge(
++    OpenApi.annotations({
++      title: "opencode persistence HttpApi",
++      version: "0.0.1",
++    }),
++  )
 diff --git a/packages/opencode/src/server/routes/instance/httpapi/handlers/control.ts b/packages/opencode/src/server/routes/instance/httpapi/handlers/control.ts
 index 9974b19b4d..2aa96350e3 100644
 --- a/packages/opencode/src/server/routes/instance/httpapi/handlers/control.ts
@@ -2308,27 +2380,64 @@ index 9974b19b4d..2aa96350e3 100644
 +  return key.slice(0, 8) + "..." + key.slice(-4)
 +}
 diff --git a/packages/opencode/src/server/routes/instance/httpapi/handlers/persist.ts b/packages/opencode/src/server/routes/instance/httpapi/handlers/persist.ts
-index 375d168654..07d54023b3 100644
---- a/packages/opencode/src/server/routes/instance/httpapi/handlers/persist.ts
+new file mode 100644
+index 0000000000..07d54023b3
+--- /dev/null
 +++ b/packages/opencode/src/server/routes/instance/httpapi/handlers/persist.ts
-@@ -2,7 +2,7 @@ import { Effect } from "effect"
- import { HttpApiBuilder } from "effect/unstable/httpapi"
- import * as HttpServerResponse from "effect/unstable/http/HttpServerResponse"
- import { InstanceHttpApi } from "../api"
--import { AppFileSystem } from "@opencode-ai/core/filesystem"
+@@ -0,0 +1,53 @@
++import { Effect } from "effect"
++import { HttpApiBuilder } from "effect/unstable/httpapi"
++import * as HttpServerResponse from "effect/unstable/http/HttpServerResponse"
++import { InstanceHttpApi } from "../api"
 +import { FSUtil } from "@opencode-ai/core/fs-util"
- import { Path as GlobalPath } from "@opencode-ai/core/global"
- import path from "path"
- import { unlink } from "fs/promises"
-@@ -16,7 +16,7 @@ function filePath(dir: string, key: string) {
- 
- export const persistHandlers = HttpApiBuilder.group(InstanceHttpApi, "persist", (handlers) =>
-   Effect.gen(function* () {
--    const fs = yield* AppFileSystem.Service
++import { Path as GlobalPath } from "@opencode-ai/core/global"
++import path from "path"
++import { unlink } from "fs/promises"
++
++const PERSIST_DIR = "persist"
++
++function filePath(dir: string, key: string) {
++  const safe = (s: string) => s.replace(/[^a-zA-Z0-9._-]/g, "_")
++  return path.join(dir, PERSIST_DIR, safe(key)) + ".json"
++}
++
++export const persistHandlers = HttpApiBuilder.group(InstanceHttpApi, "persist", (handlers) =>
++  Effect.gen(function* () {
 +    const fs = yield* FSUtil.Service
-     const dataDir = path.join(GlobalPath.data, "storage")
- 
-     const get = Effect.fn("PersistHttpApi.get")(function* (ctx: {
++    const dataDir = path.join(GlobalPath.data, "storage")
++
++    const get = Effect.fn("PersistHttpApi.get")(function* (ctx: {
++      params: { key: string }
++    }) {
++      const target = filePath(dataDir, ctx.params.key)
++      const content = yield* fs.readFileStringSafe(target)
++      if (content === undefined) {
++        return HttpServerResponse.text("", { status: 404 as const })
++      }
++      return HttpServerResponse.text(content, { contentType: "application/json" })
++    })
++
++    const set = Effect.fn("PersistHttpApi.set")(function* (ctx: {
++      params: { key: string }
++      payload: string
++    }) {
++      const target = filePath(dataDir, ctx.params.key)
++      yield* fs.writeWithDirs(target, ctx.payload)
++    })
++
++    const remove = Effect.fn("PersistHttpApi.remove")(function* (ctx: {
++      params: { key: string }
++    }) {
++      const target = filePath(dataDir, ctx.params.key)
++      yield* Effect.tryPromise(() => unlink(target)).pipe(Effect.catch(() => Effect.void))
++    })
++
++    return handlers
++      .handle("get", get)
++      .handle("set", set)
++      .handle("remove", remove)
++  }),
++)
 diff --git a/packages/opencode/src/server/routes/instance/httpapi/server.ts b/packages/opencode/src/server/routes/instance/httpapi/server.ts
 index 2347d7f053..4153905855 100644
 --- a/packages/opencode/src/server/routes/instance/httpapi/server.ts
@@ -2386,7 +2495,7 @@ index 9b3f2c46f4..c74514307b 100644
              type: "text",
              text: part.text,
 diff --git a/packages/opencode/src/session/processor.ts b/packages/opencode/src/session/processor.ts
-index 9f8530929c..80b9610846 100644
+index 9f8530929c..eb96637dd6 100644
 --- a/packages/opencode/src/session/processor.ts
 +++ b/packages/opencode/src/session/processor.ts
 @@ -9,6 +9,8 @@ import { Config } from "@/config/config"
@@ -2398,7 +2507,7 @@ index 9f8530929c..80b9610846 100644
  import { Session } from "./session"
  import { LLM } from "./llm"
  import { MessageV2 } from "./message-v2"
-@@ -27,6 +29,22 @@ import { Database } from "@opencode-ai/core/database/database"
+@@ -27,6 +29,27 @@ import { Database } from "@opencode-ai/core/database/database"
  import { Usage, type LLMEvent } from "@opencode-ai/llm"
  
  const DOOM_LOOP_THRESHOLD = 3
@@ -2406,6 +2515,11 @@ index 9f8530929c..80b9610846 100644
 +// Session-level auth key overrides (auto-rotation only affects session, not global auth)
 +const sessionAuthKeys = new Map<string, Record<string, string>>()
 +const shownExhaustion = new Set<string>()
++
++// A retry hint longer than this triggers account rotation instead of a long wait.
++const ROTATE_LONG_WAIT_THRESHOLD_MS = 60_000
++// After switching to another pooled account, retry almost immediately.
++const ROTATION_RETRY_DELAY_MS = 2_000
 +
 +export function clearProviderPoolExhaustion(providerID: string) {
 +  for (const keys of sessionAuthKeys.values()) {
@@ -2421,7 +2535,7 @@ index 9f8530929c..80b9610846 100644
  export type Result = "compact" | "stop" | "continue"
  
  export interface Handle {
-@@ -94,6 +112,8 @@ const layer = Layer.effect(
+@@ -94,6 +117,8 @@ const layer = Layer.effect(
      const image = yield* Image.Service
      const events = yield* EventV2Bridge.Service
      const database = yield* Database.Service
@@ -2430,7 +2544,7 @@ index 9f8530929c..80b9610846 100644
  
      const create = Effect.fn("SessionProcessor.create")(function* (input: Input) {
        // Pre-capture snapshot before the LLM stream starts. The AI SDK
-@@ -646,6 +666,12 @@ const layer = Layer.effect(
+@@ -646,6 +671,12 @@ const layer = Layer.effect(
          ctx.needsCompaction = false
          ctx.shouldBreak = (yield* config.get()).experimental?.continue_loop_on_deny !== true
  
@@ -2443,7 +2557,7 @@ index 9f8530929c..80b9610846 100644
          return yield* Effect.gen(function* () {
            yield* Effect.gen(function* () {
              ctx.currentText = undefined
-@@ -676,13 +702,60 @@ const layer = Layer.effect(
+@@ -676,13 +707,79 @@ const layer = Layer.effect(
                  provider: input.model.providerID,
                  parse,
                  set: (info) => {
@@ -2454,21 +2568,31 @@ index 9f8530929c..80b9610846 100644
 -                    action: info.action,
 -                    next: info.next,
 -                  })
++                  const providerID = input.model.providerID
++                  const provider = info.action?.provider ?? providerID
 +                  const retryAfterMs = info.next - Date.now()
 +                  const currentKey =
 +                    streamInput.authOverride?.type === "api" ? streamInput.authOverride.key : undefined
 +                  const currentKeyEff = currentKey
 +                    ? Effect.succeed(currentKey)
-+                    : authService.get(input.model.providerID).pipe(
++                    : authService.get(providerID).pipe(
 +                        Effect.map((a) => (a?.type === "api" ? a.key : undefined)),
 +                        Effect.orElseSucceed(() => undefined),
 +                      )
-+                  const poolRotate =
++                  // Any account-exhaustion reason or a very long retry hint triggers
++                  // rotation: short transient errors keep retrying instead, and a
++                  // single-account user is never silently halted — the hint wait just
++                  // continues and the session resumes when the account recovers.
++                  const quotaReason =
 +                    info.action?.reason === "account_rate_limit" ||
++                    info.action?.reason === "free_tier_limit" ||
 +                    info.action?.reason === "request_queue_full" ||
 +                    info.action?.reason === "rate_limit"
++                  const longWait = retryAfterMs > ROTATE_LONG_WAIT_THRESHOLD_MS
++                  const poolRotate =
++                    quotaReason || longWait
 +                      ? currentKeyEff.pipe(
-+                          Effect.andThen((ck) => pool.rotate(info.action!.provider, retryAfterMs, ck)),
++                          Effect.andThen((ck) => pool.rotate(provider, retryAfterMs, ck)),
 +                        )
 +                      : Effect.succeed({ switched: false, exhausted: false } as AuthPool.RotateResult)
 +                  return poolRotate.pipe(
@@ -2476,14 +2600,14 @@ index 9f8530929c..80b9610846 100644
 +                      if (rotated.key) {
 +                        // Store session-level auth key override
 +                        const keys = sessionAuthKeys.get(ctx.sessionID) ?? {}
-+                        keys[input.model.providerID] = rotated.key
++                        keys[providerID] = rotated.key
 +                        sessionAuthKeys.set(ctx.sessionID, keys)
 +                        streamInput.authOverride = { type: "api", key: rotated.key }
 +                      }
 +                      if (rotated.switched) {
 +                        ;(streamInput.user as any).__internalContinue = true
 +                      }
-+                      const exhKey = `${ctx.sessionID}:${input.model.providerID}`
++                      const exhKey = `${ctx.sessionID}:${providerID}`
 +                      if (rotated.exhausted) {
 +                        if (!shownExhaustion.has(exhKey)) {
 +                          // First exhaustion → show "Rate limit exceeded" to user,
@@ -2495,23 +2619,32 @@ index 9f8530929c..80b9610846 100644
 +                      } else {
 +                        shownExhaustion.delete(exhKey)
 +                      }
++                      // Decide how long to actually sleep before retrying:
++                      //  - a key was switched        → retry almost immediately
++                      //  - every pool key is cooling → wait for the earliest recovery
++                      //  - no pool (single account)  → honour the provider's hint
++                      //    (short backoff or Retry-After) and keep going
++                      let wait = retryAfterMs
++                      if (rotated.switched) wait = ROTATION_RETRY_DELAY_MS
++                      else if (rotated.waitMs !== undefined && rotated.waitMs >= 0) wait = rotated.waitMs
++                      const sleep = Number.isFinite(wait) && wait >= 0 ? Math.round(wait) : 0
 +                      return status.set(ctx.sessionID, {
 +                        type: "retry",
 +                        attempt: info.attempt,
 +                        message: info.message,
 +                        action: info.action,
-+                        next: info.next,
++                        next: Date.now() + Math.max(0, sleep),
 +                        poolSwitch: rotated.switched
-+                          ? { provider: info.action!.provider, label: rotated.label }
++                          ? { provider, label: rotated.label }
 +                          : undefined,
 +                        poolExhausted: rotated.exhausted || undefined,
-+                      })
++                      }).pipe(Effect.as(sleep))
 +                    }),
 +                  )
                  },
                }),
              ),
-@@ -717,6 +790,8 @@ export const node = LayerNode.make({
+@@ -717,6 +814,8 @@ export const node = LayerNode.make({
      Session.node,
      Config.node,
      Snapshot.node,
@@ -2520,6 +2653,47 @@ index 9f8530929c..80b9610846 100644
      Agent.node,
      LLM.node,
      Permission.node,
+diff --git a/packages/opencode/src/session/retry.ts b/packages/opencode/src/session/retry.ts
+index 284c0f0ade..a4f02b688b 100644
+--- a/packages/opencode/src/session/retry.ts
++++ b/packages/opencode/src/session/retry.ts
+@@ -183,24 +183,32 @@ function parseJSON(value: unknown) {
+ export function policy(opts: {
+   provider: string
+   parse: (error: unknown) => Err
+-  set: (input: { attempt: number; message: string; action?: Retryable["action"]; next: number }) => Effect.Effect<void>
++  // set() reports the retry status and returns how long to actually sleep before
++  // retrying — it may shorten the wait, e.g. after switching to a pooled account.
++  set: (input: { attempt: number; message: string; action?: Retryable["action"]; next: number }) => Effect.Effect<number, never>
+ }) {
+   return Schedule.fromStepWithMetadata(
+     Effect.succeed((meta: Schedule.InputMetadata<unknown>) => {
+       const error = opts.parse(meta.input)
+       const retry = retryable(error, opts.provider)
+       if (!retry) return Cause.done(meta.attempt)
+-      if (meta.attempt > RETRY_MAX_RETRIES) return Cause.done(meta.attempt)
++      // No attempt budget: retryable errors keep retrying so the session never
++      // stops on its own while an account could still recover. The user can
++      // always abort explicitly; the machine must not dominate the human.
+       return Effect.gen(function* () {
+         const wait = delay(meta.attempt, SessionV1.APIError.isInstance(error) ? error : undefined)
+         const now = yield* Clock.currentTimeMillis
+-        yield* opts.set({
++        const decided = yield* opts.set({
+           attempt: meta.attempt,
+           message: retry.message,
+           action: retry.action,
+           next: now + wait,
+         })
+-        return [meta.attempt, Duration.millis(wait)] as [number, Duration.Duration]
++        const sleep =
++          typeof decided === "number" && Number.isFinite(decided) && decided >= 0
++            ? Math.min(decided, RETRY_MAX_DELAY)
++            : wait
++        return [meta.attempt, Duration.millis(Math.round(sleep))] as [number, Duration.Duration]
+       })
+     }),
+   )
 diff --git a/packages/opencode/src/session/status.ts b/packages/opencode/src/session/status.ts
 index 11140acfee..e8ea3c21e5 100644
 --- a/packages/opencode/src/session/status.ts
@@ -2532,6 +2706,99 @@ index 11140acfee..e8ea3c21e5 100644
  export const Event = SessionStatusEvent
  
  export interface Interface {
+diff --git a/packages/opencode/test/auth/pool.test.ts b/packages/opencode/test/auth/pool.test.ts
+new file mode 100644
+index 0000000000..e55c6c6b12
+--- /dev/null
++++ b/packages/opencode/test/auth/pool.test.ts
+@@ -0,0 +1,86 @@
++import { describe, expect, beforeEach } from "bun:test"
++import fs from "node:fs"
++import path from "node:path"
++import { Effect } from "effect"
++import { LayerNode } from "@opencode-ai/core/effect/layer-node"
++import { FSUtil } from "@opencode-ai/core/fs-util"
++import { Global } from "@opencode-ai/core/global"
++import { testEffect } from "../lib/effect"
++import * as AuthPool from "../../src/auth/pool"
++
++const poolFile = path.join(Global.Path.data, "auth-pool.json")
++const it = testEffect(LayerNode.compile(LayerNode.group([FSUtil.node, AuthPool.node])))
++
++function seed(data: unknown) {
++  fs.writeFileSync(poolFile, JSON.stringify(data), { mode: 0o600 })
++}
++
++function read() {
++  return JSON.parse(fs.readFileSync(poolFile, "utf8"))
++}
++
++describe("auth.pool.rotate", () => {
++  beforeEach(() => {
++    fs.rmSync(poolFile, { force: true })
++  })
++
++  it.instance("switches to a usable key and records the failed key's cooldown", () =>
++    Effect.gen(function* () {
++      seed({
++        test: [{ key: "sk-aaa", label: "A" }, { key: "sk-bbb", label: "B" }],
++      })
++      const pool = yield* AuthPool.Service
++      const res = yield* pool.rotate("test", 5_000, "sk-aaa")
++      expect(res.switched).toBe(true)
++      expect(res.exhausted).toBe(false)
++      expect(res.key).toBe("sk-bbb")
++      expect(res.label).toBe("B")
++
++      const saved = read()
++      const ra = saved._retryAfter["test"]
++      expect(Object.keys(ra)).toHaveLength(1)
++      expect(ra[AuthPool.sha256("sk-aaa")]).toBeGreaterThan(Date.now())
++    }),
++  )
++
++  it.instance("returns the earliest recovery when every pooled key is cooling down", () =>
++    Effect.gen(function* () {
++      seed({
++        test: [{ key: "sk-aaa", label: "A" }, { key: "sk-bbb", label: "B" }],
++        _retryAfter: { test: { [AuthPool.sha256("sk-aaa")]: Date.now() + 600_000 } },
++      })
++      const pool = yield* AuthPool.Service
++      const res = yield* pool.rotate("test", 700_000, "sk-bbb")
++      expect(res.switched).toBe(false)
++      expect(res.exhausted).toBe(false)
++      expect(res.key).toBe("sk-aaa")
++      expect(res.waitMs).toBeDefined()
++      expect(res.waitMs!).toBeGreaterThan(0)
++      expect(res.waitMs!).toBeLessThanOrEqual(700_000)
++    }),
++  )
++
++  it.instance("returns nothing usable when the pool is empty", () =>
++    Effect.gen(function* () {
++      seed({})
++      const pool = yield* AuthPool.Service
++      const res = yield* pool.rotate("test", 60_000, "sk-main")
++      expect(res).toEqual({ switched: false, exhausted: false })
++    }),
++  )
++
++  it.instance("a manual switch clears recorded cooldowns", () =>
++    Effect.gen(function* () {
++      seed({
++        test: [{ key: "sk-aaa", label: "A" }, { key: "sk-bbb", label: "B" }],
++        _retryAfter: { test: { [AuthPool.sha256("sk-bbb")]: Date.now() + 600_000 } },
++      })
++      const pool = yield* AuthPool.Service
++      const res = yield* pool.switchByKey("test", AuthPool.sha256("sk-aaa"), "sk-bbb")
++      expect(res.found).toBe(true)
++      expect(res.key).toBe("sk-aaa")
++      const saved = read()
++      expect(saved._retryAfter).toBeUndefined()
++    }),
++  )
++})
+\ No newline at end of file
 diff --git a/packages/opencode/test/server/httpapi-control-plane.test.ts b/packages/opencode/test/server/httpapi-control-plane.test.ts
 index b837bf7556..63402414af 100644
 --- a/packages/opencode/test/server/httpapi-control-plane.test.ts
@@ -2572,6 +2839,60 @@ index 55bdcff4f5..498ab586c0 100644
    Layer.provide(Layer.mock(Config.Service)({})),
    Layer.provide(Layer.mock(MoveSession.Service)({})),
    Layer.provide(
+diff --git a/packages/opencode/test/session/retry.test.ts b/packages/opencode/test/session/retry.test.ts
+index 20c8678cf0..ae1b25e00b 100644
+--- a/packages/opencode/test/session/retry.test.ts
++++ b/packages/opencode/test/session/retry.test.ts
+@@ -4,7 +4,7 @@ import { SessionV1 } from "@opencode-ai/core/v1/session"
+ import type { NamedError } from "@opencode-ai/core/util/error"
+ import { APICallError } from "ai"
+ import { setTimeout as sleep } from "node:timers/promises"
+-import { Effect, Schedule, Schema } from "effect"
++import { Duration, Effect, Schedule, Schema } from "effect"
+ import { CrossSpawnSpawner } from "@opencode-ai/core/cross-spawn-spawner"
+ import { SessionRetry } from "../../src/session/retry"
+ import { MessageV2 } from "../../src/session/message-v2"
+@@ -110,7 +110,7 @@ describe("session.retry.delay", () => {
+               attempt: info.attempt,
+               message: info.message,
+               next: info.next,
+-            }),
++            }).pipe(Effect.as(Math.max(0, info.next - Date.now()))),
+         }),
+       )
+       yield* step(error)
+@@ -124,7 +124,7 @@ describe("session.retry.delay", () => {
+     }),
+   )
+ 
+-  it.instance("policy stops after five retries", () =>
++  it.instance("policy keeps retrying retryable errors and uses set()'s decided wait", () =>
+     Effect.gen(function* () {
+       const attempts: number[] = []
+       const error = apiError({ "retry-after-ms": "0" })
+@@ -135,15 +135,19 @@ describe("session.retry.delay", () => {
+           set: (info) =>
+             Effect.sync(() => {
+               attempts.push(info.attempt)
++              return 111
+             }),
+         }),
+       )
+ 
+-      yield* Effect.forEach(Array.from({ length: SessionRetry.RETRY_MAX_RETRIES + 1 }), () =>
++      const first = yield* step(error)
++      expect(Duration.toMillis(first.duration)).toBe(111)
++
++      // No attempt budget: retryable errors keep retrying instead of stopping.
++      yield* Effect.forEach(Array.from({ length: 2 * SessionRetry.RETRY_MAX_RETRIES }), () =>
+         Effect.ignore(step(error)),
+       )
+-
+-      expect(attempts).toStrictEqual([1, 2, 3, 4, 5])
++      expect(attempts).toHaveLength(1 + 2 * SessionRetry.RETRY_MAX_RETRIES)
+     }),
+   )
+ })
 diff --git a/packages/schema/src/session-status-event.ts b/packages/schema/src/session-status-event.ts
 index f6a3022bcb..eb6331a37d 100644
 --- a/packages/schema/src/session-status-event.ts
