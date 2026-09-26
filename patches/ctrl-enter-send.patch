@@ -768,7 +768,7 @@ index ff4ff0f..bdec049 100644
              </Show>
            </div>
 +          <Show when={state.mode === "normal"}>
-+            <span class="ml-auto max-w-[50%] shrink-0 overflow-hidden text-ellipsis whitespace-nowrap select-none text-[11px] leading-4 tracking-[-0.04px] text-v2-text-text-faint [font-weight:440]">
++            <span class="ml-auto mr-2 max-w-[50%] shrink-0 overflow-hidden text-ellipsis whitespace-nowrap select-none text-[11px] leading-4 tracking-[-0.04px] text-v2-text-text-faint [font-weight:440]">
 +              {i18n.t("ui.promptInput.enterNewline")}
 +            </span>
 +          </Show>
