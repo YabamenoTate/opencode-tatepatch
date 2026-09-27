@@ -2726,24 +2726,26 @@ index 9f8530929c..5646267ba9 100644
      LLM.node,
      Permission.node,
 diff --git a/packages/opencode/src/session/prompt.ts b/packages/opencode/src/session/prompt.ts
-index 0f85d44f20..4d8f6f8c4d 100644
+index 0f85d44f20..0f0d230efe 100644
 --- a/packages/opencode/src/session/prompt.ts
 +++ b/packages/opencode/src/session/prompt.ts
-@@ -1107,11 +1107,19 @@ const layer = Layer.effect(
+@@ -1107,11 +1107,20 @@ const layer = Layer.effect(
              lastAssistantMsg?.parts.some(
                (part) => part.type === "tool" && !part.metadata?.providerExecuted && !isOrphanedInterruptedTool(part),
              ) ?? false
-+          // A turn is only complete when the assistant actually delivered a
-+          // visible answer. A finish reason with no text at all (the model ended
-+          // right after a tool call, or the stream was cut off before any text
-+          // arrived) is a stall, not a completed turn: keep the loop running so
-+          // the model is re-requested until a real answer shows up.
++          // A turn is complete only when the assistant delivered a visible
++          // answer AND its termination came from the model. Reasons that mean
++          // "it stopped without concluding" — tool calls awaiting results,
++          // an unknown reason, or a generation cut off by the length cap in the
++          // middle of its answer — are stalls, not completions: keep the loop
++          // running so the model is re-requested until it really finishes.
 +          const hasAnswer =
 +            lastAssistantMsg?.parts.some((part) => part.type === "text" && part.text.trim() !== "") ?? false
  
            if (
              lastAssistant?.finish &&
-             !["tool-calls", "unknown"].includes(lastAssistant.finish) &&
+-            !["tool-calls", "unknown"].includes(lastAssistant.finish) &&
++            !["tool-calls", "unknown", "length"].includes(lastAssistant.finish) &&
              !hasToolCalls &&
 +            hasAnswer &&
              lastAssistant.parentID === lastUser.id
@@ -3216,7 +3218,7 @@ index c67f82d9c7..ae3dd64ed2 100644
          const chat = yield* session.create({})
          const parent = yield* user(chat.id, "retry")
 diff --git a/packages/opencode/test/session/prompt.test.ts b/packages/opencode/test/session/prompt.test.ts
-index da6e0f8d03..8f7e6a14c2 100644
+index da6e0f8d03..45ae364398 100644
 --- a/packages/opencode/test/session/prompt.test.ts
 +++ b/packages/opencode/test/session/prompt.test.ts
 @@ -492,6 +492,13 @@ noLLMServer.instance(
@@ -3233,7 +3235,7 @@ index da6e0f8d03..8f7e6a14c2 100644
  
        const result = yield* prompt.loop({ sessionID: chat.id })
  
-@@ -945,6 +952,42 @@ it.instance("loop continues when finish is stop but assistant has tool parts", (
+@@ -945,6 +952,61 @@ it.instance("loop continues when finish is stop but assistant has tool parts", (
    }),
  )
  
@@ -3269,6 +3271,25 @@ index da6e0f8d03..8f7e6a14c2 100644
 +    if (result.info.role === "assistant") {
 +      expect(result.parts.some((part) => part.type === "text" && part.text === "real reply")).toBe(true)
 +      expect(result.info.finish).toBe("stop")
++    }
++  }),
++)
++
++it.instance("loop re-requests the model when the assistant was cut off by the length cap mid-answer", () =>
++  Effect.gen(function* () {
++    const { llm } = yield* useServerConfig(providerCfg)
++    const prompt = yield* SessionPrompt.Service
++    const sessions = yield* Session.Service
++    const chat = yield* sessions.create({ title: "Pinned" })
++    yield* seed(chat.id, { finish: "length" })
++
++    yield* llm.text("final answer")
++
++    const result = yield* prompt.loop({ sessionID: chat.id })
++    expect(yield* llm.calls).toBe(1)
++    expect(result.info.role).toBe("assistant")
++    if (result.info.role === "assistant") {
++      expect(result.parts.some((part) => part.type === "text" && part.text === "final answer")).toBe(true)
 +    }
 +  }),
 +)

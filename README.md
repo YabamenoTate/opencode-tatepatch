@@ -33,7 +33,7 @@ Store multiple API keys per provider in a local, user-restricted JSON file (`aut
 - Offline/network failures are never the key's fault: the same key keeps polling at a bounded backoff until connectivity returns.
 - While offline, neither the WebUI nor the TUI stops: a temporary banner (オンライン復帰を待機しています) appears at the bottom of the conversation until the connection recovers.
 - An empty provider reply is a stall, not a finish: the turn waits ~2 seconds and re-requests until a real reply arrives, so a conversation never ends silently.
-- The same applies to a turn that stopped without delivering a visible answer — a tool call with no closing explanation, or a stream cut off before any text arrived: it is not "complete", and the model is re-requested until it actually says something.
+- The same applies to a turn that stopped without delivering a visible answer — a tool call with no closing explanation, a stream cut off before any text arrived, or a generation truncated mid-answer by the length/output cap: none of these are "complete", and the model is re-requested until it actually finishes saying something.
 - Even 4xx "client error" responses (400/404/...) are retried rather than assumed fatal.
 - Single-account use keeps going too: `Retry-After` is honored and the session never hard-stops.
 
@@ -199,7 +199,7 @@ Tate Patchは、中央集権的な依存関係を排し、プライバシーを�
 - オフライン・ネットワーク障害はキーの責務ではありません。同じキーで上限付きバックオフにより継続ポーリングし、オンライン復帰を待ちます（復帰後の失敗から改めて同じキー→ローテーションの手順）。
 - オフライン時もWebUI・TUIどちらも停止しません。会話の最下部に一時バナー「オンライン復帰を待機しています」を表示し、復帰するまでポーリングを続けます。
 - 空の返信（モデルが何も出力せず応答を終えた場合）も停止ではなく停滞とみなし、約2秒待って再リクエストし、実際の応答が届くまで再試行し続けます。会話が黙って終わることはありません。
-- 目に見える回答（テキスト）を返さずに終わった場合も同様です。ツール呼び出しのみで締めの説明が無かったり、テキストが届く前にストリームが切れた場合は「完了」とは見なさず、実際に応答するまでモデルへ再リクエストし続けます。
+- 目に見える回答（テキスト）を返さずに終わった場合も同様です。ツール呼び出しのみで締めの説明が無かったり、テキストが届く前にストリームが切れたり、出力上限（length）で回答途中に打ち切られた場合は「完了」とは見なさず、実際に応答するまでモデルへ再リクエストし続けます。
 - 400/404等の4xx「クライアントのミス」も、本当にクライアント原因とは限らないため再試行します。
 - 1アカウントのみで利用する場合も停止しません。`Retry-After` を尊重して再試行を続けます。
 
