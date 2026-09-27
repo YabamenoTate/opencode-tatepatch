@@ -130,7 +130,7 @@ If you want to revert back to the original unmodified binary:
 
 | # | Patch | Target | Description |
 |---|-------|--------|-------------|
-| 1 | `version.patch` | Version split | Shows `(Tate Patched 4)` in UI (CLI `--version`, health, TUI), while outbound User-Agents identify as clean `opencode/1.18.31` via `InstallationClientVersion` |
+| 1 | `version.patch` | Version split | Shows `(Tate Patched 5)` in UI (CLI `--version`, health, TUI), while outbound User-Agents identify as clean `opencode/1.18.31` via `InstallationClientVersion` |
 | 2 | `webapp-storage-proxy.patch` | Local persistence | Proxies webapp localStorage requests to server and persists layout config locally |
 | 3 | `auth-pool.patch` | Multi-account pool | Implements auth key pool management (CRUD backend APIs, WebUI connected badge & config page, CLI commands) with auto-rotation on quota or long waits and a no-hard-stop retry policy: offline shows a waiting banner (オンライン復帰を待機しています) in WebUI + CLI and keeps polling, empty provider replies auto-retry after ~2s until a real reply arrives, including localized language keys |
 | 4 | `ctrl-enter-send.patch` | Keyboard input | Rebinds Enter to newline and Ctrl/Cmd+Enter to send, adding UI tray hint with all translations |
@@ -328,7 +328,7 @@ Tate Patchは、中央集権的な依存関係を排し、プライバシーを�
 
 | # | パッチ名 | 対象 | 説明 |
 |---|---------|------|------|
-| 1 | `version.patch` | バージョン表記 | UIでは `(Tate Patched 4)` を表示しつつ、対外的なUser-Agentは `InstallationClientVersion` によりクリーンな `opencode/1.18.31` として識別（表示と送信の分離） |
+| 1 | `version.patch` | バージョン表記 | UIでは `(Tate Patched 5)` を表示しつつ、対外的なUser-Agentは `InstallationClientVersion` によりクリーンな `opencode/1.18.31` として識別（表示と送信の分離） |
 | 2 | `webapp-storage-proxy.patch` | 設定のローカル永続化 | localStorageの操作をサーバーへ転送し、レイアウト設定をPC上に保存 |
 | 3 | `auth-pool.patch` | 複数アカウントプール | APIキーのローカルプール管理機能（バックエンドAPI、CLI/WebUI管理画面、Connectedバッジ）と、クォータ・長時間待機時の自動ローテーション、および意図せぬ停止を防ぐリトライポリシー、関連言語ラベルを実装 |
 | 4 | `ctrl-enter-send.patch` | キーボード入力 | Enterを改行、Ctrl+Enterを送信にマッピング変更し、入力欄のヒント（多言語対応）を追加 |

@@ -48,7 +48,7 @@ index 6e5f63fd4e..89d39f7f1f 100644
    platform: "web",
    draftStore: createBrowserDraftStore(),
 -  version: pkg.version,
-+  version: pkg.version + " (Tate Patched 4)",
++  version: pkg.version + " (Tate Patched 5)",
    openExternal,
    restart,
    notify,

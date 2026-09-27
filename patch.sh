@@ -3,7 +3,7 @@
 # tatepatch — opencode 改造スクリプト
 #
 # 公式 opencode に server-side persistence パッチを適用し、
-# バージョン文字列に "(Tate Patched 4)" を追加します。
+# バージョン文字列に "(Tate Patched 5)" を追加します。
 #
 # 使い方:
 #   ./patch.sh             パッチを適用
@@ -27,10 +27,10 @@ WORK_DIR="${TATEPATCH_DIR}/_work"
 BUNDLE_DIR="$WORK_DIR/bundle"
 SOURCE_DIR="$WORK_DIR/source"
 
-TATEPATCH_VERSION="v1.18.31 (Tate Patched 4)"
+TATEPATCH_VERSION="v1.18.31 (Tate Patched 5)"
 # OPENCODE_VERSION define = UI/display version (no leading "v": UI adds it
 # itself). Outbound User-Agents are clean "1.18.31" via InstallationClientVersion.
-TATEPATCH_OPENCODE_VERSION="1.18.31 (Tate Patched 4)"
+TATEPATCH_OPENCODE_VERSION="1.18.31 (Tate Patched 5)"
 OPENCODE_TAG="v1.18.31"
 BACKUP_FILE="$TATEPATCH_DIR/opencode-official-backup"
 
@@ -71,7 +71,7 @@ get_installed_version() {
 
 is_patched() {
   if [ -z "$OPENCODE_BIN" ]; then return 1; fi
-  "$OPENCODE_BIN" --version 2>/dev/null | grep -q "(Tate Patched 4)"
+  "$OPENCODE_BIN" --version 2>/dev/null | grep -q "(Tate Patched 5)"
 }
 
 # ---------------------------------------------------------------------------
@@ -196,7 +196,7 @@ do_patch() {
   header "Installation complete!"
   info "Version: $("$OPENCODE_BIN" --version 2>/dev/null)"
   info ""
-  info "(Tate Patched 4) が表示されていれば成功です。"
+  info "(Tate Patched 5) が表示されていれば成功です。"
   info ""
   info "元の binary に戻す: $0 unapply"
 }

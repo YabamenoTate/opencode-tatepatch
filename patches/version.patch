@@ -9,7 +9,7 @@ index 25d9cd99aa..98e8e59a04 100644
 +
 +// The version we identify ourselves with to external services (User-Agent).
 +// Kept as a clean semver even when InstallationVersion carries a display
-+// suffix such as "(Tate Patched 4)", so version gates like the zen free tier
++// suffix such as "(Tate Patched 5)", so version gates like the zen free tier
 +// accept the build.
 +export const InstallationClientVersion = InstallationVersion.replace(/^v/, "").replace(/[^0-9.].*$/, "")
 diff --git a/packages/core/src/models-dev.ts b/packages/core/src/models-dev.ts
@@ -153,7 +153,7 @@ index 62b230a633..ce262816b6 100644
 +import { tmpdir } from "os"
 +import { execSync, spawn } from "child_process"
 +
-+const TATEPATCH_VERSION = "v1.18.31 (Tate Patched 4)"
++const TATEPATCH_VERSION = "v1.18.31 (Tate Patched 5)"
 +const TATEPATCH_REPO = "YabamenoTate/opencode-tatepatch"
 +
 +function tatepatchDir(): string | null {
@@ -314,7 +314,7 @@ index 13540a73a3..964c01f381 100644
    .help("help", "show help")
    .alias("help", "h")
 -  .version("version", "show version number", InstallationVersion)
-+  .version("version", "show version number", "v1.18.31 (Tate Patched 4)")
++  .version("version", "show version number", "v1.18.31 (Tate Patched 5)")
    .alias("version", "v")
    .option("print-logs", {
      describe: "print logs to stderr",
