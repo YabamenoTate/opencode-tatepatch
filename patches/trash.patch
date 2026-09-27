@@ -1886,6 +1886,19 @@ index 662585020a..fe99a88da0 100644
        })
      })
  
+diff --git a/packages/opencode/src/session/retry.ts b/packages/opencode/src/session/retry.ts
+index b1fe465537..90b3f14dc1 100644
+--- a/packages/opencode/src/session/retry.ts
++++ b/packages/opencode/src/session/retry.ts
+@@ -175,7 +175,7 @@ export function retryable(error: Err, provider: string) {
+       return { message, action: { reason: "rate_limit", provider, title: message, message, label: "" } }
+     }
+ 
+-// Any other 4xx: the server says the client is at fault, but that is not a
++    // Any other 4xx: the server says the client is at fault, but that is not a
+     // guarantee it is a real client bug (or that a different key won't work).
+     // Treat it like any other failure: retry the same key once, then rotate.
+     if (status !== undefined && status >= 400 && status < 500) {
 diff --git a/packages/opencode/src/session/session.ts b/packages/opencode/src/session/session.ts
 index a2a91cd47b..424776b4e5 100644
 --- a/packages/opencode/src/session/session.ts
@@ -2039,6 +2052,35 @@ index 9d7643cb33..a292ce5a8b 100644
    it.instance(
      "uses project-scoped path and directory precedence",
      () =>
+diff --git a/packages/opencode/test/session/retry.test.ts b/packages/opencode/test/session/retry.test.ts
+index ccf7043967..06c90e2d23 100644
+--- a/packages/opencode/test/session/retry.test.ts
++++ b/packages/opencode/test/session/retry.test.ts
+@@ -354,24 +354,6 @@ describe("session.retry.retryable", () => {
+     }
+   })
+ 
+-  test("rotates the API key on 401/403/429 even when isRetryable is false", () => {
+-    for (const statusCode of [401, 403, 429]) {
+-      const error = Schema.decodeUnknownSync(SessionV1.APIError.Schema)(
+-        new SessionV1.APIError({
+-          message: statusCode === 429 ? "Rate limit reached" : "Unauthorized",
+-          isRetryable: false,
+-          statusCode,
+-        }).toObject(),
+-      )
+-
+-      const message = statusCode === 429 ? "Rate limit reached" : "API key rejected"
+-      expect(SessionRetry.retryable(error, retryProvider)).toEqual({
+-        message,
+-        action: { reason: "rate_limit", provider: retryProvider, title: message, message, label: "" },
+-      })
+-    }
+-  })
+-
+   test("retries ZlibError decompression failures", () => {
+     const error = Schema.decodeUnknownSync(SessionV1.APIError.Schema)(
+       new SessionV1.APIError({
 diff --git a/packages/schema/src/v1/session.ts b/packages/schema/src/v1/session.ts
 index b2b712de96..40d56e8095 100644
 --- a/packages/schema/src/v1/session.ts

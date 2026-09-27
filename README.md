@@ -28,9 +28,11 @@ Why proxy through the server instead of keeping it in the browser? If CPU, works
 Store multiple API keys per provider in a local, user-restricted JSON file (`auth-pool.json`).
 - The CLI (`opencode auth login`) becomes an interactive account manager.
 - The WebUI gains a "Manage Accounts" screen after connecting a provider.
-- Errors never hard-stop your session: when a key hits rate limits or quota exhaustion, it rotates to the next pool key and resumes in about 2 seconds.
-- If every pooled key is cooling down, the retry waits only until the earliest key recovers.
-- Single-account use keeps the classic behavior: `Retry-After` is honored and the session keeps retrying instead of stopping.
+- Errors never hard-stop your session. The current key is retried once after ~2 seconds; only a second consecutive failure concludes the key is at fault, so the request rotates to the next pool key — which is tried immediately, with no forced wait.
+- A very long retry hint (60s+) already counts as key exhaustion and rotates right away.
+- Offline/network failures are never the key's fault: the same key keeps polling at a bounded backoff until connectivity returns.
+- Even 4xx "client error" responses (400/404/...) are retried rather than assumed fatal.
+- Single-account use keeps going too: `Retry-After` is honored and the session never hard-stops.
 
 ### The Enter Key & Quota Protection
 Anyone typing in Japanese, Chinese, or other IME environments knows the frustration: you press `Enter` to confirm a character, type a bit too fast, hit `Enter` again, and your half-finished message is instantly sent. In the official OpenCode, this accident wastes your precious API rate limits.
@@ -189,9 +191,11 @@ Tate Patchは、中央集権的な依存関係を排し、プライバシーを�
 プロバイダごとに複数のAPIキーを、ローカルの安全な `auth-pool.json`（ファイルパーミッションは所有者のみの `0o600`）に保存し、管理できます。
 - CLIコマンド (`opencode auth login`) を、対話型で複数のキーを切り替え・整理できるアカウント管理メニューへ変更しました。
 - WebUIの接続ダイアログにも、登録済みのキー一覧を直感的に操作できる「アカウント管理」画面を追加しました。
-- エラー時にセッションが意図せず停止することはありません。利用制限やクォータ枯渇時はプール内の別キーへ自動ローテーションし、約2秒で再開します。
-- プール全体が待機中の場合は、最も早く回復するキーの待ち時間だけを待って再試行します。
-- 1アカウントのみで利用する場合も、プロバイダの `Retry-After` を尊重しながら再試行し続け、停止しません。
+- エラー時にセッションが意図せず停止することはありません。まず使っているキーを約2秒後に1回だけ再試行し、それでも連続で失敗した場合のみ「キーの責務」と判断してプール内の別キーへローテーションします（切り替えた後は無条件待機なしで即時試行）。
+- リトライ指定が非常に長い場合（60秒超）は最初からキー枯渇とみなし、すぐにローテーションします。
+- オフライン・ネットワーク障害はキーの責務ではありません。同じキーで上限付きバックオフにより継続ポーリングし、オンライン復帰を待ちます（復帰後の失敗から改めて同じキー→ローテーションの手順）。
+- 400/404等の4xx「クライアントのミス」も、本当にクライアント原因とは限らないため再試行します。
+- 1アカウントのみで利用する場合も停止しません。`Retry-After` を尊重して再試行を続けます。
 
 ### Enterキーの挙動変更とクォータ保護
 日本語や中国語などのIME（かな漢字変換）環境において、文字の確定に`Enter`キーは欠かせません。しかし、公式のOpenCodeでは`Enter`キーが即座にメッセージ送信に結びついています。文字確定のつもりで誤ってダブルプレスすると、書きかけのメッセージが意図せず送信され、貴重なAPI利用枠（クォータ）を無駄に消費してしまいます。
