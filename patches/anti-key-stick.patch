@@ -1,0 +1,349 @@
+diff --git a/packages/core/src/plugin/provider/amazon-bedrock.ts b/packages/core/src/plugin/provider/amazon-bedrock.ts
+index 7b83079..8e0805b 100644
+--- a/packages/core/src/plugin/provider/amazon-bedrock.ts
++++ b/packages/core/src/plugin/provider/amazon-bedrock.ts
+@@ -92,10 +92,12 @@ export const AmazonBedrockPlugin = define({
+         const options = { ...evt.options }
+         const profile = typeof options.profile === "string" ? options.profile : process.env.AWS_PROFILE
+         const region = typeof options.region === "string" ? options.region : (process.env.AWS_REGION ?? "us-east-1")
+-        const bearerToken =
+-          process.env.AWS_BEARER_TOKEN_BEDROCK ??
+-          (typeof options.bearerToken === "string" ? options.bearerToken : undefined)
+-        if (bearerToken && !process.env.AWS_BEARER_TOKEN_BEDROCK) process.env.AWS_BEARER_TOKEN_BEDROCK = bearerToken
++        const optionsBearerToken = typeof options.bearerToken === "string" ? options.bearerToken : undefined
++        const bearerToken = optionsBearerToken ?? process.env.AWS_BEARER_TOKEN_BEDROCK
++        // Refresh rather than only seeding: writing once would pin the first key
++        // ever seen for the whole process and defeat switching.
++        if (bearerToken && process.env.AWS_BEARER_TOKEN_BEDROCK !== bearerToken)
++          process.env.AWS_BEARER_TOKEN_BEDROCK = bearerToken
+         const containerCreds = Boolean(
+           process.env.AWS_CONTAINER_CREDENTIALS_RELATIVE_URI || process.env.AWS_CONTAINER_CREDENTIALS_FULL_URI,
+         )
+diff --git a/packages/core/src/plugin/provider/sap-ai-core.ts b/packages/core/src/plugin/provider/sap-ai-core.ts
+index 8c668d8..66b768f 100644
+--- a/packages/core/src/plugin/provider/sap-ai-core.ts
++++ b/packages/core/src/plugin/provider/sap-ai-core.ts
+@@ -11,10 +11,11 @@ export const SapAICorePlugin = define({
+     yield* ctx.aisdk.sdk(
+       Effect.fn(function* (evt) {
+         if (evt.model.providerID !== ProviderV2.ID.make("sap-ai-core")) return
+-        const serviceKey =
+-          process.env.AICORE_SERVICE_KEY ??
+-          (typeof evt.options.serviceKey === "string" ? evt.options.serviceKey : undefined)
+-        if (serviceKey && !process.env.AICORE_SERVICE_KEY) process.env.AICORE_SERVICE_KEY = serviceKey
++        const optionsServiceKey = typeof evt.options.serviceKey === "string" ? evt.options.serviceKey : undefined
++        const serviceKey = optionsServiceKey ?? process.env.AICORE_SERVICE_KEY
++        // Refresh rather than only seeding: writing once would pin the first key
++        // ever seen for the whole process and defeat switching.
++        if (serviceKey && process.env.AICORE_SERVICE_KEY !== serviceKey) process.env.AICORE_SERVICE_KEY = serviceKey
+ 
+         const installedPath = evt.package.startsWith("file://")
+           ? evt.package
+diff --git a/packages/opencode/src/auth/index.ts b/packages/opencode/src/auth/index.ts
+index a133e88..9253ffa 100644
+--- a/packages/opencode/src/auth/index.ts
++++ b/packages/opencode/src/auth/index.ts
+@@ -55,15 +55,28 @@ const layer = Layer.effect(
+     const fsys = yield* FSUtil.Service
+     const decode = Schema.decodeUnknownOption(Info)
+ 
+-    const all = Effect.fn("Auth.all")(function* () {
+-      if (process.env.OPENCODE_AUTH_CONTENT) {
+-        try {
+-          return JSON.parse(process.env.OPENCODE_AUTH_CONTENT)
+-        } catch (err) {}
++    // OPENCODE_AUTH_CONTENT is a *seed* handed down to a child process, not an
++    // override. Treating it as authoritative made every write invisible for the
++    // lifetime of the process (switching the key appeared to do nothing) and let
++    // `set` overwrite a good on-disk file with the stale seeded credentials.
++    const seeded = (): Record<string, unknown> | undefined => {
++      const content = process.env.OPENCODE_AUTH_CONTENT
++      if (!content) return undefined
++      try {
++        const parsed = JSON.parse(content)
++        return typeof parsed === "object" && parsed !== null ? (parsed as Record<string, unknown>) : undefined
++      } catch {
++        return undefined
+       }
++    }
+ 
++    const all = Effect.fn("Auth.all")(function* () {
+       const data = (yield* fsys.readJson(file).pipe(Effect.orElseSucceed(() => ({})))) as Record<string, unknown>
+-      return Record.filterMap(data, (value) => Result.fromOption(decode(value), () => undefined))
++      // The on-disk store always wins over the seed, so a key written here takes
++      // effect immediately even when the variable is set.
++      const seed = seeded()
++      const merged = seed ? { ...seed, ...data } : data
++      return Record.filterMap(merged, (value) => Result.fromOption(decode(value), () => undefined))
+     })
+ 
+     const get = Effect.fn("Auth.get")(function* (providerID: string) {
+diff --git a/packages/opencode/src/control-plane/adapters/worktree.ts b/packages/opencode/src/control-plane/adapters/worktree.ts
+index 87e30e1..19afb78 100644
+--- a/packages/opencode/src/control-plane/adapters/worktree.ts
++++ b/packages/opencode/src/control-plane/adapters/worktree.ts
+@@ -28,6 +28,7 @@ const provideContext = <A, E, R>(effect: Effect.Effect<A, E, R>, context: Worksp
+ export const WorktreeAdapter: WorkspaceAdapter = {
+   name: "Worktree",
+   description: "Create a git worktree",
++  local: true,
+   async configure(info, context) {
+     const { AppRuntime, Worktree } = await loadWorktree()
+     const next = await AppRuntime.runPromise(
+diff --git a/packages/opencode/src/control-plane/types.ts b/packages/opencode/src/control-plane/types.ts
+index f54a878..cd592d7 100644
+--- a/packages/opencode/src/control-plane/types.ts
++++ b/packages/opencode/src/control-plane/types.ts
+@@ -46,6 +46,14 @@ export type WorkspaceAdapterContext = {
+ export type WorkspaceAdapter = {
+   name: string
+   description: string
++  /**
++   * Declares that this adapter runs on this machine and may therefore be handed
++   * the local credential store through `create`'s `env`. Adapters that stay off
++   * this machine (or that talk to a remote endpoint) must leave this unset:
++   * `OPENCODE_AUTH_CONTENT` carries every configured API key, and it is only safe
++   * to hand to a process that runs beside the user.
++   */
++  local?: boolean
+   configure(info: WorkspaceInfo, context?: WorkspaceAdapterContext): WorkspaceInfo | Promise<WorkspaceInfo>
+   create(
+     info: WorkspaceInfo,
+diff --git a/packages/opencode/src/control-plane/workspace.ts b/packages/opencode/src/control-plane/workspace.ts
+index 188cd38..d037464 100644
+--- a/packages/opencode/src/control-plane/workspace.ts
++++ b/packages/opencode/src/control-plane/workspace.ts
+@@ -527,7 +527,11 @@ const layer = Layer.effect(
+         .pipe(Effect.orDie)
+ 
+       const env = {
+-        OPENCODE_AUTH_CONTENT: JSON.stringify(yield* auth.all()),
++        // Only a local adapter is allowed to see the credential store. Handing
++        // OPENCODE_AUTH_CONTENT, which is every configured API key in plaintext,
++        // to an adapter that reaches a remote endpoint would export the user's
++        // accounts, so it is gated behind the adapter's explicit `local` opt-in.
++        OPENCODE_AUTH_CONTENT: adapter.local ? JSON.stringify(yield* auth.all()) : undefined,
+         OPENCODE_WORKSPACE_ID: config.id,
+         OPENCODE_EXPERIMENTAL_WORKSPACES: "true",
+         OTEL_EXPORTER_OTLP_HEADERS: process.env.OTEL_EXPORTER_OTLP_HEADERS,
+diff --git a/packages/opencode/src/provider/provider.ts b/packages/opencode/src/provider/provider.ts
+index efb1008..aee865c 100644
+--- a/packages/opencode/src/provider/provider.ts
++++ b/packages/opencode/src/provider/provider.ts
+@@ -319,13 +319,14 @@ function custom(dep: CustomDep): Record<string, CustomLoader> {
+       // TODO: Using process.env directly because Env.set only updates a process.env shallow copy,
+       // until the scope of the Env API is clarified (test only or runtime?)
+       const awsBearerToken = iife(() => {
+-        const envToken = process.env.AWS_BEARER_TOKEN_BEDROCK
+-        if (envToken) return envToken
++        // A configured credential is authoritative and is refreshed on every
++        // resolution. Reading the env var first would pin the very first key for
++        // the whole process, so switching keys would never take effect.
+         if (auth?.type === "api") {
+-          process.env.AWS_BEARER_TOKEN_BEDROCK = auth.key
++          if (process.env.AWS_BEARER_TOKEN_BEDROCK !== auth.key) process.env.AWS_BEARER_TOKEN_BEDROCK = auth.key
+           return auth.key
+         }
+-        return undefined
++        return process.env.AWS_BEARER_TOKEN_BEDROCK
+       })
+ 
+       const awsWebIdentityTokenFile = env["AWS_WEB_IDENTITY_TOKEN_FILE"]
+@@ -582,13 +583,13 @@ function custom(dep: CustomDep): Record<string, CustomLoader> {
+       // TODO: Using process.env directly because Env.set only updates a shallow copy (not process.env),
+       // until the scope of the Env API is clarified (test only or runtime?)
+       const envServiceKey = iife(() => {
+-        const envAICoreServiceKey = process.env.AICORE_SERVICE_KEY
+-        if (envAICoreServiceKey) return envAICoreServiceKey
++        // See the Bedrock note above: the configured credential wins and is
++        // refreshed, otherwise the first key ever seen is pinned process-wide.
+         if (auth?.type === "api") {
+-          process.env.AICORE_SERVICE_KEY = auth.key
++          if (process.env.AICORE_SERVICE_KEY !== auth.key) process.env.AICORE_SERVICE_KEY = auth.key
+           return auth.key
+         }
+-        return undefined
++        return process.env.AICORE_SERVICE_KEY
+       })
+       const deploymentId = process.env.AICORE_DEPLOYMENT_ID
+       const resourceGroup = process.env.AICORE_RESOURCE_GROUP
+@@ -1196,7 +1197,7 @@ export interface Interface {
+   readonly list: () => Effect.Effect<Record<ProviderV2.ID, Info>>
+   readonly getProvider: (providerID: ProviderV2.ID) => Effect.Effect<Info>
+   readonly getModel: (providerID: ProviderV2.ID, modelID: ModelV2.ID) => Effect.Effect<Model, ModelNotFoundError>
+-  readonly getLanguage: (model: Model) => Effect.Effect<LanguageModelV3, ModelNotFoundError>
++  readonly getLanguage: (model: Model, apiKey?: string) => Effect.Effect<LanguageModelV3, ModelNotFoundError>
+   readonly closest: (
+     providerID: ProviderV2.ID,
+     query: string[],
+@@ -1731,7 +1732,7 @@ const layer = Layer.effect(
+ 
+     const list = Effect.fn("Provider.list")(() => InstanceState.use(state, (s) => s.providers))
+ 
+-    async function resolveSDK(model: Model, s: State, envs: Record<string, string | undefined>) {
++    async function resolveSDK(model: Model, s: State, envs: Record<string, string | undefined>, apiKey?: string) {
+       try {
+         const provider = s.providers[model.providerID]
+         const options = { ...provider.options }
+@@ -1778,7 +1779,13 @@ const layer = Layer.effect(
+         })
+ 
+         if (baseURL !== undefined) options["baseURL"] = baseURL
+-        if (options["apiKey"] === undefined && provider.key) options["apiKey"] = provider.key
++        // A credential resolved for this specific request always wins over the one
++        // frozen into the instance state, so changing the API key takes effect on
++        // the very next request instead of after an instance restart.
++        if (options["apiKey"] === undefined) {
++          if (apiKey) options["apiKey"] = apiKey
++          else if (provider.key) options["apiKey"] = provider.key
++        }
+         if (model.headers)
+           options["headers"] = {
+             ...options["headers"],
+@@ -1893,16 +1900,19 @@ const layer = Layer.effect(
+       return info
+     })
+ 
+-    const getLanguage = Effect.fn("Provider.getLanguage")(function* (model: Model) {
++    const getLanguage = Effect.fn("Provider.getLanguage")(function* (model: Model, apiKey?: string) {
+       const s = yield* InstanceState.get(state)
+       const envs = yield* env.all()
+-      const key = `${model.providerID}/${model.id}`
++      // The credential is part of the cache key: a model client built for one API
++      // key must never be handed back for another, otherwise switching keys is
++      // silently ignored for the lifetime of the process.
++      const key = `${model.providerID}/${model.id}/${apiKey ?? ""}`
+       if (s.models.has(key)) return s.models.get(key)!
+ 
+       const provider = s.providers[model.providerID]
+       return yield* EffectPromise.refineRejection(
+         async () => {
+-          const sdk = await resolveSDK(model, s, envs)
++          const sdk = await resolveSDK(model, s, envs, apiKey)
+           const language = s.modelLoaders[model.providerID]
+             ? await s.modelLoaders[model.providerID](
+                 sdk,
+diff --git a/packages/opencode/src/server/routes/instance/httpapi/handlers/control.ts b/packages/opencode/src/server/routes/instance/httpapi/handlers/control.ts
+index 2aa9635..2f6fed8 100644
+--- a/packages/opencode/src/server/routes/instance/httpapi/handlers/control.ts
++++ b/packages/opencode/src/server/routes/instance/httpapi/handlers/control.ts
+@@ -25,6 +25,7 @@ export const controlHandlers = HttpApiBuilder.group(RootHttpApi, "control", (han
+       params: { providerID: ProviderV2.ID }
+     }) {
+       yield* auth.remove(ctx.params.providerID).pipe(Effect.orDie)
++      clearProviderPoolExhaustion(ctx.params.providerID)
+       return true
+     })
+ 
+diff --git a/packages/opencode/src/session/llm.ts b/packages/opencode/src/session/llm.ts
+index dfcf659..f2ea3b4 100644
+--- a/packages/opencode/src/session/llm.ts
++++ b/packages/opencode/src/session/llm.ts
+@@ -93,14 +93,20 @@ const live: Layer.Layer<
+         mode: input.agent.mode,
+       })
+ 
++      const authInfo = input.authOverride
++        ? Effect.succeed(input.authOverride)
++        : auth.get(input.model.providerID)
+       const [language, cfg, item, info] = yield* Effect.all(
+         [
+-          provider.getLanguage(input.model),
++          // Resolve the credential for this request first and hand it to the model
++          // client, so a key that was just switched in actually reaches the wire.
++          authInfo.pipe(
++            Effect.map((a) => (a?.type === "api" ? a.key : undefined)),
++            Effect.flatMap((apiKey) => provider.getLanguage(input.model, apiKey)),
++          ),
+           config.get(),
+           provider.getProvider(input.model.providerID),
+-          input.authOverride
+-            ? Effect.succeed(input.authOverride)
+-            : auth.get(input.model.providerID),
++          authInfo,
+         ],
+         { concurrency: "unbounded" },
+       )
+diff --git a/packages/opencode/test/provider/key-switch.test.ts b/packages/opencode/test/provider/key-switch.test.ts
+new file mode 100644
+index 0000000..a02cee4
+--- /dev/null
++++ b/packages/opencode/test/provider/key-switch.test.ts
+@@ -0,0 +1,77 @@
++import { afterEach, expect } from "bun:test"
++import { LayerNode } from "@opencode-ai/core/effect/layer-node"
++import { CrossSpawnSpawner } from "@opencode-ai/core/cross-spawn-spawner"
++import { Effect } from "effect"
++import { ProviderV2 } from "@opencode-ai/core/provider"
++import { ModelV2 } from "@opencode-ai/core/model"
++import { disposeAllInstances, provideTmpdirInstance } from "../fixture/fixture"
++import { testEffect } from "../lib/effect"
++import { testProviderConfig } from "../lib/test-provider"
++import { Env } from "@/env"
++import { Plugin } from "@/plugin"
++import { Provider } from "@/provider/provider"
++import { Auth } from "@/auth"
++
++// Regression cover for "switching the API key did nothing".
++//
++// The provider state is an instance-scoped cache, so a credential resolved once
++// used to stay in force for the whole process. Every key switch therefore
++// returned HTTP 200 while the old key kept being sent, which presented as
++// "quota is still exhausted no matter which key I pick".
++
++afterEach(async () => {
++  await disposeAllInstances()
++})
++
++const it = testEffect(
++  LayerNode.compile(LayerNode.group([Provider.node, Env.node, Plugin.node, CrossSpawnSpawner.node, Auth.node])),
++)
++
++it.live("getLanguage returns a distinct client per API key instead of reusing the first one", () =>
++  Effect.gen(function* () {
++    yield* provideTmpdirInstance(
++      () =>
++        Effect.gen(function* () {
++          const provider = yield* Provider.Service
++          const model = yield* provider.getModel(ProviderV2.ID.make("test"), ModelV2.ID.make("test-model"))
++
++          const first = yield* provider.getLanguage(model, "key-one")
++          const firstAgain = yield* provider.getLanguage(model, "key-one")
++          const second = yield* provider.getLanguage(model, "key-two")
++
++          // Stable for the same key, distinct for a different one.
++          expect(firstAgain).toBe(first)
++          expect(second).not.toBe(first)
++
++          // The default path must also be unaffected.
++          const fallback = yield* provider.getLanguage(model)
++          expect(fallback).toBeDefined()
++        }),
++      { config: testProviderConfig("http://127.0.0.1:1/v1") },
++    )
++  }),
++)
++
++it.live("Auth.all prefers the on-disk store over OPENCODE_AUTH_CONTENT", () =>
++  Effect.gen(function* () {
++    yield* provideTmpdirInstance(
++      () =>
++        Effect.gen(function* () {
++          const auth = yield* Auth.Service
++          const previous = process.env.OPENCODE_AUTH_CONTENT
++          process.env.OPENCODE_AUTH_CONTENT = JSON.stringify({ test: { type: "api", key: "seeded-key" } })
++          try {
++            // A key written after the seed was set must win immediately.
++            yield* auth.set("test", { type: "api", key: "written-key" })
++            const current = yield* auth.get("test")
++            expect(current?.type).toBe("api")
++            expect(current?.type === "api" ? current.key : undefined).toBe("written-key")
++          } finally {
++            if (previous === undefined) delete process.env.OPENCODE_AUTH_CONTENT
++            else process.env.OPENCODE_AUTH_CONTENT = previous
++          }
++        }),
++      { config: testProviderConfig("http://127.0.0.1:1/v1") },
++    )
++  }),
++)

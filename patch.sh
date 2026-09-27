@@ -139,6 +139,7 @@ do_patch() {
     "remove-share.patch"
     "remove-upsell.patch"
     "trash.patch"
+    "anti-key-stick.patch"
   )
 
   for patch_name in "${ordered_patches[@]}"; do

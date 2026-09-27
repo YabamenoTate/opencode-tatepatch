@@ -112,6 +112,7 @@ for %%p in (
     remove-share.patch
     remove-upsell.patch
     trash.patch
+    anti-key-stick.patch
 ) do (
     if exist "%PATCHES_DIR%\%%p" (
         echo Applying %%p ...

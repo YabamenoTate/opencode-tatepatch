@@ -126,7 +126,7 @@ If you want to revert back to the original unmodified binary:
 }
 ```
 
-### Patch Inventory (8 patches)
+### Patch Inventory (9 patches)
 
 | # | Patch | Target | Description |
 |---|-------|--------|-------------|
@@ -138,6 +138,37 @@ If you want to revert back to the original unmodified binary:
 | 6 | `remove-share.patch` | Cloud share | Removes the cloud session publishing feature entirely (menus, commands, share button) |
 | 7 | `remove-upsell.patch` | Billing ads | Strips away Go subscription billing promotion banners and error messages |
 | 8 | `trash.patch` | Trash (archive) | Adds the Home trash tray (archive/restore/delete), makes the `archived` timestamp nullable for `archived: null` restore, and adds a trash icon plus all translations |
+| 9 | `anti-key-stick.patch` | Key switch integrity | Makes a switched API key take effect on the **next request, with no restart** (see below) |
+
+#### Why `anti-key-stick.patch` exists
+
+Stock OpenCode resolves the provider credential once per instance and caches it,
+together with the built model client, in an instance-scoped cache. Nothing
+invalidated that cache when the credential changed, so `PUT /auth/:providerID`,
+`pool/switch` and `pool/reset` all returned `200` while the **old key kept being
+sent**. From the user's side that reads as *"I changed the key but the quota
+error never went away"* — which is easy to mistake for the server deliberately
+refusing to let you switch accounts.
+
+The stock WebUI/TUI happen to hide this by tearing the whole instance down after
+every credential change. Nothing else does: the HTTP API, the SDK, `curl`, and
+the Tate auth-pool endpoints were all affected. `authOverride` (the session-level
+auto-rotation hook) was resolved and then dropped before the request was built,
+so the automatic key rotation could not rotate either.
+
+This patch:
+
+- resolves the credential per request and threads it into the model client, so a
+  key switch applies immediately and the built client is never reused across keys;
+- makes `OPENCODE_AUTH_CONTENT` a seed rather than an override, so it can no
+  longer make credential writes invisible for the lifetime of the process;
+- stops Bedrock / SAP AI Core from pinning the first key they ever saw into
+  `process.env` for the whole process;
+- clears pool exhaustion on credential removal too;
+- stops handing the plaintext credential store to workspace adapters that are not
+  explicitly marked `local` (it reaches plugin-registered and remote adapters).
+
+Covered by `packages/opencode/test/provider/key-switch.test.ts`.
 
 ## Contributing
 
@@ -293,7 +324,7 @@ Tate Patchは、中央集権的な依存関係を排し、プライバシーを�
 }
 ```
 
-### パッチ構成一覧（計8個）
+### パッチ構成一覧（計9個）
 
 | # | パッチ名 | 対象 | 説明 |
 |---|---------|------|------|
@@ -305,6 +336,37 @@ Tate Patchは、中央集権的な依存関係を排し、プライバシーを�
 | 6 | `remove-share.patch` | 共有機能の削除 | セッションのクラウド共有機能（共有ボタン・メニュー・コマンド）を完全に削除 |
 | 7 | `remove-upsell.patch` | 広告・宣伝の排除 | Goサブスクリプションの宣伝バナーや利用制限メッセージを排除 |
 | 8 | `trash.patch` | ゴミ箱（アーカイブ） | ホーム画面にゴミ箱（アーカイブリスト・復元・削除）を追加し、`archived: null` 復元のため `archived` タイムスタンプをnullable化（ゴミ箱アイコン・多言語ラベルを含む） |
+| 9 | `anti-key-stick.patch` | キー切り替えの整合性 | APIキーを切り替えた次のリクエストから（再起動なしで）実際に反映されるように修正（下記参照） |
+
+#### `anti-key-stick.patch` について
+
+公式のOpenCodeは、プロバイダの資格情報をインスタンスごとに一度だけ解決し、
+生成済みのモデルクライアントと一緒にインスタンススコープのキャッシュに保持します。
+資格情報が変わってもこのキャッシュを破棄する処理が存在せず、
+`PUT /auth/:providerID` や `pool/switch`・`pool/reset` は `200` を返したまま、
+**実際には古いキーが送信され続けていました**。使用者からすると
+「キーを切り替えたのにクォータ切れが解消されない」という見え方になり、
+サーバーが意図的にアカウント切り替えを拒んでいるように感じられます。
+
+公式のWebUI/TUIは資格情報変更のたびにインスタンスごと破棄するため、
+たまたまこの問題を隠せていました。HTTP API・SDK・`curl`・そして本パッチの
+プール操作は、すべてこの影響を受けていました。
+またセッション単位の自動ローテーション用フックである `authOverride` は、
+解決された後にリクエスト組み立て前に破棄されていたため、
+自動ローテーション自体も実際にはキーを切り替えられずにいました。
+
+本パッチの内容:
+
+- リクエストごとに資格情報を解決しモデルクライアントへ渡すため、
+  キー切り替えが即座に反映され、異なるキーでクライアントが使い回されない
+- `OPENCODE_AUTH_CONTENT` を上書き(source of truth)ではなく初期値(seed)とし、
+  プロセス中は資格情報の書き込みが見えなくなる問題を解消
+- Bedrock / SAP AI Core が最初に見たキーを `process.env` に固定し続ける問題を解消
+- 資格情報の削除時にもプール枯渇状態をクリア
+- 平文の資格情報ストアを、明示的に `local` と宣言されていない
+  ワークスペースアダプタへ渡さないようにする（プラグイン登録・リモートアダプタも含む）
+
+`packages/opencode/test/provider/key-switch.test.ts` で回帰テスト済み。
 
 ## 開発と貢献について
 
