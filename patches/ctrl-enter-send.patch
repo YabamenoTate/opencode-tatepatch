@@ -971,10 +971,10 @@ index 0c9971489b..40c46b7ef5 100644
    "ui.textField.copyToClipboard": "Αντιγραφή στο πρόχειρο",
    "ui.textField.copyLink": "Αντιγραφή συνδέσμου",
 diff --git a/packages/ui/src/i18n/en.ts b/packages/ui/src/i18n/en.ts
-index 54008fbc8d..430a6ed6bb 100644
+index ced143f5ba..597ba7d0f1 100644
 --- a/packages/ui/src/i18n/en.ts
 +++ b/packages/ui/src/i18n/en.ts
-@@ -137,7 +137,8 @@ export const dict: Record<string, string> = {
+@@ -138,7 +138,8 @@ export const dict: Record<string, string> = {
    "ui.promptInput.chooseModel": "Choose model",
    "ui.promptInput.chooseVariant": "Choose model variant",
    "ui.promptInput.send": "Send",
@@ -1166,10 +1166,10 @@ index 9d104a6775..dbb2516276 100644
    "ui.textField.copyToClipboard": "Copia negli appunti",
    "ui.textField.copyLink": "Copia collegamento",
 diff --git a/packages/ui/src/i18n/ja.ts b/packages/ui/src/i18n/ja.ts
-index 1b32e05deb..f83065e389 100644
+index f93a8013f5..5f0e9d70d4 100644
 --- a/packages/ui/src/i18n/ja.ts
 +++ b/packages/ui/src/i18n/ja.ts
-@@ -129,7 +129,8 @@ export const dict = {
+@@ -130,7 +130,8 @@ export const dict = {
    "ui.promptInput.chooseModel": "モデルを選択",
    "ui.promptInput.chooseVariant": "モデルバリアントを選択",
    "ui.promptInput.send": "送信",

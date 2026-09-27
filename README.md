@@ -31,6 +31,8 @@ Store multiple API keys per provider in a local, user-restricted JSON file (`aut
 - Errors never hard-stop your session. The current key is retried once after ~2 seconds; only a second consecutive failure concludes the key is at fault, so the request rotates to the next pool key — which is tried immediately, with no forced wait.
 - A very long retry hint (60s+) already counts as key exhaustion and rotates right away.
 - Offline/network failures are never the key's fault: the same key keeps polling at a bounded backoff until connectivity returns.
+- While offline, neither the WebUI nor the TUI stops: a temporary banner (オンライン復帰を待機しています) appears at the bottom of the conversation until the connection recovers.
+- An empty provider reply is a stall, not a finish: the turn waits ~2 seconds and re-requests until a real reply arrives, so a conversation never ends silently.
 - Even 4xx "client error" responses (400/404/...) are retried rather than assumed fatal.
 - Single-account use keeps going too: `Retry-After` is honored and the session never hard-stops.
 
@@ -129,7 +131,7 @@ If you want to revert back to the original unmodified binary:
 |---|-------|--------|-------------|
 | 1 | `version.patch` | Version split | Shows `(Tate Patched 4)` in UI (CLI `--version`, health, TUI), while outbound User-Agents identify as clean `opencode/1.18.31` via `InstallationClientVersion` |
 | 2 | `webapp-storage-proxy.patch` | Local persistence | Proxies webapp localStorage requests to server and persists layout config locally |
-| 3 | `auth-pool.patch` | Multi-account pool | Implements auth key pool management (CRUD backend APIs, WebUI connected badge & config page, CLI commands) with auto-rotation on quota or long waits and a no-hard-stop retry policy, including localized language keys |
+| 3 | `auth-pool.patch` | Multi-account pool | Implements auth key pool management (CRUD backend APIs, WebUI connected badge & config page, CLI commands) with auto-rotation on quota or long waits and a no-hard-stop retry policy: offline shows a waiting banner (オンライン復帰を待機しています) in WebUI + CLI and keeps polling, empty provider replies auto-retry after ~2s until a real reply arrives, including localized language keys |
 | 4 | `ctrl-enter-send.patch` | Keyboard input | Rebinds Enter to newline and Ctrl/Cmd+Enter to send, adding UI tray hint with all translations |
 | 5 | `remove-help-button.patch` | Help button | Removes the sidebar help icon linking to an external Discord server |
 | 6 | `remove-share.patch` | Cloud share | Removes the cloud session publishing feature entirely (menus, commands, share button) |
@@ -194,6 +196,8 @@ Tate Patchは、中央集権的な依存関係を排し、プライバシーを�
 - エラー時にセッションが意図せず停止することはありません。まず使っているキーを約2秒後に1回だけ再試行し、それでも連続で失敗した場合のみ「キーの責務」と判断してプール内の別キーへローテーションします（切り替えた後は無条件待機なしで即時試行）。
 - リトライ指定が非常に長い場合（60秒超）は最初からキー枯渇とみなし、すぐにローテーションします。
 - オフライン・ネットワーク障害はキーの責務ではありません。同じキーで上限付きバックオフにより継続ポーリングし、オンライン復帰を待ちます（復帰後の失敗から改めて同じキー→ローテーションの手順）。
+- オフライン時もWebUI・TUIどちらも停止しません。会話の最下部に一時バナー「オンライン復帰を待機しています」を表示し、復帰するまでポーリングを続けます。
+- 空の返信（モデルが何も出力せず応答を終えた場合）も停止ではなく停滞とみなし、約2秒待って再リクエストし、実際の応答が届くまで再試行し続けます。会話が黙って終わることはありません。
 - 400/404等の4xx「クライアントのミス」も、本当にクライアント原因とは限らないため再試行します。
 - 1アカウントのみで利用する場合も停止しません。`Retry-After` を尊重して再試行を続けます。
 

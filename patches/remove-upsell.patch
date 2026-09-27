@@ -65,10 +65,10 @@ index 4f3c372205..e29b23df26 100644
    )
  }
 diff --git a/packages/opencode/src/session/retry.ts b/packages/opencode/src/session/retry.ts
-index 90b3f14dc1..b1fe465537 100644
+index 6b160c1279..22059b813d 100644
 --- a/packages/opencode/src/session/retry.ts
 +++ b/packages/opencode/src/session/retry.ts
-@@ -175,7 +175,7 @@ export function retryable(error: Err, provider: string) {
+@@ -181,7 +181,7 @@ export function retryable(error: Err, provider: string) {
        return { message, action: { reason: "rate_limit", provider, title: message, message, label: "" } }
      }
  
@@ -78,10 +78,10 @@ index 90b3f14dc1..b1fe465537 100644
      // Treat it like any other failure: retry the same key once, then rotate.
      if (status !== undefined && status >= 400 && status < 500) {
 diff --git a/packages/opencode/test/session/retry.test.ts b/packages/opencode/test/session/retry.test.ts
-index 06c90e2d23..ccf7043967 100644
+index 27be0b3df8..424b1f1d9d 100644
 --- a/packages/opencode/test/session/retry.test.ts
 +++ b/packages/opencode/test/session/retry.test.ts
-@@ -354,6 +354,24 @@ describe("session.retry.retryable", () => {
+@@ -359,6 +359,24 @@ describe("session.retry.retryable", () => {
      }
    })
  

@@ -1887,10 +1887,10 @@ index 662585020a..fe99a88da0 100644
      })
  
 diff --git a/packages/opencode/src/session/retry.ts b/packages/opencode/src/session/retry.ts
-index b1fe465537..90b3f14dc1 100644
+index 22059b813d..6b160c1279 100644
 --- a/packages/opencode/src/session/retry.ts
 +++ b/packages/opencode/src/session/retry.ts
-@@ -175,7 +175,7 @@ export function retryable(error: Err, provider: string) {
+@@ -181,7 +181,7 @@ export function retryable(error: Err, provider: string) {
        return { message, action: { reason: "rate_limit", provider, title: message, message, label: "" } }
      }
  
@@ -2053,10 +2053,10 @@ index 9d7643cb33..a292ce5a8b 100644
      "uses project-scoped path and directory precedence",
      () =>
 diff --git a/packages/opencode/test/session/retry.test.ts b/packages/opencode/test/session/retry.test.ts
-index ccf7043967..06c90e2d23 100644
+index 424b1f1d9d..27be0b3df8 100644
 --- a/packages/opencode/test/session/retry.test.ts
 +++ b/packages/opencode/test/session/retry.test.ts
-@@ -354,24 +354,6 @@ describe("session.retry.retryable", () => {
+@@ -359,24 +359,6 @@ describe("session.retry.retryable", () => {
      }
    })
  

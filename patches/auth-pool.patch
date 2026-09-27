@@ -2495,7 +2495,7 @@ index 9b3f2c46f4..c74514307b 100644
              type: "text",
              text: part.text,
 diff --git a/packages/opencode/src/session/processor.ts b/packages/opencode/src/session/processor.ts
-index 9f8530929c..c79d2e1dda 100644
+index 9f8530929c..5646267ba9 100644
 --- a/packages/opencode/src/session/processor.ts
 +++ b/packages/opencode/src/session/processor.ts
 @@ -9,6 +9,8 @@ import { Config } from "@/config/config"
@@ -2536,7 +2536,15 @@ index 9f8530929c..c79d2e1dda 100644
  export type Result = "compact" | "stop" | "continue"
  
  export interface Handle {
-@@ -94,6 +118,8 @@ const layer = Layer.effect(
+@@ -70,6 +94,7 @@ interface ProcessorContext extends Input {
+   snapshot: string | undefined
+   blocked: boolean
+   needsCompaction: boolean
++  sawOutput: boolean
+   currentText: SessionV1.TextPart | undefined
+   reasoningMap: Record<string, SessionV1.ReasoningPart>
+ }
+@@ -94,6 +119,8 @@ const layer = Layer.effect(
      const image = yield* Image.Service
      const events = yield* EventV2Bridge.Service
      const database = yield* Database.Service
@@ -2545,7 +2553,39 @@ index 9f8530929c..c79d2e1dda 100644
  
      const create = Effect.fn("SessionProcessor.create")(function* (input: Input) {
        // Pre-capture snapshot before the LLM stream starts. The AI SDK
-@@ -608,6 +634,9 @@ const layer = Layer.effect(
+@@ -109,6 +136,7 @@ const layer = Layer.effect(
+         snapshot: initialSnapshot,
+         blocked: false,
+         needsCompaction: false,
++        sawOutput: false,
+         currentText: undefined,
+         reasoningMap: {},
+       }
+@@ -279,6 +307,7 @@ const layer = Layer.effect(
+         switch (value.type) {
+           case "reasoning-start":
+             if (value.id in ctx.reasoningMap) return
++            ctx.sawOutput = true
+             ctx.reasoningMap[value.id] = {
+               id: PartID.ascending(),
+               messageID: ctx.assistantMessage.id,
+@@ -316,6 +345,7 @@ const layer = Layer.effect(
+             if (ctx.assistantMessage.summary) {
+               throw new Error(`Tool call not allowed while generating summary: ${value.name}`)
+             }
++            ctx.sawOutput = true
+             yield* ensureToolCall(value)
+             return
+ 
+@@ -498,6 +528,7 @@ const layer = Layer.effect(
+           }
+ 
+           case "text-start":
++            ctx.sawOutput = true
+             ctx.currentText = {
+               id: PartID.ascending(),
+               messageID: ctx.assistantMessage.id,
+@@ -608,6 +639,9 @@ const layer = Layer.effect(
          ctx.toolcalls = {}
          ctx.assistantMessage.time.completed = Date.now()
          yield* session.updateMessage(ctx.assistantMessage)
@@ -2555,7 +2595,7 @@ index 9f8530929c..c79d2e1dda 100644
        })
  
        const halt = Effect.fn("SessionProcessor.halt")(function* (e: unknown) {
-@@ -646,6 +675,12 @@ const layer = Layer.effect(
+@@ -646,10 +680,17 @@ const layer = Layer.effect(
          ctx.needsCompaction = false
          ctx.shouldBreak = (yield* config.get()).experimental?.continue_loop_on_deny !== true
  
@@ -2568,7 +2608,29 @@ index 9f8530929c..c79d2e1dda 100644
          return yield* Effect.gen(function* () {
            yield* Effect.gen(function* () {
              ctx.currentText = undefined
-@@ -676,13 +711,79 @@ const layer = Layer.effect(
+             ctx.reasoningMap = {}
++            ctx.sawOutput = false
+             yield* status.set(ctx.sessionID, { type: "busy" })
+             const stream = llm.stream(streamInput)
+ 
+@@ -658,6 +699,16 @@ const layer = Layer.effect(
+               Stream.takeUntil(() => ctx.needsCompaction),
+               Stream.runDrain,
+             )
++
++            // The turn finished without producing anything visible (no text,
++            // reasoning or tool call — the stream just ended, or the model ended
++            // it with nothing to say). Failing through the retry policy keeps the
++            // session alive: it waits ~2s and re-requests, retrying until a real
++            // reply arrives. Only a content-filtered reply is left alone — that
++            // is information, not a stall.
++            if (!ctx.assistantMessage.error && !ctx.needsCompaction && !ctx.sawOutput && !ctx.blocked) {
++              yield* Effect.fail(new Error(SessionRetry.EMPTY_REPLY_MESSAGE))
++            }
+           }).pipe(
+             Effect.onInterrupt(() =>
+               Effect.gen(function* () {
+@@ -676,13 +727,79 @@ const layer = Layer.effect(
                  provider: input.model.providerID,
                  parse,
                  set: (info) => {
@@ -2654,7 +2716,7 @@ index 9f8530929c..c79d2e1dda 100644
                  },
                }),
              ),
-@@ -717,6 +818,8 @@ export const node = LayerNode.make({
+@@ -717,6 +834,8 @@ export const node = LayerNode.make({
      Session.node,
      Config.node,
      Snapshot.node,
@@ -2664,7 +2726,7 @@ index 9f8530929c..c79d2e1dda 100644
      LLM.node,
      Permission.node,
 diff --git a/packages/opencode/src/session/retry.ts b/packages/opencode/src/session/retry.ts
-index 284c0f0ade..90b3f14dc1 100644
+index 284c0f0ade..6b160c1279 100644
 --- a/packages/opencode/src/session/retry.ts
 +++ b/packages/opencode/src/session/retry.ts
 @@ -7,9 +7,7 @@ import { isRecord } from "@/util/record"
@@ -2678,7 +2740,7 @@ index 284c0f0ade..90b3f14dc1 100644
  
  export type Retryable = {
    message: string
-@@ -30,6 +28,46 @@ export const RETRY_MAX_DELAY_NO_HEADERS = 30_000 // 30 seconds
+@@ -30,6 +28,51 @@ export const RETRY_MAX_DELAY_NO_HEADERS = 30_000 // 30 seconds
  export const RETRY_MAX_DELAY = 2_147_483_647 // max 32-bit signed integer for setTimeout
  export const RETRY_MAX_RETRIES = 5
  
@@ -2686,6 +2748,11 @@ index 284c0f0ade..90b3f14dc1 100644
 +// is at fault: retry the same key once (~2s), rotate only after a second
 +// consecutive failure. A key change is retried immediately instead.
 +export const RETRY_SAME_KEY_DELAY_MS = 2_000
++
++// A provider turn that ends without producing any visible reply. Not a hard
++// failure: the message keeps being retried (~2s same key) until a real reply
++// arrives, so a stalled turn never ends the session silently.
++export const EMPTY_REPLY_MESSAGE = "The model returned an empty response"
 +
 +export const QUOTA_REASONS = new Set([
 +  "account_rate_limit",
@@ -2725,10 +2792,13 @@ index 284c0f0ade..90b3f14dc1 100644
  const RETRYABLE_MESSAGE_PATTERNS = [
    /429|500|502|503|504|524/i,
    /rate increased too quickly|rate limit|rate-limit|rate_limit|too many requests/i,
-@@ -40,6 +78,15 @@ const RETRYABLE_MESSAGE_PATTERNS = [
+@@ -38,6 +81,16 @@ const RETRYABLE_MESSAGE_PATTERNS = [
+   /^timeout$|\b(?:request|response|connection|network|stream|read) (?:timeout|timed out|time out)\b/i,
+   /try your request again|retry your request|resource exhausted|resource_exhausted/i,
    /\btry again (?:later|in\b)|\b(?:currently|temporarily) at capacity\b/i,
- ]
- 
++  /empty response/i,
++]
++
 +// Transport-level failures: the OS has no connectivity. These are not the key's
 +// fault, so they never trigger rotation — the same key is polled at a bounded
 +// backoff until connectivity returns (then the normal key-fault rules apply).
@@ -2736,12 +2806,10 @@ index 284c0f0ade..90b3f14dc1 100644
 +  /getaddrinfo|enotfound|eai_again|econnrefused|econnreset|etimedout|network is unreachable/i,
 +  /network[-_\s]?error|connection (?:error|refused|lost|reset)|socket hang up|socket connection was closed/i,
 +  /failed to fetch|fetch failed|request (?:timeout|timed out|time out)|\bstream (?:error|closed)|offline|no internet|temporarily unable to resolve/i,
-+]
-+
+ ]
+ 
  function cap(ms: number) {
-   return Math.min(ms, RETRY_MAX_DELAY)
- }
-@@ -87,31 +134,11 @@ export function retryable(error: Err, provider: string) {
+@@ -87,31 +140,11 @@ export function retryable(error: Err, provider: string) {
    if (SessionV1.ContextOverflowError.isInstance(error)) return undefined
    if (SessionV1.APIError.isInstance(error)) {
      const status = error.data.statusCode
@@ -2776,7 +2844,7 @@ index 284c0f0ade..90b3f14dc1 100644
        const limitName = str(body?.metadata?.limitName)
        const retryAfter = num(error.data.responseHeaders?.["retry-after"])
        const resetIn = iife(() => {
-@@ -128,20 +155,44 @@ export function retryable(error: Err, provider: string) {
+@@ -128,20 +161,44 @@ export function retryable(error: Err, provider: string) {
        })
  
        const message = `${limitName ? `${limitName} usage limit` : "Usage limit"} reached. It will reset in ${resetIn}. To continue using this model now, enable usage from your available balance`
@@ -2833,7 +2901,7 @@ index 284c0f0ade..90b3f14dc1 100644
      return { message: error.data.message.includes("Overloaded") ? "Provider is overloaded" : error.data.message }
    }
  
-@@ -150,6 +201,8 @@ export function retryable(error: Err, provider: string) {
+@@ -150,6 +207,8 @@ export function retryable(error: Err, provider: string) {
    const lower = message.toLowerCase()
    if (lower.includes("too_many_requests")) return { message: "Too Many Requests" }
    if (lower.includes("exhausted") || lower.includes("unavailable")) return { message: "Provider is overloaded" }
@@ -2842,7 +2910,7 @@ index 284c0f0ade..90b3f14dc1 100644
    if (matchesRetryableMessage(message)) return { message }
    return undefined
  }
-@@ -183,24 +236,32 @@ function parseJSON(value: unknown) {
+@@ -183,24 +242,32 @@ function parseJSON(value: unknown) {
  export function policy(opts: {
    provider: string
    parse: (error: unknown) => Err
@@ -3024,8 +3092,107 @@ index 55bdcff4f5..498ab586c0 100644
    Layer.provide(Layer.mock(Config.Service)({})),
    Layer.provide(Layer.mock(MoveSession.Service)({})),
    Layer.provide(
+diff --git a/packages/opencode/test/session/processor-effect.test.ts b/packages/opencode/test/session/processor-effect.test.ts
+index c67f82d9c7..ae3dd64ed2 100644
+--- a/packages/opencode/test/session/processor-effect.test.ts
++++ b/packages/opencode/test/session/processor-effect.test.ts
+@@ -514,13 +514,14 @@ it.live("session.processor effect tests reset reasoning state across retries", (
+   ),
+ )
+ 
+-it.live("session.processor effect tests do not retry unknown json errors", () =>
++it.live("session.processor effect tests retry unknown json client errors", () =>
+   provideTmpdirServer(
+     ({ dir, llm }) =>
+       Effect.gen(function* () {
+         const { processors, session, provider } = yield* boot()
+ 
+         yield* llm.error(400, { error: { message: "no_kv_space" } })
++        yield* llm.text("after")
+ 
+         const chat = yield* session.create({})
+         const parent = yield* user(chat.id, "json")
+@@ -549,9 +550,12 @@ it.live("session.processor effect tests do not retry unknown json errors", () =>
+           tools: {},
+         })
+ 
+-        expect(value).toBe("stop")
+-        expect(yield* llm.calls).toBe(1)
+-        expect(handle.message.error?.name).toBe("APIError")
++        const parts = yield* MessageV2.parts(msg.id)
++
++        expect(value).toBe("continue")
++        expect(yield* llm.calls).toBe(2)
++        expect(parts.some((part) => part.type === "text" && part.text === "after")).toBe(true)
++        expect(handle.message.error).toBeUndefined()
+       }),
+     { config: (url) => providerCfg(url) },
+   ),
+@@ -708,6 +712,53 @@ it.live("session.processor effect tests retry network_error finish reasons", ()
+   ),
+ )
+ 
++it.live("session.processor effect tests retry an empty reply until a reply arrives", () =>
++  provideTmpdirServer(
++    ({ dir, llm }) =>
++      Effect.gen(function* () {
++        const { processors, session, provider } = yield* boot()
++
++        yield* llm.push(reply().stop())
++        yield* llm.text("after retry")
++
++        const chat = yield* session.create({})
++        const parent = yield* user(chat.id, "empty reply")
++        const msg = yield* assistant(chat.id, parent.id, path.resolve(dir))
++        const mdl = yield* provider.getModel(ref.providerID, ref.modelID)
++        const handle = yield* processors.create({
++          assistantMessage: msg,
++          sessionID: chat.id,
++          model: mdl,
++        })
++
++        const value = yield* handle.process({
++          user: {
++            id: parent.id,
++            sessionID: chat.id,
++            role: "user",
++            time: parent.time,
++            agent: parent.agent,
++            model: { providerID: ref.providerID, modelID: ref.modelID },
++          } satisfies SessionV1.User,
++          sessionID: chat.id,
++          model: mdl,
++          agent: agent(),
++          system: [],
++          messages: [{ role: "user", content: "empty reply" }],
++          tools: {},
++        })
++
++        const parts = yield* MessageV2.parts(msg.id)
++
++        expect(value).toBe("continue")
++        expect(yield* llm.calls).toBe(2)
++        expect(parts.some((part) => part.type === "text" && part.text === "after retry")).toBe(true)
++        expect(handle.message.error).toBeUndefined()
++      }),
++    { config: (url) => providerCfg(url) },
++  ),
++)
++
+ it.live("session.processor effect tests publish retry status updates", () =>
+   provideTmpdirServer(
+     ({ dir, llm }) =>
+@@ -716,7 +767,7 @@ it.live("session.processor effect tests publish retry status updates", () =>
+         const events = yield* EventV2Bridge.Service
+ 
+         yield* llm.error(503, { error: "boom" })
+-        yield* llm.text("")
++        yield* llm.text("after retry")
+ 
+         const chat = yield* session.create({})
+         const parent = yield* user(chat.id, "retry")
 diff --git a/packages/opencode/test/session/retry.test.ts b/packages/opencode/test/session/retry.test.ts
-index 20c8678cf0..06c90e2d23 100644
+index 20c8678cf0..27be0b3df8 100644
 --- a/packages/opencode/test/session/retry.test.ts
 +++ b/packages/opencode/test/session/retry.test.ts
 @@ -4,7 +4,7 @@ import { SessionV1 } from "@opencode-ai/core/v1/session"
@@ -3078,7 +3245,19 @@ index 20c8678cf0..06c90e2d23 100644
      }),
    )
  })
-@@ -206,15 +210,6 @@ describe("session.retry.retryable", () => {
+@@ -193,6 +197,11 @@ describe("session.retry.retryable", () => {
+     expect(SessionRetry.retryable(error, retryProvider)).toEqual({ message: msg })
+   })
+ 
++  test("retries an empty-response turn as a retryable failure without an action", () => {
++    const error = wrap(SessionRetry.EMPTY_REPLY_MESSAGE)
++    expect(SessionRetry.retryable(error, retryProvider)).toEqual({ message: SessionRetry.EMPTY_REPLY_MESSAGE })
++  })
++
+   test("retries too many requests in plain text", () => {
+     const msg = "Too many requests, please slow down"
+     const error = wrap(msg)
+@@ -206,15 +215,6 @@ describe("session.retry.retryable", () => {
      "Provider returned error",
      "provider-returned-error",
      "terminated",
@@ -3094,7 +3273,7 @@ index 20c8678cf0..06c90e2d23 100644
      "response timed out",
      "Please retry your request",
      "try your request again",
-@@ -226,18 +221,50 @@ describe("session.retry.retryable", () => {
+@@ -226,18 +226,50 @@ describe("session.retry.retryable", () => {
      expect(SessionRetry.retryable(wrap(message), retryProvider)).toEqual({ message })
    })
  
@@ -3147,7 +3326,7 @@ index 20c8678cf0..06c90e2d23 100644
          responseBody: JSON.stringify({ error: { message: "upstream connection refused" } }),
        }).toObject(),
      )
-@@ -309,16 +336,22 @@ describe("session.retry.retryable", () => {
+@@ -309,16 +341,22 @@ describe("session.retry.retryable", () => {
      expect(SessionRetry.retryable(error, retryProvider)).toEqual({ message: "Service unavailable" })
    })
  
@@ -3179,7 +3358,7 @@ index 20c8678cf0..06c90e2d23 100644
    })
  
    test("retries ZlibError decompression failures", () => {
-@@ -335,32 +368,6 @@ describe("session.retry.retryable", () => {
+@@ -335,32 +373,6 @@ describe("session.retry.retryable", () => {
      expect(retryable).toEqual({ message: "Response decompression failed" })
    })
  
@@ -3212,7 +3391,7 @@ index 20c8678cf0..06c90e2d23 100644
    test("maps Go subscription limits to workspace PAYG upsell", () => {
      const error = Schema.decodeUnknownSync(SessionV1.APIError.Schema)(
        new SessionV1.APIError({
-@@ -386,7 +393,7 @@ describe("session.retry.retryable", () => {
+@@ -386,7 +398,7 @@ describe("session.retry.retryable", () => {
  
      expect(SessionRetry.retryable(error, "opencode-go")).toEqual({
        message:
@@ -3221,7 +3400,7 @@ index 20c8678cf0..06c90e2d23 100644
        action: {
          reason: "account_rate_limit",
          provider: "opencode-go",
-@@ -394,7 +401,6 @@ describe("session.retry.retryable", () => {
+@@ -394,7 +406,6 @@ describe("session.retry.retryable", () => {
          message:
            "5 hour usage limit reached. It will reset in 5 hours 23 minutes. To continue using this model now, enable usage from your available balance",
          label: "open settings",
@@ -3229,7 +3408,7 @@ index 20c8678cf0..06c90e2d23 100644
        },
      })
    })
-@@ -427,6 +433,82 @@ describe("session.retry.retryable", () => {
+@@ -427,6 +438,82 @@ describe("session.retry.retryable", () => {
    })
  })
  
@@ -3358,3 +3537,70 @@ index f06c20cc41..b3ca8ef315 100644
        next: number
      }
    | {
+diff --git a/packages/session-ui/src/components/session-retry.tsx b/packages/session-ui/src/components/session-retry.tsx
+index cf2d6c9459..ccf8800f2e 100644
+--- a/packages/session-ui/src/components/session-retry.tsx
++++ b/packages/session-ui/src/components/session-retry.tsx
+@@ -11,6 +11,7 @@ export function SessionRetry(props: { status: SessionStatus; show?: boolean }) {
+     if (props.status.type !== "retry") return
+     return props.status
+   })
++  const offline = createMemo(() => retry()?.action?.reason === "network")
+   const [seconds, setSeconds] = createSignal(0)
+   createEffect(
+     on(retry, (current) => {
+@@ -28,6 +29,9 @@ export function SessionRetry(props: { status: SessionStatus; show?: boolean }) {
+   const message = createMemo(() => {
+     const current = retry()
+     if (!current) return ""
++    if (offline()) {
++      return i18n.t("ui.sessionTurn.retry.offline")
++    }
+     if (current.message.includes("exceeded your current quota") && current.message.includes("gemini")) {
+       return i18n.t("ui.sessionTurn.retry.geminiHot")
+     }
+@@ -53,7 +57,7 @@ export function SessionRetry(props: { status: SessionStatus; show?: boolean }) {
+   return (
+     <Show when={retry() && (props.show ?? true)}>
+       <div data-slot="session-turn-retry">
+-        <Card variant="error" class="error-card">
++        <Card variant={offline() ? "warning" : "error"} class="error-card">
+           <div class="flex items-start gap-2">
+             <Spinner class="size-4 mt-0.5" />
+             <div class="min-w-0">
+diff --git a/packages/tui/src/component/prompt/index.tsx b/packages/tui/src/component/prompt/index.tsx
+index c48c751739..d6b78ded26 100644
+--- a/packages/tui/src/component/prompt/index.tsx
++++ b/packages/tui/src/component/prompt/index.tsx
+@@ -1535,6 +1535,7 @@ export function Prompt(props: PromptProps) {
+                       const message = createMemo(() => {
+                         const r = retry()
+                         if (!r) return
++                        if (r.action?.reason === "network") return "オンライン復帰を待機しています"
+                         if (r.message.includes("exceeded your current quota") && r.message.includes("gemini"))
+                           return "gemini is way too hot right now"
+                         if (r.message.length > 80) return r.message.slice(0, 80) + "…"
+diff --git a/packages/ui/src/i18n/en.ts b/packages/ui/src/i18n/en.ts
+index 54008fbc8d..ced143f5ba 100644
+--- a/packages/ui/src/i18n/en.ts
++++ b/packages/ui/src/i18n/en.ts
+@@ -70,6 +70,7 @@ export const dict: Record<string, string> = {
+   "ui.sessionTurn.retry.attempt": "attempt #{{attempt}}",
+   "ui.sessionTurn.retry.attemptLine": "{{line}} - attempt #{{attempt}}",
+   "ui.sessionTurn.retry.geminiHot": "gemini is way too hot right now",
++  "ui.sessionTurn.retry.offline": "Waiting for network recovery",
+   "ui.sessionTurn.error.freeUsageExceeded": "Free usage exceeded",
+   "ui.sessionTurn.error.addCredits": "Add credits",
+ 
+diff --git a/packages/ui/src/i18n/ja.ts b/packages/ui/src/i18n/ja.ts
+index 1b32e05deb..f93a8013f5 100644
+--- a/packages/ui/src/i18n/ja.ts
++++ b/packages/ui/src/i18n/ja.ts
+@@ -67,6 +67,7 @@ export const dict = {
+   "ui.sessionTurn.retry.attempt": "{{attempt}}回目",
+   "ui.sessionTurn.retry.attemptLine": "{{line}} - {{attempt}}回目",
+   "ui.sessionTurn.retry.geminiHot": "gemini が混雑しています",
++  "ui.sessionTurn.retry.offline": "オンライン復帰を待機しています",
+   "ui.sessionTurn.error.freeUsageExceeded": "無料使用制限に達しました",
+   "ui.sessionTurn.error.addCredits": "クレジットを追加",
+ 
