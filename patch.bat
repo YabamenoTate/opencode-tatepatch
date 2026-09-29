@@ -2,28 +2,53 @@
 REM ===========================================================================
 REM tatepatch ? opencode patching script (Windows)
 REM
-REM Applies server-side persistence patch and appends "(Tate Patched 5)"
-REM to the version string.
+REM Applies server-side persistence patch and appends a tatepatch label to the
+REM version string.
+REM
+REM The version numbers live only in the VERSION file. This script derives the
+REM git tag, the build define, the display string and the patched-detection
+REM string from it. Run "patch.bat version" to see the derived values.
 REM
 REM Usage:
 REM   patch.bat               Apply patch
 REM   patch.bat unapply       Restore official binary
 REM   patch.bat status        Check patch status
+REM   patch.bat version       Show version settings
 REM   patch.bat help          Show help
 REM ===========================================================================
 setlocal enabledelayedexpansion
 
 set "TATEPATCH_DIR=%~dp0"
 set "PATCHES_DIR=%TATEPATCH_DIR%patches"
+set "VERSION_FILE=%TATEPATCH_DIR%VERSION"
 set "WORK_DIR=%TATEPATCH_DIR%_work"
 set "SOURCE_DIR=%WORK_DIR%\source"
-set "TATEPATCH_VERSION=v1.18.31 (Tate Patched 5)"
-REM OPENCODE_VERSION define = UI/display version (no leading "v": UI adds it
-REM itself). Outbound User-Agents are clean "1.18.31" via InstallationClientVersion.
-set "TATEPATCH_OPENCODE_VERSION=1.18.31 (Tate Patched 5)"
-set "OPENCODE_TAG=v1.18.31"
 set "BACKUP_FILE=%TATEPATCH_DIR%opencode-official-backup.exe"
- 
+
+REM ---------------------------------------------------------------------------
+REM Version settings. VERSION is the single source of truth; everything below is
+REM derived from it. Do not hardcode a version number here.
+REM ---------------------------------------------------------------------------
+set "TATEPATCH_BASE_VERSION="
+set "TATEPATCH_PATCH_LEVEL="
+for /f "usebackq tokens=1,* delims==" %%A in (`findstr /B "TATEPATCH_BASE_VERSION=" "%VERSION_FILE%"`) do set "TATEPATCH_BASE_VERSION=%%B"
+for /f "usebackq tokens=1,* delims==" %%A in (`findstr /B "TATEPATCH_PATCH_LEVEL=" "%VERSION_FILE%"`) do set "TATEPATCH_PATCH_LEVEL=%%B"
+if not defined TATEPATCH_BASE_VERSION (
+    echo FAILED: TATEPATCH_BASE_VERSION is not set in %VERSION_FILE%
+    exit /b 1
+)
+if not defined TATEPATCH_PATCH_LEVEL (
+    echo FAILED: TATEPATCH_PATCH_LEVEL is not set in %VERSION_FILE%
+    exit /b 1
+)
+
+set "TATEPATCH_LABEL=(Tate Patched !TATEPATCH_PATCH_LEVEL!)"
+set "TATEPATCH_VERSION=v!TATEPATCH_BASE_VERSION! !TATEPATCH_LABEL!"
+REM OPENCODE_VERSION define = UI/display version (no leading "v": UI adds it
+REM itself). Outbound User-Agents are clean semver via InstallationClientVersion.
+set "TATEPATCH_OPENCODE_VERSION=!TATEPATCH_BASE_VERSION! !TATEPATCH_LABEL!"
+set "OPENCODE_TAG=v!TATEPATCH_BASE_VERSION!"
+
 REM Find opencode binary
 where opencode >nul 2>&1
 if %errorlevel% equ 0 (
@@ -46,8 +71,19 @@ goto :eof
 
 REM ---------------------------------------------------------------------------
 :is_patched
-"%OPENCODE_BIN%" --version 2>nul | findstr "(Tate Patched 5)" >nul
+"%OPENCODE_BIN%" --version 2>nul | findstr /C:"!TATEPATCH_LABEL!" >nul
 if %errorlevel% equ 0 (exit /b 0) else (exit /b 1)
+
+REM ---------------------------------------------------------------------------
+:print_version
+echo VERSION file:    %VERSION_FILE%
+echo   base version:  !TATEPATCH_BASE_VERSION!
+echo   patch level:   !TATEPATCH_PATCH_LEVEL!
+echo   label:         !TATEPATCH_LABEL!
+echo   git tag:       !OPENCODE_TAG!
+echo   display:       !TATEPATCH_VERSION!
+echo   build define:  !TATEPATCH_OPENCODE_VERSION!
+goto :eof
 
 REM ---------------------------------------------------------------------------
 :unapply
@@ -100,7 +136,7 @@ if %errorlevel% neq 0 (
 
 pushd "%SOURCE_DIR%"
 
-REM Apply patches
+REM Apply patches, in the order listed in the single PATCH_ORDER definition.
 echo.
 echo ^=^=^> Applying patches
 for %%p in (
@@ -116,7 +152,7 @@ for %%p in (
 ) do (
     if exist "%PATCHES_DIR%\%%p" (
         echo Applying %%p ...
-        git apply "%PATCHES_DIR%\%%p"
+        git apply --whitespace=nowarn "%PATCHES_DIR%\%%p"
         if !errorlevel! neq 0 (
             echo FAILED: Patch %%p could not be applied. Source has changed.
             popd
@@ -124,6 +160,33 @@ for %%p in (
         )
     )
 )
+
+REM Stamp the VERSION values into the source
+echo.
+echo ^=^=^> Stamping version
+set "STAMP_TARGET=%SOURCE_DIR%\packages\core\src\installation\version.ts"
+if not exist "%STAMP_TARGET%" (
+    echo FAILED: version.ts not found at %STAMP_TARGET%
+    popd
+    exit /b 1
+)
+powershell -NoProfile -Command ^
+    "$p='%STAMP_TARGET%';$t=[IO.File]::ReadAllText($p);" ^
+    "$t=$t.Replace('@@TATEPATCH_BASE_VERSION@@','!TATEPATCH_BASE_VERSION!').Replace('@@TATEPATCH_PATCH_LEVEL@@','!TATEPATCH_PATCH_LEVEL!');" ^
+    "[IO.File]::WriteAllText($p,$t,(New-Object Text.UTF8Encoding $false))"
+if %errorlevel% neq 0 (
+    echo FAILED: version stamping failed.
+    popd
+    exit /b 1
+)
+echo   Base: !TATEPATCH_BASE_VERSION!  level: !TATEPATCH_PATCH_LEVEL!
+findstr /S /C:"@@TATEPATCH_" "%SOURCE_DIR%\*.ts" "%SOURCE_DIR%\*.tsx" >nul 2>&1
+if not %errorlevel% equ 0 (
+    echo FAILED: Unsubstituted @@TATEPATCH_* placeholders remain in %SOURCE_DIR%
+    popd
+    exit /b 1
+)
+echo   Version string: !TATEPATCH_VERSION!
 
 REM Install dependencies
 echo.
@@ -182,7 +245,7 @@ echo.
 echo ^=^=^= Installation complete! ^=^=^=
 for /f "tokens=*" %%v in ('"%OPENCODE_BIN%" --version 2^>nul') do echo Version: %%v
 echo.
-echo "(Tate Patched 5)" appears in version output on success.
+echo "!TATEPATCH_LABEL!" appears in version output on success.
 echo Restore original: %~0 unapply
 
 popd
@@ -196,9 +259,10 @@ if /i "%1"=="unapply" goto :unapply
 if /i "%1"=="uninstall" goto :unapply
 if /i "%1"=="revert" goto :unapply
 if /i "%1"=="status" goto :status
+if /i "%1"=="version" goto :version
 if /i "%1"=="help" goto :help
 echo Unknown command: %1
-echo Usage: %~0 [apply^|unapply^|status^|help]
+echo Usage: %~0 [apply^|unapply^|status^|version^|help]
 exit /b 1
 
 :apply
@@ -222,6 +286,10 @@ if "%OPENCODE_BIN%"=="" (
 )
 exit /b 0
 
+:version
+call :print_version
+exit /b 0
+
 :help
 echo Usage: %~0 [command]
 echo.
@@ -229,5 +297,6 @@ echo Commands:
 echo   apply           Apply tatepatch (default)
 echo   unapply         Restore official binary
 echo   status          Show patch status
+echo   version         Show the version settings from %VERSION_FILE%
 echo   help            Show this help
 exit /b 0

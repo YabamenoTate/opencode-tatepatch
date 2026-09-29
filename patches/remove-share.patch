@@ -1,5 +1,5 @@
 diff --git a/packages/app/src/i18n/ar.ts b/packages/app/src/i18n/ar.ts
-index 6a7b1cf769..00cba21a7f 100644
+index 6a7b1cf..00cba21 100644
 --- a/packages/app/src/i18n/ar.ts
 +++ b/packages/app/src/i18n/ar.ts
 @@ -781,7 +781,7 @@ export const dict = {
@@ -12,7 +12,7 @@ index 6a7b1cf769..00cba21a7f 100644
    "session.share.action.publishing": "جارٍ النشر...",
    "session.share.action.unpublish": "إلغاء النشر",
 diff --git a/packages/app/src/i18n/br.ts b/packages/app/src/i18n/br.ts
-index cd67ce8397..961cbef0b3 100644
+index cd67ce8..961cbef 100644
 --- a/packages/app/src/i18n/br.ts
 +++ b/packages/app/src/i18n/br.ts
 @@ -782,7 +782,7 @@ export const dict = {
@@ -25,7 +25,7 @@ index cd67ce8397..961cbef0b3 100644
    "session.share.action.publishing": "Publicando...",
    "session.share.action.unpublish": "Cancelar publicação",
 diff --git a/packages/app/src/i18n/bs.ts b/packages/app/src/i18n/bs.ts
-index 3a91288667..14eee74494 100644
+index 3a91288..14eee74 100644
 --- a/packages/app/src/i18n/bs.ts
 +++ b/packages/app/src/i18n/bs.ts
 @@ -840,7 +840,7 @@ export const dict = {
@@ -38,7 +38,7 @@ index 3a91288667..14eee74494 100644
    "session.share.action.publishing": "Objavljivanje...",
    "session.share.action.unpublish": "Poništi objavu",
 diff --git a/packages/app/src/i18n/da.ts b/packages/app/src/i18n/da.ts
-index 24718a88b0..a6d3c7950f 100644
+index 24718a8..a6d3c79 100644
 --- a/packages/app/src/i18n/da.ts
 +++ b/packages/app/src/i18n/da.ts
 @@ -717,7 +717,7 @@ export const dict = {
@@ -51,7 +51,7 @@ index 24718a88b0..a6d3c7950f 100644
    "session.share.action.publishing": "Udgiver...",
    "session.share.action.unpublish": "Afpublicer",
 diff --git a/packages/app/src/i18n/de.ts b/packages/app/src/i18n/de.ts
-index c2a107adba..8fa52a85d7 100644
+index c2a107a..8fa52a8 100644
 --- a/packages/app/src/i18n/de.ts
 +++ b/packages/app/src/i18n/de.ts
 @@ -672,7 +672,7 @@ export const dict = {
@@ -64,7 +64,7 @@ index c2a107adba..8fa52a85d7 100644
    "session.share.action.publishing": "Wird veröffentlicht…",
    "session.share.action.unpublish": "Veröffentlichung aufheben",
 diff --git a/packages/app/src/i18n/en.ts b/packages/app/src/i18n/en.ts
-index 7257c1bdd5..8669aaca5e 100644
+index 7257c1b..8669aac 100644
 --- a/packages/app/src/i18n/en.ts
 +++ b/packages/app/src/i18n/en.ts
 @@ -781,7 +781,7 @@ export const dict = {
@@ -77,7 +77,7 @@ index 7257c1bdd5..8669aaca5e 100644
    "session.share.action.publishing": "Publishing...",
    "session.share.action.unpublish": "Unpublish",
 diff --git a/packages/app/src/i18n/es.ts b/packages/app/src/i18n/es.ts
-index 7d759f7c58..77483c614b 100644
+index 7d759f7..77483c6 100644
 --- a/packages/app/src/i18n/es.ts
 +++ b/packages/app/src/i18n/es.ts
 @@ -845,7 +845,7 @@ export const dict = {
@@ -90,7 +90,7 @@ index 7d759f7c58..77483c614b 100644
    "session.share.action.publishing": "Publicando...",
    "session.share.action.unpublish": "Despublicar",
 diff --git a/packages/app/src/i18n/fr.ts b/packages/app/src/i18n/fr.ts
-index 6caee4b6bf..175efddd97 100644
+index 6caee4b..175efdd 100644
 --- a/packages/app/src/i18n/fr.ts
 +++ b/packages/app/src/i18n/fr.ts
 @@ -792,7 +792,7 @@ export const dict = {
@@ -103,7 +103,7 @@ index 6caee4b6bf..175efddd97 100644
    "session.share.action.publishing": "Publication...",
    "session.share.action.unpublish": "Dépublier",
 diff --git a/packages/app/src/i18n/ja.ts b/packages/app/src/i18n/ja.ts
-index d85c7c0c3f..41322a8e46 100644
+index d85c7c0..41322a8 100644
 --- a/packages/app/src/i18n/ja.ts
 +++ b/packages/app/src/i18n/ja.ts
 @@ -774,7 +774,7 @@ export const dict = {
@@ -116,7 +116,7 @@ index d85c7c0c3f..41322a8e46 100644
    "session.share.action.publishing": "公開中...",
    "session.share.action.unpublish": "非公開にする",
 diff --git a/packages/app/src/i18n/ko.ts b/packages/app/src/i18n/ko.ts
-index a476e85d37..a26023041f 100644
+index a476e85..a260230 100644
 --- a/packages/app/src/i18n/ko.ts
 +++ b/packages/app/src/i18n/ko.ts
 @@ -537,7 +537,7 @@ export const dict = {
@@ -129,7 +129,7 @@ index a476e85d37..a26023041f 100644
    "session.share.action.publishing": "게시 중...",
    "session.share.action.unpublish": "게시 취소",
 diff --git a/packages/app/src/i18n/no.ts b/packages/app/src/i18n/no.ts
-index 3778f373dc..7632e57353 100644
+index 3778f37..7632e57 100644
 --- a/packages/app/src/i18n/no.ts
 +++ b/packages/app/src/i18n/no.ts
 @@ -705,7 +705,7 @@ export const dict = {
@@ -142,7 +142,7 @@ index 3778f373dc..7632e57353 100644
    "session.share.action.publishing": "Publiserer...",
    "session.share.action.unpublish": "Avpubliser",
 diff --git a/packages/app/src/i18n/pl.ts b/packages/app/src/i18n/pl.ts
-index 19dca275fc..3b1b908555 100644
+index 19dca27..3b1b908 100644
 --- a/packages/app/src/i18n/pl.ts
 +++ b/packages/app/src/i18n/pl.ts
 @@ -784,7 +784,7 @@ export const dict = {
@@ -155,7 +155,7 @@ index 19dca275fc..3b1b908555 100644
    "session.share.action.publishing": "Publikowanie...",
    "session.share.action.unpublish": "Cofnij publikację",
 diff --git a/packages/app/src/i18n/ru.ts b/packages/app/src/i18n/ru.ts
-index 3da58544eb..e62d0f8fa6 100644
+index 3da5854..e62d0f8 100644
 --- a/packages/app/src/i18n/ru.ts
 +++ b/packages/app/src/i18n/ru.ts
 @@ -842,7 +842,7 @@ export const dict = {
@@ -168,7 +168,7 @@ index 3da58544eb..e62d0f8fa6 100644
    "session.share.action.publishing": "Публикация...",
    "session.share.action.unpublish": "Отменить публикацию",
 diff --git a/packages/app/src/i18n/th.ts b/packages/app/src/i18n/th.ts
-index 44b377c1e8..995f8fe487 100644
+index 44b377c..995f8fe 100644
 --- a/packages/app/src/i18n/th.ts
 +++ b/packages/app/src/i18n/th.ts
 @@ -828,7 +828,7 @@ export const dict = {
@@ -181,7 +181,7 @@ index 44b377c1e8..995f8fe487 100644
    "session.share.action.publishing": "กำลังเผยแพร่...",
    "session.share.action.unpublish": "ยกเลิกการเผยแพร่",
 diff --git a/packages/app/src/i18n/tr.ts b/packages/app/src/i18n/tr.ts
-index bac5aa7c88..b0a2d7239f 100644
+index bac5aa7..b0a2d72 100644
 --- a/packages/app/src/i18n/tr.ts
 +++ b/packages/app/src/i18n/tr.ts
 @@ -845,7 +845,7 @@ export const dict = {
@@ -194,7 +194,7 @@ index bac5aa7c88..b0a2d7239f 100644
    "session.share.action.publishing": "Yayınlanıyor...",
    "session.share.action.unpublish": "Yayından kaldır",
 diff --git a/packages/app/src/i18n/uk.ts b/packages/app/src/i18n/uk.ts
-index 050971b73b..fcdec79712 100644
+index 050971b..fcdec79 100644
 --- a/packages/app/src/i18n/uk.ts
 +++ b/packages/app/src/i18n/uk.ts
 @@ -892,7 +892,7 @@ export const dict = {
@@ -207,7 +207,7 @@ index 050971b73b..fcdec79712 100644
    "session.share.action.publishing": "Публікація...",
    "session.share.action.unpublish": "Скасувати публікацію",
 diff --git a/packages/app/src/i18n/zh.ts b/packages/app/src/i18n/zh.ts
-index 662a4537fa..c2504cd778 100644
+index 662a453..c2504cd 100644
 --- a/packages/app/src/i18n/zh.ts
 +++ b/packages/app/src/i18n/zh.ts
 @@ -824,7 +824,7 @@ export const dict = {
@@ -220,7 +220,7 @@ index 662a4537fa..c2504cd778 100644
    "session.share.action.publishing": "正在发布...",
    "session.share.action.unpublish": "取消发布",
 diff --git a/packages/app/src/i18n/zht.ts b/packages/app/src/i18n/zht.ts
-index 56ae91d26e..3b471f5173 100644
+index 56ae91d..3b471f5 100644
 --- a/packages/app/src/i18n/zht.ts
 +++ b/packages/app/src/i18n/zht.ts
 @@ -822,7 +822,7 @@ export const dict = {
@@ -233,7 +233,7 @@ index 56ae91d26e..3b471f5173 100644
    "session.share.action.publishing": "正在發佈...",
    "session.share.action.unpublish": "取消發佈",
 diff --git a/packages/app/src/pages/session/timeline/message-timeline.tsx b/packages/app/src/pages/session/timeline/message-timeline.tsx
-index e083882557..5888151817 100644
+index e083882..5888151 100644
 --- a/packages/app/src/pages/session/timeline/message-timeline.tsx
 +++ b/packages/app/src/pages/session/timeline/message-timeline.tsx
 @@ -42,7 +42,6 @@ import { ButtonV2 } from "@opencode-ai/ui/v2/button-v2"
@@ -671,7 +671,7 @@ index e083882557..5888151817 100644
                    </div>
                  )}
 diff --git a/packages/app/src/pages/session/use-session-commands.tsx b/packages/app/src/pages/session/use-session-commands.tsx
-index 18d5b172ff..d5f7f770a5 100644
+index 18d5b17..d5f7f77 100644
 --- a/packages/app/src/pages/session/use-session-commands.tsx
 +++ b/packages/app/src/pages/session/use-session-commands.tsx
 @@ -142,99 +142,11 @@ export const useSessionCommands = (actions: SessionCommandContext) => {

@@ -78,6 +78,411 @@ index a133e88..9253ffa 100644
      })
  
      const get = Effect.fn("Auth.get")(function* (providerID: string) {
+diff --git a/packages/opencode/src/auth/pool.ts b/packages/opencode/src/auth/pool.ts
+index 8a13927..31c84d0 100644
+--- a/packages/opencode/src/auth/pool.ts
++++ b/packages/opencode/src/auth/pool.ts
+@@ -1,12 +1,18 @@
+ import path from "path"
+ import crypto from "crypto"
+-import { Effect, Layer, Schema, Context, Option } from "effect"
++import { Effect, Layer, Schema, Context } from "effect"
+ import { Global } from "@opencode-ai/core/global"
+ import { FSUtil } from "@opencode-ai/core/fs-util"
+ import { LayerNode } from "@opencode-ai/core/effect/layer-node"
++import { Auth } from "@/auth"
+ 
+ const POOL_FILE = path.join(Global.Path.data, "auth-pool.json")
+ 
++// A lease is a claim that some session is currently using a key. Leases live in
++// memory only: they describe who is busy right now, which the pool file cannot
++// know. Cooldowns, by contrast, must outlive a restart, so they stay on disk.
++const LEASE_TTL_MS = 15 * 60_000
++
+ export class PoolSchema extends Schema.Class<PoolSchema>("AuthPoolEntry")({
+   key: Schema.String,
+   label: Schema.optional(Schema.String),
+@@ -21,10 +27,32 @@ export interface RotateResult {
+   label?: string
+   exhausted: boolean
+   key?: string
+-  // When every pooled key is cooling down: ms until the earliest recovery.
++  // When every key is cooling down: ms until the earliest recovery.
++  waitMs?: number
++}
++
++export type SelectReason = "held" | "idle" | "lru" | "cooling" | "none"
++
++export interface SelectOptions {
++  sessionID?: string
++  exclude?: string[]
++}
++
++export interface SelectResult {
++  key?: string
++  label?: string
++  reason: SelectReason
++  // Present only when `reason` is "cooling": ms until the earliest key recovers.
+   waitMs?: number
+ }
+ 
++export interface PublicLease {
++  key_hash: string
++  key_masked: string
++  label?: string
++  since: number
++}
++
+ export interface Interface {
+   readonly list: (providerID: string) => Effect.Effect<PublicPoolEntry[], never>
+   readonly add: (providerID: string, entry: PoolEntry) => Effect.Effect<void, never>
+@@ -33,6 +61,11 @@ export interface Interface {
+   readonly count: (providerID: string) => Effect.Effect<number, never>
+   readonly resetToMain: (providerID: string) => Effect.Effect<string | undefined, never>
+   readonly rotate: (providerID: string, retryAfterMs?: number, currentKey?: string) => Effect.Effect<RotateResult, never>
++  readonly select: (providerID: string, opts?: SelectOptions) => Effect.Effect<SelectResult, never>
++  readonly cooldown: (providerID: string, key: string, retryAfterMs: number) => Effect.Effect<void, never>
++  readonly touch: (providerID: string, key: string, sessionID: string) => Effect.Effect<void, never>
++  readonly releaseSession: (sessionID: string) => Effect.Effect<void, never>
++  readonly leases: (providerID: string) => Effect.Effect<PublicLease[], never>
+ }
+ 
+ export class Service extends Context.Service<Service, Interface>()("@opencode/AuthPool") {}
+@@ -70,10 +103,77 @@ const rawPool = (fsys: FSUtil.Interface) =>
+ const writePool = (fsys: FSUtil.Interface, data: PoolData) =>
+   fsys.writeJson(POOL_FILE, data, 0o600).pipe(Effect.orDie)
+ 
++interface Lease {
++  sessionID: string
++  lastUsed: number
++  keyHash: string
++  keyMasked: string
++  label?: string
++}
++
+ export const layer = Layer.effect(
+   Service,
+   Effect.gen(function* () {
+     const fsys = yield* FSUtil.Service
++    const auth = yield* Auth.Service
++
++    // providerID -> keyHash -> lease
++    const leaseTable = new Map<string, Map<string, Lease>>()
++
++    // The key in auth.json is not privileged. It is kept in its own file purely so
++    // upstream opencode (which reads a single key) keeps working, and it joins the
++    // rotation set as one member among equals, ordered first so that the very first
++    // request of the very first session uses it.
++    const authKey = Effect.fn("AuthPool.authKey")(function* (providerID: string) {
++      const info = yield* auth.get(providerID).pipe(Effect.orElseSucceed(() => undefined))
++      return info?.type === "api" ? info.key : undefined
++    })
++
++    const candidates = (data: PoolData, providerID: string, mainKey?: string): PoolEntry[] => {
++      const out: PoolEntry[] = []
++      if (mainKey) out.push({ key: mainKey, label: "auth.json" })
++      for (const entry of getEntries(data, providerID)) {
++        if (entry.key !== mainKey) out.push(entry)
++      }
++      return out
++    }
++
++    const pruneLeases = (providerID: string, now: number) => {
++      const table = leaseTable.get(providerID)
++      if (!table) return
++      for (const [hash, lease] of table) {
++        if (now - lease.lastUsed > LEASE_TTL_MS) table.delete(hash)
++      }
++      if (table.size === 0) leaseTable.delete(providerID)
++    }
++
++    // Reads the cooldown table for a provider, dropping entries that already
++    // recovered. Cooldowns are tracked for every known key, including the one in
++    // auth.json, which is why this cannot simply intersect the pool entries.
++    const readCooldowns = (data: PoolData, providerID: string, now: number, known: PoolEntry[]) => {
++      const before = JSON.stringify(data._retryAfter ?? null) + "|" + JSON.stringify(data._tried ?? null)
++      const raData = { ...((data._retryAfter ?? {}) as Record<string, Record<string, number>>) }
++      const ra = { ...(raData[providerID] ?? {}) }
++      const knownHashes = new Set(known.map((e) => sha256(e.key)))
++      for (const hash of Object.keys(ra)) {
++        if (!knownHashes.has(hash) || ra[hash] <= now) {
++          delete ra[hash]
++        }
++      }
++      if (Object.keys(ra).length > 0) {
++        raData[providerID] = ra
++      } else {
++        delete raData[providerID]
++      }
++      if (Object.keys(raData).length === 0) {
++        delete data._retryAfter
++      } else {
++        data._retryAfter = raData
++      }
++      delete data._tried
++      const after = JSON.stringify(data._retryAfter ?? null) + "|" + JSON.stringify(data._tried ?? null)
++      return { ra, changed: before !== after }
++    }
+ 
+     const list = Effect.fn("AuthPool.list")(function* (providerID: string) {
+       const data = yield* rawPool(fsys)
+@@ -87,15 +187,20 @@ export const layer = Layer.effect(
+     const add = Effect.fn("AuthPool.add")(function* (providerID: string, entry: PoolEntry) {
+       const data = yield* rawPool(fsys)
+       const arr = getEntries(data, providerID)
+-      arr.push(entry)
++      if (!arr.some((e) => e.key === entry.key)) arr.push(entry)
+       data[providerID] = arr
+       if (data._tried) {
+         delete (data._tried as Record<string, string[]>)[providerID]
+       }
+-      if (data._retryAfter) {
+-        delete (data._retryAfter as Record<string, Record<string, number>>)[providerID]
+-        if (Object.keys(data._retryAfter as Record<string, unknown>).length === 0) delete data._retryAfter
++      const raData = (data._retryAfter ?? {}) as Record<string, Record<string, number>>
++      if (raData[providerID]) {
++        const ra = { ...raData[providerID] }
++        delete ra[sha256(entry.key)]
++        if (Object.keys(ra).length === 0) delete raData[providerID]
++        else raData[providerID] = ra
+       }
++      if (Object.keys(raData).length === 0) delete data._retryAfter
++      else data._retryAfter = raData
+       yield* writePool(fsys, data)
+     })
+ 
+@@ -111,6 +216,7 @@ export const layer = Layer.effect(
+         data[providerID] = arr
+       }
+       yield* writePool(fsys, data)
++      leaseTable.get(providerID)?.delete(keyHash)
+       return true
+     })
+ 
+@@ -191,7 +297,7 @@ export const layer = Layer.effect(
+         if (Object.keys(data._tried as Record<string, string[]>).length === 0) delete data._tried
+       }
+       if (data._retryAfter) {
+-        delete (data._retryAfter as Record<string, unknown>)[providerID]
++        delete (data._retryAfter as Record<string, Record<string, number>>)[providerID]
+         if (Object.keys(data._retryAfter as Record<string, unknown>).length === 0) delete data._retryAfter
+       }
+ 
+@@ -199,84 +305,154 @@ export const layer = Layer.effect(
+       return mainKey
+     })
+ 
+-    const rotate = Effect.fn("AuthPool.rotate")(function* (providerID: string, retryAfterMs?: number, currentKey?: string) {
++    // Marks a key unusable for `retryAfterMs`. Deliberately does not promote,
++    // demote or rewrite auth.json: a rate limit on one key says nothing about
++    // the others, and every one of them must stay selectable.
++    const cooldown = Effect.fn("AuthPool.cooldown")(function* (
++      providerID: string,
++      key: string,
++      retryAfterMs: number,
++    ) {
++      if (!Number.isFinite(retryAfterMs) || retryAfterMs <= 0) return
+       const data = yield* rawPool(fsys)
+-      const entries = getEntries(data, providerID)
+-      if (entries.length === 0) return { switched: false, exhausted: false } as RotateResult
++      const raData = { ...((data._retryAfter ?? {}) as Record<string, Record<string, number>>) }
++      const ra = { ...(raData[providerID] ?? {}) }
++      ra[sha256(key)] = Date.now() + retryAfterMs
++      raData[providerID] = ra
++      data._retryAfter = raData
++      yield* writePool(fsys, data)
++    })
+ 
++    const select = Effect.fn("AuthPool.select")(function* (providerID: string, opts?: SelectOptions) {
+       const now = Date.now()
+-      const raData = (data._retryAfter ?? {}) as Record<string, Record<string, number>>
+-      const ra = raData[providerID] ?? {}
+-      const entryHashes = new Set(entries.map((e) => sha256(e.key)))
+-
+-      // Tracks whether any cooldown state changed, so the pool file is rewritten.
+-      let cooldownChanged = false
++      pruneLeases(providerID, now)
+ 
+-      // The only key that actually failed is the current one — record its recovery window
+-      if (retryAfterMs !== undefined && retryAfterMs > 0 && currentKey && entryHashes.has(sha256(currentKey))) {
+-        ra[sha256(currentKey)] = now + retryAfterMs
+-        cooldownChanged = true
++      const data = yield* rawPool(fsys)
++      const mainKey = yield* authKey(providerID)
++      const all = candidates(data, providerID, mainKey)
++      if (all.length === 0) return { reason: "none" } as SelectResult
++
++      const { ra, changed } = readCooldowns(data, providerID, now, all)
++      const excluded = new Set(opts?.exclude ?? [])
++      const usable = all.filter((e) => !excluded.has(e.key) && ra[sha256(e.key)] === undefined)
++
++      // A session that already holds a key keeps it. Re-selecting is a no-op so a
++      // stray call can never reshuffle a running session onto another account.
++      if (opts?.sessionID) {
++        const held = leaseTable.get(providerID)
++        if (held) {
++          for (const entry of all) {
++            const lease = held.get(sha256(entry.key))
++            if (lease?.sessionID !== opts.sessionID) continue
++            if (excluded.has(entry.key) || ra[sha256(entry.key)] !== undefined) break
++            lease.lastUsed = now
++            if (changed) yield* writePool(fsys, data)
++            return { key: entry.key, label: entry.label, reason: "held" } as SelectResult
++          }
++        }
+       }
+ 
+-      // Drop stale cooldowns (already recovered, or key removed from the pool),
+-      // and migrate away from the old permanent `_tried` map.
+-      for (const hash of Object.keys(ra)) {
+-        if (!entryHashes.has(hash) || ra[hash] <= now) {
+-          delete ra[hash]
+-          cooldownChanged = true
++      if (usable.length === 0) {
++        let best: { key: string; at: number } | undefined
++        for (const entry of all) {
++          const at = ra[sha256(entry.key)]
++          if (at === undefined) continue
++          if (!best || at < best.at) best = { key: entry.key, at }
+         }
+-      }
+-      if (data._tried) {
+-        delete data._tried
+-        cooldownChanged = true
+-      }
+-      if (Object.keys(ra).length > 0) {
+-        raData[providerID] = ra
+-        data._retryAfter = raData
+-        cooldownChanged = true
+-      } else if (raData[providerID] || data._retryAfter) {
+-        delete raData[providerID]
+-        if (Object.keys(raData).length === 0) delete data._retryAfter
+-        else data._retryAfter = raData
+-        cooldownChanged = true
++        if (changed) yield* writePool(fsys, data)
++        if (!best) return { reason: "none" } as SelectResult
++        const label = all.find((e) => e.key === best!.key)?.label
++        return { key: best.key, label, reason: "cooling", waitMs: Math.max(0, best.at - now) } as SelectResult
+       }
+ 
+-      const inCooldown = (key: string): boolean => {
+-        const at = ra[sha256(key)]
+-        return at !== undefined && at > now
++      const table = leaseTable.get(providerID) ?? new Map<string, Lease>()
++      const idle = usable.filter((e) => !table.has(sha256(e.key)))
++      let pick: PoolEntry | undefined
++      let reason: SelectReason = "idle"
++      if (idle.length > 0) {
++        pick = idle[0]
++      } else {
++        reason = "lru"
++        pick = [...usable].sort(
++          (a, b) => (table.get(sha256(a.key))?.lastUsed ?? 0) - (table.get(sha256(b.key))?.lastUsed ?? 0),
++        )[0]
+       }
+ 
+-      // A key is usable right now if it is not inside an active cooldown
+-      const usable = entries.filter((e) => !inCooldown(e.key))
++      if (opts?.sessionID && pick) {
++        table.set(sha256(pick.key), {
++          sessionID: opts.sessionID,
++          lastUsed: now,
++          keyHash: sha256(pick.key),
++          keyMasked: maskKey(pick.key),
++          label: pick.label,
++        })
++        leaseTable.set(providerID, table)
++      }
++      if (changed) yield* writePool(fsys, data)
++      return { key: pick?.key, label: pick?.label, reason } as SelectResult
++    })
+ 
+-      if (usable.length > 0) {
+-        // Prefer a usable key different from the one that just failed
+-        const entry = usable.find((e) => e.key !== currentKey) ?? usable[0]
+-        if (cooldownChanged) yield* writePool(fsys, data)
+-        return { switched: true, label: entry.label, exhausted: false, key: entry.key } as RotateResult
++    const touch = Effect.fn("AuthPool.touch")(function* (providerID: string, key: string, sessionID: string) {
++      const now = Date.now()
++      pruneLeases(providerID, now)
++      const table = leaseTable.get(providerID) ?? new Map<string, Lease>()
++      const hash = sha256(key)
++      const existing = table.get(hash)
++      if (existing) {
++        existing.lastUsed = now
++      } else {
++        table.set(hash, { sessionID, lastUsed: now, keyHash: hash, keyMasked: maskKey(key) })
+       }
++      leaseTable.set(providerID, table)
++    })
+ 
+-      // Every key is cooling down — silently wait for the earliest recovery instead of
+-      // reporting exhaustion, so the session resumes once the best key becomes available.
+-      let bestKey: string | undefined
+-      let bestTime = Infinity
+-      for (const [hash, at] of Object.entries(ra)) {
+-        if (at < bestTime) {
+-          const entry = entries.find((e) => sha256(e.key) === hash)
+-          if (entry) {
+-            bestKey = entry.key
+-            bestTime = at
+-          }
++    const releaseSession = Effect.fn("AuthPool.releaseSession")(function* (sessionID: string) {
++      for (const table of leaseTable.values()) {
++        for (const [hash, lease] of table) {
++          if (lease.sessionID === sessionID) table.delete(hash)
+         }
+       }
+-      if (!bestKey) bestKey = getMain(data, providerID)
+-      if (cooldownChanged) yield* writePool(fsys, data)
+-      const waitMs = Number.isFinite(bestTime) ? Math.max(0, bestTime - Date.now()) : undefined
+-      return { switched: false, exhausted: false, key: bestKey, waitMs } as RotateResult
+     })
+ 
+-    return Service.of({ list, add, removeByKey, switchByKey, count, resetToMain, rotate })
++    const leases = Effect.fn("AuthPool.leases")(function* (providerID: string) {
++      pruneLeases(providerID, Date.now())
++      const table = leaseTable.get(providerID)
++      if (!table) return [] as PublicLease[]
++      return [...table.values()].map((lease) => ({
++        key_hash: lease.keyHash,
++        key_masked: lease.keyMasked,
++        label: lease.label,
++        since: lease.lastUsed,
++      }))
++    })
++
++    const rotate = Effect.fn("AuthPool.rotate")(function* (providerID: string, retryAfterMs?: number, currentKey?: string) {
++      if (currentKey) yield* cooldown(providerID, currentKey, retryAfterMs ?? 0)
++      const picked = yield* select(providerID, currentKey ? { exclude: [currentKey] } : undefined)
++      return {
++        switched: picked.reason === "idle" || picked.reason === "lru",
++        label: picked.label,
++        exhausted: false,
++        key: picked.key,
++        waitMs: picked.waitMs,
++      } as RotateResult
++    })
++
++    return Service.of({
++      list,
++      add,
++      removeByKey,
++      switchByKey,
++      count,
++      resetToMain,
++      rotate,
++      select,
++      cooldown,
++      touch,
++      releaseSession,
++      leases,
++    })
+   }),
+ )
+ 
+-export const node = LayerNode.make({ service: Service, layer: layer, deps: [FSUtil.node] })
++export const node = LayerNode.make({ service: Service, layer: layer, deps: [FSUtil.node, Auth.node] })
 diff --git a/packages/opencode/src/control-plane/adapters/worktree.ts b/packages/opencode/src/control-plane/adapters/worktree.ts
 index 87e30e1..19afb78 100644
 --- a/packages/opencode/src/control-plane/adapters/worktree.ts
@@ -223,11 +628,39 @@ index efb1008..aee865c 100644
            const language = s.modelLoaders[model.providerID]
              ? await s.modelLoaders[model.providerID](
                  sdk,
+diff --git a/packages/opencode/src/server/routes/instance/httpapi/groups/control.ts b/packages/opencode/src/server/routes/instance/httpapi/groups/control.ts
+index 76bd4d1..b7ddac2 100644
+--- a/packages/opencode/src/server/routes/instance/httpapi/groups/control.ts
++++ b/packages/opencode/src/server/routes/instance/httpapi/groups/control.ts
+@@ -39,6 +39,15 @@ const PublicPoolEntry = Schema.Struct({
+   label: Schema.optional(Schema.String),
+ })
+ 
++// A key currently leased to a session. Only the hash and the mask are exposed so
++// the endpoint can show which accounts are busy without ever handing out a key.
++const PublicPoolLease = Schema.Struct({
++  key_hash: Schema.String,
++  key_masked: Schema.String,
++  label: Schema.optional(Schema.String),
++  since: Schema.Number,
++})
++
+ const PoolKeyPayload = Schema.Struct({
+   key_hash: Schema.String,
+ })
+@@ -85,6 +94,7 @@ export const ControlApi = HttpApi.make("control").add(
+           Schema.Struct({
+             entries: Schema.Array(PublicPoolEntry),
+             main: Schema.optional(Schema.NullishOr(PublicPoolEntry)),
++            in_use: Schema.optional(Schema.Array(PublicPoolLease)),
+           }),
+           "List of pool API keys with main account",
+         ),
 diff --git a/packages/opencode/src/server/routes/instance/httpapi/handlers/control.ts b/packages/opencode/src/server/routes/instance/httpapi/handlers/control.ts
-index 2aa9635..2f6fed8 100644
+index 2aa9635..31bed28 100644
 --- a/packages/opencode/src/server/routes/instance/httpapi/handlers/control.ts
 +++ b/packages/opencode/src/server/routes/instance/httpapi/handlers/control.ts
-@@ -25,6 +25,7 @@ export const controlHandlers = HttpApiBuilder.group(RootHttpApi, "control", (han
+@@ -25,15 +25,20 @@ export const controlHandlers = HttpApiBuilder.group(RootHttpApi, "control", (han
        params: { providerID: ProviderV2.ID }
      }) {
        yield* auth.remove(ctx.params.providerID).pipe(Effect.orDie)
@@ -235,6 +668,20 @@ index 2aa9635..2f6fed8 100644
        return true
      })
  
+     const poolList = Effect.fn("ControlHttpApi.poolList")(function* (ctx: {
+       params: { providerID: ProviderV2.ID }
+     }) {
+-      const [entries, current] = yield* Effect.all([pool.list(ctx.params.providerID), auth.get(ctx.params.providerID).pipe(Effect.orDie)])
++      const [entries, current, inUse] = yield* Effect.all(
++        [pool.list(ctx.params.providerID), auth.get(ctx.params.providerID).pipe(Effect.orDie), pool.leases(ctx.params.providerID)],
++        { concurrency: "unbounded" },
++      )
+       return {
+         entries,
++        in_use: inUse,
+         main: current?.type === "api"
+           ? { key_hash: AuthPool.sha256(current.key), key_masked: maskKey(current.key) }
+           : null,
 diff --git a/packages/opencode/src/session/llm.ts b/packages/opencode/src/session/llm.ts
 index dfcf659..f2ea3b4 100644
 --- a/packages/opencode/src/session/llm.ts
@@ -264,12 +711,292 @@ index dfcf659..f2ea3b4 100644
          ],
          { concurrency: "unbounded" },
        )
+diff --git a/packages/opencode/src/session/llm/request.ts b/packages/opencode/src/session/llm/request.ts
+index bba8053..f7a8132 100644
+--- a/packages/opencode/src/session/llm/request.ts
++++ b/packages/opencode/src/session/llm/request.ts
+@@ -14,9 +14,29 @@ import { Effect, Record } from "effect"
+ import { jsonSchema, tool as aiTool, type ModelMessage, type Tool } from "ai"
+ import type { Plugin } from "@/plugin"
+ import { mergeDeep } from "remeda"
++import { createHash } from "crypto"
+ 
+ const USER_AGENT = `opencode/${InstallationClientVersion}`
+ 
++// Every identity that goes on the wire is scoped to the API key in use.
++//
++// The point is not to look anonymous. A stable project identity is what lets a
++// gateway reuse a cached prefix for the same repository, so removing it would just
++// be a slower, more obviously scripted client. The identity is kept, and it is
++// per key instead of per machine: the same key always presents the same project and
++// the same session, while a session that rotates to another key after a rate limit
++// presents a fingerprint the new account has never seen. Nothing about this machine
++// or this checkout is shared across accounts, and nothing is lost for a gateway
++// caching per account, which is the only place the cache is worth anything anyway.
++//
++// The derivation is one-way and the key is hashed in, so the value cannot be walked
++// back to either the real project id or the credential.
++const keyScoped = (value: string, auth: Auth.Info | undefined): string => {
++  const key = auth?.type === "api" ? auth.key : undefined
++  if (!key) return value
++  return createHash("sha256").update(`${value}\u0000${key}`).digest("hex").slice(0, 32)
++}
++
+ type PrepareInput = {
+   readonly user: SessionV1.User
+   readonly sessionID: string
+@@ -174,6 +194,9 @@ export const prepare = Effect.fn("LLMRequestPrep.prepare")(function* (input: Pre
+     })
+   }
+ 
++  // The header set below is byte-for-byte the set upstream sends: the same fields,
++  // the same names, the same conditions for their presence. Only the values that
++  // identify this checkout change, and they change per key rather than per machine.
+   const opencodeProjectID = input.model.providerID.startsWith("opencode")
+     ? (yield* InstanceState.context).project.id
+     : undefined
+@@ -187,18 +210,18 @@ export const prepare = Effect.fn("LLMRequestPrep.prepare")(function* (input: Pre
+     headers: {
+       ...(input.model.providerID.startsWith("opencode")
+         ? {
+-            ...(opencodeProjectID ? { "x-opencode-project": opencodeProjectID } : {}),
+-            "x-opencode-session": input.sessionID,
+-            "x-opencode-request": input.user.id,
++            ...(opencodeProjectID ? { "x-opencode-project": keyScoped(opencodeProjectID, input.auth) } : {}),
++            "x-opencode-session": keyScoped(input.sessionID, input.auth),
++            "x-opencode-request": keyScoped(input.user.id, input.auth),
+             "x-opencode-client": input.flags.client,
+             "User-Agent": USER_AGENT,
+           }
+         : {
+-            "x-session-affinity": input.sessionID,
+-            "X-Session-Id": input.sessionID,
++            "x-session-affinity": keyScoped(input.sessionID, input.auth),
++            "X-Session-Id": keyScoped(input.sessionID, input.auth),
+             "User-Agent": USER_AGENT,
+           }),
+-      ...(input.parentSessionID ? { "x-parent-session-id": input.parentSessionID } : {}),
++      ...(input.parentSessionID ? { "x-parent-session-id": keyScoped(input.parentSessionID, input.auth) } : {}),
+       ...input.model.headers,
+       ...headers,
+     },
+diff --git a/packages/opencode/src/session/processor.ts b/packages/opencode/src/session/processor.ts
+index 5646267..2405da5 100644
+--- a/packages/opencode/src/session/processor.ts
++++ b/packages/opencode/src/session/processor.ts
+@@ -120,7 +120,6 @@ const layer = Layer.effect(
+     const events = yield* EventV2Bridge.Service
+     const database = yield* Database.Service
+     const pool = yield* AuthPool.Service
+-    const authService = yield* Auth.Service
+ 
+     const create = Effect.fn("SessionProcessor.create")(function* (input: Input) {
+       // Pre-capture snapshot before the LLM stream starts. The AI SDK
+@@ -680,8 +679,23 @@ const layer = Layer.effect(
+         ctx.needsCompaction = false
+         ctx.shouldBreak = (yield* config.get()).experimental?.continue_loop_on_deny !== true
+ 
+-        // Set session-level auth override if available
+-        const providerKey = sessionAuthKeys.get(ctx.sessionID)?.[input.model.providerID]
++        // A session holds the key it was given until that key is actually rate
++        // limited. The key is picked once, preferring one that no other session is
++        // currently using. Nothing here writes auth.json: the key in auth.json is
++        // just the first member of the set.
++        const providerID = input.model.providerID
++        let providerKey = sessionAuthKeys.get(ctx.sessionID)?.[providerID]
++        if (providerKey) {
++          yield* pool.touch(providerID, providerKey, ctx.sessionID)
++        } else {
++          const picked = yield* pool.select(providerID, { sessionID: ctx.sessionID })
++          if (picked.key) {
++            providerKey = picked.key
++            const keys = sessionAuthKeys.get(ctx.sessionID) ?? {}
++            keys[providerID] = providerKey
++            sessionAuthKeys.set(ctx.sessionID, keys)
++          }
++        }
+         if (providerKey) {
+           streamInput.authOverride = { type: "api", key: providerKey }
+         }
+@@ -732,12 +746,6 @@ const layer = Layer.effect(
+                   const retryAfterMs = info.next - Date.now()
+                   const currentKey =
+                     streamInput.authOverride?.type === "api" ? streamInput.authOverride.key : undefined
+-                  const currentKeyEff = currentKey
+-                    ? Effect.succeed(currentKey)
+-                    : authService.get(providerID).pipe(
+-                        Effect.map((a) => (a?.type === "api" ? a.key : undefined)),
+-                        Effect.orElseSucceed(() => undefined),
+-                      )
+                   // Failed again on the same key. A first failure just retries
+                   // that key in place after ~2s; only a second consecutive failure
+                   // (or a quota error with a long wait hint) concludes the key is
+@@ -755,9 +763,26 @@ const layer = Layer.effect(
+                     reason,
+                     longWait,
+                   })
+-                  const poolRotate = rotate
+-                    ? currentKeyEff.pipe(Effect.andThen((ck) => pool.rotate(provider, retryAfterMs, ck)))
+-                    : Effect.succeed({ switched: false, exhausted: false } as AuthPool.RotateResult)
++                  // Rotation happens on failure only, and it never rewrites
++                  // auth.json. The failed key goes into cooldown and the session
++                  // is handed the best available key, an idle one when possible.
++                  const poolRotate = Effect.gen(function* () {
++                    if (!rotate) {
++                      return { switched: false, exhausted: false, key: undefined } as AuthPool.RotateResult
++                    }
++                    if (currentKey) yield* pool.cooldown(provider, currentKey, retryAfterMs)
++                    const picked = yield* pool.select(provider, {
++                      sessionID: ctx.sessionID,
++                      ...(currentKey ? { exclude: [currentKey] } : {}),
++                    })
++                    return {
++                      switched: picked.reason === "idle" || picked.reason === "lru",
++                      label: picked.label,
++                      exhausted: false,
++                      key: picked.key,
++                      waitMs: picked.waitMs,
++                    } as AuthPool.RotateResult
++                  })
+                   return poolRotate.pipe(
+                     Effect.andThen((rotated) => {
+                       if (rotated.key) {
+diff --git a/packages/opencode/src/session/session.ts b/packages/opencode/src/session/session.ts
+index 424776b..03963f8 100644
+--- a/packages/opencode/src/session/session.ts
++++ b/packages/opencode/src/session/session.ts
+@@ -10,6 +10,7 @@ import type { ProviderMetadata, Usage } from "@opencode-ai/llm"
+ import { InstallationVersion } from "@opencode-ai/core/installation/version"
+ import { Database } from "@opencode-ai/core/database/database"
+ import { EventV2Bridge } from "@/event-v2-bridge"
++import * as AuthPool from "@/auth/pool"
+ import { SessionV2 } from "@opencode-ai/core/session"
+ import * as SessionExecutionLocal from "@opencode-ai/core/session/execution/local"
+ import { locationServiceMapLayer } from "@opencode-ai/core/location-services"
+@@ -488,7 +489,7 @@ export type Patch = Omit<Partial<Info>, "time" | "share" | "summary" | "revert"
+ const layer: Layer.Layer<
+   Service,
+   never,
+-  BackgroundJob.Service | RuntimeFlags.Service | Database.Service | EventV2Bridge.Service
++  BackgroundJob.Service | RuntimeFlags.Service | Database.Service | EventV2Bridge.Service | AuthPool.Service
+ > = Layer.effect(
+   Service,
+   Effect.gen(function* () {
+@@ -497,6 +498,7 @@ const layer: Layer.Layer<
+     const background = yield* BackgroundJob.Service
+     const events = yield* EventV2Bridge.Service
+     const flags = yield* RuntimeFlags.Service
++    const authPool = yield* AuthPool.Service
+ 
+     const createNext = Effect.fn("Session.createNext")(function* (input: {
+       id?: SessionID
+@@ -623,6 +625,9 @@ const layer: Layer.Layer<
+ 
+         yield* events.publish(SessionV1.Event.Deleted, { sessionID, info: session })
+         yield* events.remove(sessionID)
++        // Free the key this session was holding so another session can pick it up
++        // immediately instead of waiting for the lease TTL to lapse.
++        yield* authPool.releaseSession(sessionID)
+       } catch (error) {
+         yield* Effect.logError("failed to remove session", { sessionID, error })
+       }
+@@ -1018,7 +1023,7 @@ function listByProject(
+ export const node = LayerNode.make({
+   service: Service,
+   layer: layer,
+-  deps: [BackgroundJob.node, RuntimeFlags.node, Database.node, EventV2Bridge.node],
++  deps: [BackgroundJob.node, RuntimeFlags.node, Database.node, EventV2Bridge.node, AuthPool.node],
+ })
+ 
+ export * as Session from "./session"
+diff --git a/packages/opencode/test/provider/header-identity.test.ts b/packages/opencode/test/provider/header-identity.test.ts
+new file mode 100644
+index 0000000..d0013ca
+--- /dev/null
++++ b/packages/opencode/test/provider/header-identity.test.ts
+@@ -0,0 +1,76 @@
++// Proves the header contract, which is the part that is easy to get wrong by
++// accident: the set of field names must equal upstream's, and the identifying
++// values must be stable per key but different across keys.
++import { expect, test } from "bun:test"
++import { readFileSync } from "fs"
++import { join } from "path"
++import { createHash } from "crypto"
++
++// The literal field names upstream v1.18.31 sends in session/llm/request.ts, read
++// off that file rather than off our own, so the guard stays meaningful after this
++// patch lands. `x-opencode-project` is the one this patch changes the value of; the
++// contract is that the field is still there.
++const UPSTREAM_HEADER_FIELDS = [
++  "User-Agent",
++  "X-Session-Id",
++  "x-opencode-client",
++  "x-opencode-project",
++  "x-opencode-request",
++  "x-opencode-session",
++  "x-parent-session-id",
++  "x-session-affinity",
++]
++
++const CURRENT = join(import.meta.dir, "..", "..", "src", "session", "llm", "request.ts")
++
++// Pull the literal header names out of the headers object, so the comparison is
++// against the source text rather than against a restatement of it.
++function headerNames(source: string): string[] {
++  const start = source.indexOf("headers: {")
++  if (start === -1) throw new Error("no headers object found")
++  const body = source.slice(start, source.indexOf("\n    },\n  }", start))
++  return [...body.matchAll(/"([A-Za-z0-9-]+)":/g)].map((m) => m[1]!)
++}
++
++test("the header field names are exactly the ones upstream sends", () => {
++  const current = [...new Set(headerNames(readFileSync(CURRENT, "utf8")))].toSorted()
++  expect(current).toEqual([...UPSTREAM_HEADER_FIELDS].toSorted())
++})
++
++// The same derivation the client uses, so this checks the property rather than a
++// hard-coded expectation.
++const keyScoped = (value: string, key: string | undefined): string => {
++  if (!key) return value
++  return createHash("sha256").update(`${value}\u0000${key}`).digest("hex").slice(0, 32)
++}
++
++test("an identity is stable while the session stays on one key", () => {
++  expect(keyScoped("ses_1", "key-A")).toBe(keyScoped("ses_1", "key-A"))
++})
++
++test("rotating to another key presents a fingerprint that key has never seen", () => {
++  expect(keyScoped("ses_1", "key-B")).not.toBe(keyScoped("ses_1", "key-A"))
++})
++
++test("the project identity is preserved per key rather than removed", () => {
++  // Same key, same project: stable, so a gateway can still cache per account.
++  expect(keyScoped("git-remote:proj", "key-A")).toBe(keyScoped("git-remote:proj", "key-A"))
++  // Different key, same checkout: a different project identity, so the two
++  // accounts are not known to be the same machine.
++  expect(keyScoped("git-remote:proj", "key-B")).not.toBe(keyScoped("git-remote:proj", "key-A"))
++})
++
++test("two different projects on one key stay distinguishable", () => {
++  expect(keyScoped("git-remote:projA", "key-A")).not.toBe(keyScoped("git-remote:projB", "key-A"))
++})
++
++test("the derived value does not contain the key or the seed", () => {
++  const derived = keyScoped("git-remote:proj", "sk-secret-value")
++  expect(derived).not.toContain("sk-secret-value")
++  expect(derived).not.toContain("git-remote")
++  expect(derived).toMatch(/^[0-9a-f]{32}$/)
++})
++
++test("a request without an API key is passed through unchanged", () => {
++  expect(keyScoped("ses_1", undefined)).toBe("ses_1")
++})
 diff --git a/packages/opencode/test/provider/key-switch.test.ts b/packages/opencode/test/provider/key-switch.test.ts
 new file mode 100644
-index 0000000..a02cee4
+index 0000000..1153e4c
 --- /dev/null
 +++ b/packages/opencode/test/provider/key-switch.test.ts
-@@ -0,0 +1,77 @@
+@@ -0,0 +1,208 @@
 +import { afterEach, expect } from "bun:test"
 +import { LayerNode } from "@opencode-ai/core/effect/layer-node"
 +import { CrossSpawnSpawner } from "@opencode-ai/core/cross-spawn-spawner"
@@ -283,6 +1010,7 @@ index 0000000..a02cee4
 +import { Plugin } from "@/plugin"
 +import { Provider } from "@/provider/provider"
 +import { Auth } from "@/auth"
++import * as AuthPool from "@/auth/pool"
 +
 +// Regression cover for "switching the API key did nothing".
 +//
@@ -346,4 +1074,134 @@ index 0000000..a02cee4
 +      { config: testProviderConfig("http://127.0.0.1:1/v1") },
 +    )
 +  }),
++)
++
++// Regression cover for key selection across a set of accounts.
++//
++// The set is the key in auth.json plus every entry in auth-pool.json, and no
++// member is privileged: the auth.json key is merely first, so the very first
++// request of the very first session uses it. A session keeps the key it was given
++// for as long as that key stays healthy, and only gives it up when that key is rate
++// limited.
++
++const poolIt = testEffect(
++  LayerNode.compile(
++    LayerNode.group([Provider.node, Env.node, Plugin.node, CrossSpawnSpawner.node, Auth.node, AuthPool.node]),
++  ),
++)
++
++// The lease table lives for the lifetime of the service, so each test uses its own
++// provider id: sharing one would let an earlier test's leases decide a later
++// test's key.
++const withThreeKeys = (
++  providerID: string,
++  fn: (pool: AuthPool.Interface, auth: Auth.Interface) => Effect.Effect<unknown, Auth.AuthError>,
++) =>
++  provideTmpdirInstance(
++    () =>
++      Effect.gen(function* () {
++        const auth = yield* Auth.Service
++        const pool = yield* AuthPool.Service
++        yield* auth.set(providerID, { type: "api", key: "sk-auth-json" })
++        yield* pool.add(providerID, { key: "sk-pool-1", label: "one" })
++        yield* pool.add(providerID, { key: "sk-pool-2", label: "two" })
++        return yield* fn(pool, auth)
++      }),
++    { config: testProviderConfig("http://127.0.0.1:1/v1") },
++  )
++
++poolIt.live("the first session is given the auth.json key and later sessions get idle keys", () =>
++  withThreeKeys("p-first", (pool) =>
++    Effect.gen(function* () {
++      const first = yield* pool.select("p-first", { sessionID: "ses-1" })
++      expect(first.key).toBe("sk-auth-json")
++      expect(first.reason).toBe("idle")
++
++      const second = yield* pool.select("p-first", { sessionID: "ses-2" })
++      expect(second.key).toBe("sk-pool-1")
++      expect(second.reason).toBe("idle")
++
++      const third = yield* pool.select("p-first", { sessionID: "ses-3" })
++      expect(third.key).toBe("sk-pool-2")
++    }),
++  ),
++)
++
++poolIt.live("a session keeps its key instead of being moved to an idle one", () =>
++  withThreeKeys("p-hold", (pool) =>
++    Effect.gen(function* () {
++      yield* pool.select("p-hold", { sessionID: "ses-1" })
++      const again = yield* pool.select("p-hold", { sessionID: "ses-1" })
++      expect(again.key).toBe("sk-auth-json")
++      expect(again.reason).toBe("held")
++    }),
++  ),
++)
++
++poolIt.live("deleting a session releases its key for the next session", () =>
++  withThreeKeys("p-release", (pool) =>
++    Effect.gen(function* () {
++      yield* pool.select("p-release", { sessionID: "ses-1" })
++      expect((yield* pool.select("p-release", { sessionID: "ses-2" })).key).toBe("sk-pool-1")
++      yield* pool.releaseSession("ses-1")
++      expect((yield* pool.select("p-release", { sessionID: "ses-3" })).key).toBe("sk-auth-json")
++    }),
++  ),
++)
++
++poolIt.live("a cooled down key is skipped, including the one in auth.json", () =>
++  withThreeKeys("p-cool", (pool) =>
++    Effect.gen(function* () {
++      yield* pool.cooldown("p-cool", "sk-auth-json", 60_000)
++      const picked = yield* pool.select("p-cool", { sessionID: "ses-1" })
++      expect(picked.key).not.toBe("sk-auth-json")
++      expect(picked.key).toBe("sk-pool-1")
++    }),
++  ),
++)
++
++poolIt.live("selecting never rewrites auth.json", () =>
++  withThreeKeys("p-nowrite", (pool, auth) =>
++    Effect.gen(function* () {
++      yield* pool.select("p-nowrite", { sessionID: "ses-1" })
++      yield* pool.cooldown("p-nowrite", "sk-auth-json", 60_000)
++      yield* pool.select("p-nowrite", { sessionID: "ses-2" })
++      yield* pool.select("p-nowrite", { sessionID: "ses-3" })
++      const current = yield* auth.get("p-nowrite")
++      expect(current?.type === "api" ? current.key : undefined).toBe("sk-auth-json")
++    }),
++  ),
++)
++
++poolIt.live("when every key is cooling down the earliest recovery is reported", () =>
++  withThreeKeys("p-allcool", (pool) =>
++    Effect.gen(function* () {
++      yield* pool.cooldown("p-allcool", "sk-auth-json", 90_000)
++      yield* pool.cooldown("p-allcool", "sk-pool-1", 30_000)
++      yield* pool.cooldown("p-allcool", "sk-pool-2", 60_000)
++      const picked = yield* pool.select("p-allcool", { sessionID: "ses-1" })
++      expect(picked.reason).toBe("cooling")
++      expect(picked.key).toBe("sk-pool-1")
++      expect(picked.waitMs).toBeGreaterThan(0)
++      expect(picked.waitMs!).toBeLessThanOrEqual(30_000)
++    }),
++  ),
++)
++
++poolIt.live("a rotation moves only the failing session, leaving other sessions alone", () =>
++  withThreeKeys("p-rotate", (pool) =>
++    Effect.gen(function* () {
++      const held = yield* pool.select("p-rotate", { sessionID: "ses-1" })
++      expect(held.key).toBe("sk-auth-json")
++      yield* pool.select("p-rotate", { sessionID: "ses-2" })
++
++      yield* pool.cooldown("p-rotate", "sk-auth-json", 60_000)
++      const rotated = yield* pool.select("p-rotate", { sessionID: "ses-1", exclude: ["sk-auth-json"] })
++      expect(rotated.key).toBe("sk-pool-2")
++      expect(rotated.reason).toBe("idle")
++
++      // ses-2 still holds sk-pool-1 and is untouched by ses-1's rotation.
++      expect((yield* pool.select("p-rotate", { sessionID: "ses-2" })).key).toBe("sk-pool-1")
++    }),
++  ),
 +)

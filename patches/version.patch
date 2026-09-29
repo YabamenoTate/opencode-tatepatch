@@ -1,19 +1,40 @@
 diff --git a/packages/core/src/installation/version.ts b/packages/core/src/installation/version.ts
-index 25d9cd99aa..98e8e59a04 100644
+index 25d9cd9..79abc09 100644
 --- a/packages/core/src/installation/version.ts
 +++ b/packages/core/src/installation/version.ts
-@@ -6,3 +6,9 @@ declare global {
+@@ -6,3 +6,30 @@ declare global {
  export const InstallationVersion = typeof OPENCODE_VERSION === "string" ? OPENCODE_VERSION : "local"
  export const InstallationChannel = typeof OPENCODE_CHANNEL === "string" ? OPENCODE_CHANNEL : "local"
  export const InstallationLocal = InstallationChannel === "local"
 +
++// tatepatch versioning. The two values below are the only hardcoded version
++// numbers left in the tree, and they are placeholders: patch.sh / patch.bat
++// substitute them from the repository's VERSION file before building, so the
++// level lives in exactly one place. Everything else — the CLI --version output,
++// the web app banner, and the update check in cli/upgrade.ts — reads the derived
++// constants rather than repeating the string.
++export const TATEPATCH_BASE_VERSION = "@@TATEPATCH_BASE_VERSION@@"
++export const TATEPATCH_PATCH_LEVEL = "@@TATEPATCH_PATCH_LEVEL@@"
++
++// "<base> (Tate Patched <level>)" — the suffix appended to an existing version
++// string.
++export const TATEPATCH_LABEL = "(Tate Patched " + TATEPATCH_PATCH_LEVEL + ")"
++
++// "v<base> (Tate Patched <level>)" — the form the CLI prints, matching what a
++// stock `opencode --version` looks like.
++export const TATEPATCH_VERSION = "v" + TATEPATCH_BASE_VERSION + " " + TATEPATCH_LABEL
++
++// "<base> (Tate Patched <level>)" — the same string without the leading "v", for
++// surfaces that never showed one, such as the web app's version banner.
++export const TATEPATCH_PLAIN_VERSION = TATEPATCH_BASE_VERSION + " " + TATEPATCH_LABEL
++
 +// The version we identify ourselves with to external services (User-Agent).
 +// Kept as a clean semver even when InstallationVersion carries a display
-+// suffix such as "(Tate Patched 5)", so version gates like the zen free tier
++// suffix such as TATEPATCH_LABEL, so version gates like the zen free tier
 +// accept the build.
 +export const InstallationClientVersion = InstallationVersion.replace(/^v/, "").replace(/[^0-9.].*$/, "")
 diff --git a/packages/core/src/models-dev.ts b/packages/core/src/models-dev.ts
-index e577935f06..7b96397ce3 100644
+index e577935..7b96397 100644
 --- a/packages/core/src/models-dev.ts
 +++ b/packages/core/src/models-dev.ts
 @@ -7,7 +7,7 @@ import { Flag } from "./flag/flag"
@@ -35,7 +56,7 @@ index e577935f06..7b96397ce3 100644
  const CostTier = Schema.Struct({
    input: Schema.Finite,
 diff --git a/packages/core/src/plugin/provider/cloudflare-ai-gateway.ts b/packages/core/src/plugin/provider/cloudflare-ai-gateway.ts
-index 2803cb7a8e..4146188622 100644
+index 2803cb7..4146188 100644
 --- a/packages/core/src/plugin/provider/cloudflare-ai-gateway.ts
 +++ b/packages/core/src/plugin/provider/cloudflare-ai-gateway.ts
 @@ -1,5 +1,5 @@
@@ -55,7 +76,7 @@ index 2803cb7a8e..4146188622 100644
    }
  }
 diff --git a/packages/core/src/plugin/provider/cloudflare-workers-ai.ts b/packages/core/src/plugin/provider/cloudflare-workers-ai.ts
-index 1a1c533eb5..660bc4f5ac 100644
+index 1a1c533..660bc4f 100644
 --- a/packages/core/src/plugin/provider/cloudflare-workers-ai.ts
 +++ b/packages/core/src/plugin/provider/cloudflare-workers-ai.ts
 @@ -1,5 +1,5 @@
@@ -75,7 +96,7 @@ index 1a1c533eb5..660bc4f5ac 100644
      },
      name: providerID,
 diff --git a/packages/core/src/plugin/provider/gitlab.ts b/packages/core/src/plugin/provider/gitlab.ts
-index 8723cdaac2..9bd8570fa7 100644
+index 8723cda..9bd8570 100644
 --- a/packages/core/src/plugin/provider/gitlab.ts
 +++ b/packages/core/src/plugin/provider/gitlab.ts
 @@ -1,5 +1,5 @@
@@ -95,7 +116,7 @@ index 8723cdaac2..9bd8570fa7 100644
              ...evt.options.aiGatewayHeaders,
            },
 diff --git a/packages/core/src/plugin/provider/openai.ts b/packages/core/src/plugin/provider/openai.ts
-index 46553eaff4..d363f9c967 100644
+index 46553ea..d363f9c 100644
 --- a/packages/core/src/plugin/provider/openai.ts
 +++ b/packages/core/src/plugin/provider/openai.ts
 @@ -4,7 +4,7 @@ import { define } from "@opencode-ai/plugin/v2/effect/plugin"
@@ -117,7 +138,7 @@ index 46553eaff4..d363f9c967 100644
  
  function exchange(code: string, redirect: string, pkce: Pkce) {
 diff --git a/packages/core/src/tool/websearch.ts b/packages/core/src/tool/websearch.ts
-index 6d62236316..40b4e87be4 100644
+index 6d62236..40b4e87 100644
 --- a/packages/core/src/tool/websearch.ts
 +++ b/packages/core/src/tool/websearch.ts
 @@ -6,7 +6,7 @@ import { HttpClient, HttpClientRequest } from "effect/unstable/http"
@@ -139,7 +160,7 @@ index 6d62236316..40b4e87be4 100644
                        },
                      )
 diff --git a/packages/opencode/src/cli/upgrade.ts b/packages/opencode/src/cli/upgrade.ts
-index 62b230a633..ce262816b6 100644
+index 62b230a..2eaece0 100644
 --- a/packages/opencode/src/cli/upgrade.ts
 +++ b/packages/opencode/src/cli/upgrade.ts
 @@ -1,53 +1,125 @@
@@ -149,11 +170,11 @@ index 62b230a633..ce262816b6 100644
 -import { Installation } from "@/installation"
 -import { InstallationVersion } from "@opencode-ai/core/installation/version"
 -import { GlobalBus } from "@/bus/global"
++import { TATEPATCH_VERSION } from "@opencode-ai/core/installation/version"
 +import { existsSync, readdirSync, renameSync, rmSync } from "fs"
 +import { tmpdir } from "os"
 +import { execSync, spawn } from "child_process"
 +
-+const TATEPATCH_VERSION = "v1.18.31 (Tate Patched 5)"
 +const TATEPATCH_REPO = "YabamenoTate/opencode-tatepatch"
 +
 +function tatepatchDir(): string | null {
@@ -306,20 +327,29 @@ index 62b230a633..ce262816b6 100644
 +  setTimeout(() => process.exit(0), 200)
  }
 diff --git a/packages/opencode/src/index.ts b/packages/opencode/src/index.ts
-index 13540a73a3..964c01f381 100644
+index 13540a7..47a7809 100644
 --- a/packages/opencode/src/index.ts
 +++ b/packages/opencode/src/index.ts
+@@ -9,7 +9,7 @@ import { UpgradeCommand } from "./cli/cmd/upgrade"
+ import { UninstallCommand } from "./cli/cmd/uninstall"
+ import { ModelsCommand } from "./cli/cmd/models"
+ import { UI } from "./cli/ui"
+-import { InstallationVersion } from "@opencode-ai/core/installation/version"
++import { TATEPATCH_VERSION } from "@opencode-ai/core/installation/version"
+ import { FormatError } from "./cli/error"
+ import { ServeCommand } from "./cli/cmd/serve"
+ import { DebugCommand } from "./cli/cmd/debug"
 @@ -48,7 +48,7 @@ const cli = yargs(args)
    .wrap(100)
    .help("help", "show help")
    .alias("help", "h")
 -  .version("version", "show version number", InstallationVersion)
-+  .version("version", "show version number", "v1.18.31 (Tate Patched 5)")
++  .version("version", "show version number", TATEPATCH_VERSION)
    .alias("version", "v")
    .option("print-logs", {
      describe: "print logs to stderr",
 diff --git a/packages/opencode/src/installation/index.ts b/packages/opencode/src/installation/index.ts
-index 4300220255..db17d97bd5 100644
+index 4300220..db17d97 100644
 --- a/packages/opencode/src/installation/index.ts
 +++ b/packages/opencode/src/installation/index.ts
 @@ -11,7 +11,7 @@ import { AppProcess } from "@opencode-ai/core/process"
@@ -341,7 +371,7 @@ index 4300220255..db17d97bd5 100644
  
  export const USER_AGENT = userAgent()
 diff --git a/packages/opencode/src/mcp/index.ts b/packages/opencode/src/mcp/index.ts
-index 05f12fa2ee..329cb8105a 100644
+index 05f12fa..329cb81 100644
 --- a/packages/opencode/src/mcp/index.ts
 +++ b/packages/opencode/src/mcp/index.ts
 @@ -18,7 +18,7 @@ import {
@@ -363,7 +393,7 @@ index 05f12fa2ee..329cb8105a 100644
      Promise.resolve({ roots: [{ uri: pathToFileURL(directory).href }] }),
    )
 diff --git a/packages/opencode/src/plugin/azure.ts b/packages/opencode/src/plugin/azure.ts
-index 6916aaaf3a..2ca3d8921a 100644
+index 6916aaa..2ca3d89 100644
 --- a/packages/opencode/src/plugin/azure.ts
 +++ b/packages/opencode/src/plugin/azure.ts
 @@ -1,4 +1,4 @@
@@ -382,7 +412,7 @@ index 6916aaaf3a..2ca3d8921a 100644
            },
          }
 diff --git a/packages/opencode/src/plugin/digitalocean.ts b/packages/opencode/src/plugin/digitalocean.ts
-index af241781e6..6bc9864aec 100644
+index af24178..6bc9864 100644
 --- a/packages/opencode/src/plugin/digitalocean.ts
 +++ b/packages/opencode/src/plugin/digitalocean.ts
 @@ -1,6 +1,6 @@
@@ -403,7 +433,7 @@ index af241781e6..6bc9864aec 100644
      signal: AbortSignal.timeout(10_000),
    }).catch(() => undefined)
 diff --git a/packages/opencode/src/plugin/github-copilot/copilot.ts b/packages/opencode/src/plugin/github-copilot/copilot.ts
-index 161bf859f7..d91f6becd6 100644
+index 161bf85..d91f6be 100644
 --- a/packages/opencode/src/plugin/github-copilot/copilot.ts
 +++ b/packages/opencode/src/plugin/github-copilot/copilot.ts
 @@ -1,6 +1,6 @@
@@ -451,7 +481,7 @@ index 161bf859f7..d91f6becd6 100644
                      body: JSON.stringify({
                        client_id: CLIENT_ID,
 diff --git a/packages/opencode/src/plugin/openai/codex.ts b/packages/opencode/src/plugin/openai/codex.ts
-index 6ead52c813..3d8046c1c5 100644
+index 6ead52c..3d8046c 100644
 --- a/packages/opencode/src/plugin/openai/codex.ts
 +++ b/packages/opencode/src/plugin/openai/codex.ts
 @@ -1,5 +1,5 @@
@@ -489,7 +519,7 @@ index 6ead52c813..3d8046c1c5 100644
        // Temporary fetch-layer hack: title generation currently shares the conversation
        // session ID, so the OpenAI plugin marks it for HTTP fallback until transport
 diff --git a/packages/opencode/src/plugin/snowflake-cortex.ts b/packages/opencode/src/plugin/snowflake-cortex.ts
-index 09f107ed7b..9d6e90c635 100644
+index 09f107e..9d6e90c 100644
 --- a/packages/opencode/src/plugin/snowflake-cortex.ts
 +++ b/packages/opencode/src/plugin/snowflake-cortex.ts
 @@ -1,6 +1,6 @@
@@ -519,7 +549,7 @@ index 09f107ed7b..9d6e90c635 100644
                let body = init?.body
                if (body && typeof body === "string") {
 diff --git a/packages/opencode/src/plugin/xai.ts b/packages/opencode/src/plugin/xai.ts
-index a455121d6a..26b06a5637 100644
+index a455121..26b06a5 100644
 --- a/packages/opencode/src/plugin/xai.ts
 +++ b/packages/opencode/src/plugin/xai.ts
 @@ -1,6 +1,6 @@
@@ -549,7 +579,7 @@ index a455121d6a..26b06a5637 100644
              return fetch(requestInput, { ...init, headers })
            },
 diff --git a/packages/opencode/src/provider/provider.ts b/packages/opencode/src/provider/provider.ts
-index 867ef2ca2f..efb100836e 100644
+index 867ef2c..efb1008 100644
 --- a/packages/opencode/src/provider/provider.ts
 +++ b/packages/opencode/src/provider/provider.ts
 @@ -13,7 +13,7 @@ import { type LanguageModelV3 } from "@ai-sdk/provider"
@@ -589,7 +619,7 @@ index 867ef2ca2f..efb100836e 100644
        }
  
 diff --git a/packages/opencode/src/session/llm/request.ts b/packages/opencode/src/session/llm/request.ts
-index e000d6ca49..bba80531c7 100644
+index e000d6c..bba8053 100644
 --- a/packages/opencode/src/session/llm/request.ts
 +++ b/packages/opencode/src/session/llm/request.ts
 @@ -9,13 +9,13 @@ import type { MessageV2 } from "../message-v2"
@@ -609,7 +639,7 @@ index e000d6ca49..bba80531c7 100644
  type PrepareInput = {
    readonly user: SessionV1.User
 diff --git a/packages/opencode/src/tool/websearch.ts b/packages/opencode/src/tool/websearch.ts
-index d08ae1d153..b4563fc7d1 100644
+index d08ae1d..b4563fc 100644
 --- a/packages/opencode/src/tool/websearch.ts
 +++ b/packages/opencode/src/tool/websearch.ts
 @@ -4,7 +4,7 @@ import * as Tool from "./tool"

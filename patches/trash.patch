@@ -1,5 +1,5 @@
 diff --git a/packages/app/src/context/global-sync/home-session-index.test.ts b/packages/app/src/context/global-sync/home-session-index.test.ts
-index 9b94f1de21..4e40cc78ea 100644
+index 9b94f1d..4e40cc7 100644
 --- a/packages/app/src/context/global-sync/home-session-index.test.ts
 +++ b/packages/app/src/context/global-sync/home-session-index.test.ts
 @@ -1,10 +1,8 @@
@@ -49,7 +49,7 @@ index 9b94f1de21..4e40cc78ea 100644
 -  })
  })
 diff --git a/packages/app/src/context/global-sync/home-session-index.ts b/packages/app/src/context/global-sync/home-session-index.ts
-index 781c39c450..03a085e34d 100644
+index 781c39c..03a085e 100644
 --- a/packages/app/src/context/global-sync/home-session-index.ts
 +++ b/packages/app/src/context/global-sync/home-session-index.ts
 @@ -85,7 +85,6 @@ export function createHomeSessionIndexCache(queryClient: QueryClient, server: st
@@ -88,7 +88,7 @@ index 781c39c450..03a085e34d 100644
        const result = homeSessionIndexRefresh(event, connected)
        connected = result.connected
 diff --git a/packages/app/src/i18n/am.ts b/packages/app/src/i18n/am.ts
-index 6e29fffed6..ed91ead0bf 100644
+index 6e29fff..ed91ead 100644
 --- a/packages/app/src/i18n/am.ts
 +++ b/packages/app/src/i18n/am.ts
 @@ -1100,7 +1100,14 @@ export const dict = {
@@ -108,7 +108,7 @@ index 6e29fffed6..ed91ead0bf 100644
    "workspace.type.local": "አካባቢ",
    "workspace.type.sandbox": "ማጠሪያ",
 diff --git a/packages/app/src/i18n/ar.ts b/packages/app/src/i18n/ar.ts
-index 00cba21a7f..7f3a927208 100644
+index 00cba21..7f3a927 100644
 --- a/packages/app/src/i18n/ar.ts
 +++ b/packages/app/src/i18n/ar.ts
 @@ -1051,7 +1051,14 @@ export const dict = {
@@ -128,7 +128,7 @@ index 00cba21a7f..7f3a927208 100644
    "workspace.type.local": "محلي",
    "workspace.type.sandbox": "بيئة معزولة",
 diff --git a/packages/app/src/i18n/az.ts b/packages/app/src/i18n/az.ts
-index 90901c69f6..a6fe9d4226 100644
+index 90901c6..a6fe9d4 100644
 --- a/packages/app/src/i18n/az.ts
 +++ b/packages/app/src/i18n/az.ts
 @@ -1139,7 +1139,14 @@ export const dict = {
@@ -148,7 +148,7 @@ index 90901c69f6..a6fe9d4226 100644
    "workspace.type.local": "yerli",
    "workspace.type.sandbox": "sandbox",
 diff --git a/packages/app/src/i18n/bg.ts b/packages/app/src/i18n/bg.ts
-index 646079e311..6d358da919 100644
+index 646079e..6d358da 100644
 --- a/packages/app/src/i18n/bg.ts
 +++ b/packages/app/src/i18n/bg.ts
 @@ -1140,7 +1140,14 @@ export const dict = {
@@ -168,7 +168,7 @@ index 646079e311..6d358da919 100644
    "workspace.type.local": "местен",
    "workspace.type.sandbox": "пясъчник",
 diff --git a/packages/app/src/i18n/bn.ts b/packages/app/src/i18n/bn.ts
-index eaf58d4196..1bbdf09c01 100644
+index eaf58d4..1bbdf09 100644
 --- a/packages/app/src/i18n/bn.ts
 +++ b/packages/app/src/i18n/bn.ts
 @@ -1122,7 +1122,14 @@ export const dict: Record<string, string> = {
@@ -188,7 +188,7 @@ index eaf58d4196..1bbdf09c01 100644
    "workspace.type.local": "স্থানীয়",
    "workspace.type.sandbox": "স্যান্ডবক্স",
 diff --git a/packages/app/src/i18n/br.ts b/packages/app/src/i18n/br.ts
-index 961cbef0b3..9f7647e23a 100644
+index 961cbef..9f7647e 100644
 --- a/packages/app/src/i18n/br.ts
 +++ b/packages/app/src/i18n/br.ts
 @@ -1059,7 +1059,14 @@ export const dict = {
@@ -208,7 +208,7 @@ index 961cbef0b3..9f7647e23a 100644
    "workspace.type.local": "local",
    "workspace.type.sandbox": "sandbox",
 diff --git a/packages/app/src/i18n/bs.ts b/packages/app/src/i18n/bs.ts
-index 14eee74494..2fc7a9d1b8 100644
+index 14eee74..2fc7a9d 100644
 --- a/packages/app/src/i18n/bs.ts
 +++ b/packages/app/src/i18n/bs.ts
 @@ -1134,7 +1134,14 @@ export const dict = {
@@ -228,7 +228,7 @@ index 14eee74494..2fc7a9d1b8 100644
    "workspace.new": "Novi radni prostor",
    "workspace.type.local": "lokalno",
 diff --git a/packages/app/src/i18n/ca.ts b/packages/app/src/i18n/ca.ts
-index 2883efc00c..9e63d084ea 100644
+index 2883efc..9e63d08 100644
 --- a/packages/app/src/i18n/ca.ts
 +++ b/packages/app/src/i18n/ca.ts
 @@ -1143,7 +1143,14 @@ export const dict = {
@@ -248,7 +248,7 @@ index 2883efc00c..9e63d084ea 100644
    "workspace.type.local": "locals",
    "workspace.type.sandbox": "caixa de sorra",
 diff --git a/packages/app/src/i18n/cs.ts b/packages/app/src/i18n/cs.ts
-index 779c889af7..1733f4a46d 100644
+index 779c889..1733f4a 100644
 --- a/packages/app/src/i18n/cs.ts
 +++ b/packages/app/src/i18n/cs.ts
 @@ -1133,7 +1133,14 @@ export const dict = {
@@ -268,7 +268,7 @@ index 779c889af7..1733f4a46d 100644
    "workspace.type.local": "místní",
    "workspace.type.sandbox": "pískoviště",
 diff --git a/packages/app/src/i18n/da.ts b/packages/app/src/i18n/da.ts
-index a6d3c7950f..ce62f4554f 100644
+index a6d3c79..ce62f45 100644
 --- a/packages/app/src/i18n/da.ts
 +++ b/packages/app/src/i18n/da.ts
 @@ -1008,7 +1008,14 @@ export const dict = {
@@ -288,7 +288,7 @@ index a6d3c7950f..ce62f4554f 100644
    "workspace.new": "Nyt arbejdsområde",
    "workspace.type.local": "lokal",
 diff --git a/packages/app/src/i18n/de.ts b/packages/app/src/i18n/de.ts
-index 8fa52a85d7..308c687e42 100644
+index 8fa52a8..308c687 100644
 --- a/packages/app/src/i18n/de.ts
 +++ b/packages/app/src/i18n/de.ts
 @@ -952,7 +952,14 @@ export const dict = {
@@ -308,7 +308,7 @@ index 8fa52a85d7..308c687e42 100644
    "workspace.type.local": "lokal",
    "workspace.type.sandbox": "Sandbox",
 diff --git a/packages/app/src/i18n/dv.ts b/packages/app/src/i18n/dv.ts
-index 4ea4a2f4a2..7d73bb0cd5 100644
+index 4ea4a2f..7d73bb0 100644
 --- a/packages/app/src/i18n/dv.ts
 +++ b/packages/app/src/i18n/dv.ts
 @@ -1147,7 +1147,14 @@ export const dict = {
@@ -328,7 +328,7 @@ index 4ea4a2f4a2..7d73bb0cd5 100644
    "workspace.type.local": "ލޯކަލް",
    "workspace.type.sandbox": "ސޭންޑްބޮކްސް އެވެ",
 diff --git a/packages/app/src/i18n/dz.ts b/packages/app/src/i18n/dz.ts
-index ab0c108f99..4d8e20bcf9 100644
+index ab0c108..4d8e20b 100644
 --- a/packages/app/src/i18n/dz.ts
 +++ b/packages/app/src/i18n/dz.ts
 @@ -1151,7 +1151,14 @@ export const dict: Record<string, string> = {
@@ -348,7 +348,7 @@ index ab0c108f99..4d8e20bcf9 100644
    "workspace.type.local": "ས་གནས་ཀྱི",
    "workspace.type.sandbox": "བྱེ་སྒམ།",
 diff --git a/packages/app/src/i18n/el.ts b/packages/app/src/i18n/el.ts
-index 99b2f4a9a3..f8c78b99bc 100644
+index 99b2f4a..f8c78b9 100644
 --- a/packages/app/src/i18n/el.ts
 +++ b/packages/app/src/i18n/el.ts
 @@ -1143,7 +1143,14 @@ export const dict = {
@@ -368,7 +368,7 @@ index 99b2f4a9a3..f8c78b99bc 100644
    "workspace.type.local": "τοπικό",
    "workspace.type.sandbox": "απομονωμένο περιβάλλον",
 diff --git a/packages/app/src/i18n/en.ts b/packages/app/src/i18n/en.ts
-index 8669aaca5e..54b12a33c1 100644
+index 8669aac..54b12a3 100644
 --- a/packages/app/src/i18n/en.ts
 +++ b/packages/app/src/i18n/en.ts
 @@ -1127,7 +1127,16 @@ export const dict = {
@@ -390,7 +390,7 @@ index 8669aaca5e..54b12a33c1 100644
    "workspace.new": "New workspace",
    "workspace.type.local": "local",
 diff --git a/packages/app/src/i18n/es.ts b/packages/app/src/i18n/es.ts
-index 77483c614b..34dc9eff2e 100644
+index 77483c6..34dc9ef 100644
 --- a/packages/app/src/i18n/es.ts
 +++ b/packages/app/src/i18n/es.ts
 @@ -1142,7 +1142,14 @@ export const dict = {
@@ -410,7 +410,7 @@ index 77483c614b..34dc9eff2e 100644
    "workspace.new": "Nuevo espacio de trabajo",
    "workspace.type.local": "local",
 diff --git a/packages/app/src/i18n/et.ts b/packages/app/src/i18n/et.ts
-index f71f55b8d0..2dcebf5513 100644
+index f71f55b..2dcebf5 100644
 --- a/packages/app/src/i18n/et.ts
 +++ b/packages/app/src/i18n/et.ts
 @@ -1121,7 +1121,14 @@ export const dict = {
@@ -430,7 +430,7 @@ index f71f55b8d0..2dcebf5513 100644
    "workspace.type.local": "kohalik",
    "workspace.type.sandbox": "liivakast",
 diff --git a/packages/app/src/i18n/fa.ts b/packages/app/src/i18n/fa.ts
-index 4278383037..852f2bbd8c 100644
+index 4278383..852f2bb 100644
 --- a/packages/app/src/i18n/fa.ts
 +++ b/packages/app/src/i18n/fa.ts
 @@ -1125,7 +1125,14 @@ export const dict = {
@@ -450,7 +450,7 @@ index 4278383037..852f2bbd8c 100644
    "workspace.type.local": "محلی",
    "workspace.type.sandbox": "جعبه شنی",
 diff --git a/packages/app/src/i18n/fi.ts b/packages/app/src/i18n/fi.ts
-index 746d2d5fcc..27c0b79a33 100644
+index 746d2d5..27c0b79 100644
 --- a/packages/app/src/i18n/fi.ts
 +++ b/packages/app/src/i18n/fi.ts
 @@ -1030,7 +1030,14 @@ export const dict = {
@@ -470,7 +470,7 @@ index 746d2d5fcc..27c0b79a33 100644
    "workspace.type.local": "paikallinen",
    "workspace.type.sandbox": "hiekkalaatikko",
 diff --git a/packages/app/src/i18n/fo.ts b/packages/app/src/i18n/fo.ts
-index 499666ff32..07b6238fcd 100644
+index 499666f..07b6238 100644
 --- a/packages/app/src/i18n/fo.ts
 +++ b/packages/app/src/i18n/fo.ts
 @@ -1124,7 +1124,14 @@ export const dict = {
@@ -490,7 +490,7 @@ index 499666ff32..07b6238fcd 100644
    "workspace.type.local": "lokalt",
    "workspace.type.sandbox": "sandkassi",
 diff --git a/packages/app/src/i18n/fr.ts b/packages/app/src/i18n/fr.ts
-index 175efddd97..b74deb35e2 100644
+index 175efdd..b74deb3 100644
 --- a/packages/app/src/i18n/fr.ts
 +++ b/packages/app/src/i18n/fr.ts
 @@ -1069,7 +1069,14 @@ export const dict = {
@@ -510,7 +510,7 @@ index 175efddd97..b74deb35e2 100644
    "workspace.type.local": "local",
    "workspace.type.sandbox": "bac à sable",
 diff --git a/packages/app/src/i18n/hi.ts b/packages/app/src/i18n/hi.ts
-index 85a3095ef9..e409d27498 100644
+index 85a3095..e409d27 100644
 --- a/packages/app/src/i18n/hi.ts
 +++ b/packages/app/src/i18n/hi.ts
 @@ -1134,7 +1134,14 @@ export const dict = {
@@ -530,7 +530,7 @@ index 85a3095ef9..e409d27498 100644
    "workspace.type.local": "स्थानीय",
    "workspace.type.sandbox": "सैंडबॉक्स",
 diff --git a/packages/app/src/i18n/hr.ts b/packages/app/src/i18n/hr.ts
-index 770d32f778..b72a1d5bf3 100644
+index 770d32f..b72a1d5 100644
 --- a/packages/app/src/i18n/hr.ts
 +++ b/packages/app/src/i18n/hr.ts
 @@ -1138,7 +1138,14 @@ export const dict = {
@@ -550,7 +550,7 @@ index 770d32f778..b72a1d5bf3 100644
    "workspace.type.local": "lokalni",
    "workspace.type.sandbox": "pješčanik",
 diff --git a/packages/app/src/i18n/hu.ts b/packages/app/src/i18n/hu.ts
-index dc4a1005b6..544a95e58c 100644
+index dc4a100..544a95e 100644
 --- a/packages/app/src/i18n/hu.ts
 +++ b/packages/app/src/i18n/hu.ts
 @@ -1140,7 +1140,14 @@ export const dict = {
@@ -570,7 +570,7 @@ index dc4a1005b6..544a95e58c 100644
    "workspace.type.local": "helyi",
    "workspace.type.sandbox": "homokozó",
 diff --git a/packages/app/src/i18n/hy.ts b/packages/app/src/i18n/hy.ts
-index 2ca575211a..55a2c4a48c 100644
+index 2ca5752..55a2c4a 100644
 --- a/packages/app/src/i18n/hy.ts
 +++ b/packages/app/src/i18n/hy.ts
 @@ -1135,7 +1135,14 @@ export const dict = {
@@ -590,7 +590,7 @@ index 2ca575211a..55a2c4a48c 100644
    "workspace.type.local": "տեղական",
    "workspace.type.sandbox": "Sandbox",
 diff --git a/packages/app/src/i18n/id.ts b/packages/app/src/i18n/id.ts
-index 5975444e5c..5eff81209c 100644
+index 5975444..5eff812 100644
 --- a/packages/app/src/i18n/id.ts
 +++ b/packages/app/src/i18n/id.ts
 @@ -1220,7 +1220,14 @@ export const dict = {
@@ -610,7 +610,7 @@ index 5975444e5c..5eff81209c 100644
    "workspace.new": "Ruang kerja baru",
    "workspace.type.local": "lokal",
 diff --git a/packages/app/src/i18n/is.ts b/packages/app/src/i18n/is.ts
-index af904ab6b3..b8c6d8ca54 100644
+index af904ab..b8c6d8c 100644
 --- a/packages/app/src/i18n/is.ts
 +++ b/packages/app/src/i18n/is.ts
 @@ -1127,7 +1127,14 @@ export const dict = {
@@ -630,7 +630,7 @@ index af904ab6b3..b8c6d8ca54 100644
    "workspace.type.local": "staðbundið",
    "workspace.type.sandbox": "sandkassi",
 diff --git a/packages/app/src/i18n/it.ts b/packages/app/src/i18n/it.ts
-index 5a53a4e9df..f8157e2192 100644
+index 5a53a4e..f8157e2 100644
 --- a/packages/app/src/i18n/it.ts
 +++ b/packages/app/src/i18n/it.ts
 @@ -1054,7 +1054,14 @@ export const dict = {
@@ -650,7 +650,7 @@ index 5a53a4e9df..f8157e2192 100644
    "workspace.type.local": "locale",
    "workspace.type.sandbox": "sandbox",
 diff --git a/packages/app/src/i18n/ja.ts b/packages/app/src/i18n/ja.ts
-index 41322a8e46..5fd81ea139 100644
+index 41322a8..5fd81ea 100644
 --- a/packages/app/src/i18n/ja.ts
 +++ b/packages/app/src/i18n/ja.ts
 @@ -1041,7 +1041,16 @@ export const dict = {
@@ -672,7 +672,7 @@ index 41322a8e46..5fd81ea139 100644
    "workspace.type.local": "ローカル",
    "workspace.type.sandbox": "サンドボックス",
 diff --git a/packages/app/src/i18n/ka.ts b/packages/app/src/i18n/ka.ts
-index e9287174c8..d35cf0d4c0 100644
+index e928717..d35cf0d 100644
 --- a/packages/app/src/i18n/ka.ts
 +++ b/packages/app/src/i18n/ka.ts
 @@ -1126,7 +1126,14 @@ export const dict = {
@@ -692,7 +692,7 @@ index e9287174c8..d35cf0d4c0 100644
    "workspace.type.local": "ადგილობრივი",
    "workspace.type.sandbox": "Sandbox",
 diff --git a/packages/app/src/i18n/km.ts b/packages/app/src/i18n/km.ts
-index 378933c8dc..c6b8761c4a 100644
+index 378933c..c6b8761 100644
 --- a/packages/app/src/i18n/km.ts
 +++ b/packages/app/src/i18n/km.ts
 @@ -1121,7 +1121,14 @@ export const dict = {
@@ -712,7 +712,7 @@ index 378933c8dc..c6b8761c4a 100644
    "workspace.type.local": "ក្នុងស្រុក",
    "workspace.type.sandbox": "ប្រអប់ខ្សាច់",
 diff --git a/packages/app/src/i18n/ko.ts b/packages/app/src/i18n/ko.ts
-index a26023041f..a2ed48ac47 100644
+index a260230..a2ed48a 100644
 --- a/packages/app/src/i18n/ko.ts
 +++ b/packages/app/src/i18n/ko.ts
 @@ -766,7 +766,14 @@ export const dict = {
@@ -732,7 +732,7 @@ index a26023041f..a2ed48ac47 100644
    "workspace.type.local": "로컬",
    "workspace.type.sandbox": "샌드박스",
 diff --git a/packages/app/src/i18n/lo.ts b/packages/app/src/i18n/lo.ts
-index 8bb290f213..4a76d36b20 100644
+index 8bb290f..4a76d36 100644
 --- a/packages/app/src/i18n/lo.ts
 +++ b/packages/app/src/i18n/lo.ts
 @@ -1118,7 +1118,14 @@ export const dict = {
@@ -752,7 +752,7 @@ index 8bb290f213..4a76d36b20 100644
    "workspace.type.local": "ທ້ອງຖິ່ນ",
    "workspace.type.sandbox": "ກ່ອງຊາຍ",
 diff --git a/packages/app/src/i18n/lt.ts b/packages/app/src/i18n/lt.ts
-index c5aaf20d86..2ecae83cf3 100644
+index c5aaf20..2ecae83 100644
 --- a/packages/app/src/i18n/lt.ts
 +++ b/packages/app/src/i18n/lt.ts
 @@ -1143,7 +1143,14 @@ export const dict = {
@@ -772,7 +772,7 @@ index c5aaf20d86..2ecae83cf3 100644
    "workspace.type.local": "vietinis",
    "workspace.type.sandbox": "smėlio dėžė",
 diff --git a/packages/app/src/i18n/lv.ts b/packages/app/src/i18n/lv.ts
-index 8db9eb370b..59aaae18a6 100644
+index 8db9eb3..59aaae1 100644
 --- a/packages/app/src/i18n/lv.ts
 +++ b/packages/app/src/i18n/lv.ts
 @@ -1132,7 +1132,14 @@ export const dict = {
@@ -792,7 +792,7 @@ index 8db9eb370b..59aaae18a6 100644
    "workspace.type.local": "lokāla",
    "workspace.type.sandbox": "smilškaste",
 diff --git a/packages/app/src/i18n/mk.ts b/packages/app/src/i18n/mk.ts
-index 90de24e5a2..06a47a617f 100644
+index 90de24e..06a47a6 100644
 --- a/packages/app/src/i18n/mk.ts
 +++ b/packages/app/src/i18n/mk.ts
 @@ -1136,7 +1136,14 @@ export const dict = {
@@ -812,7 +812,7 @@ index 90de24e5a2..06a47a617f 100644
    "workspace.type.local": "локални",
    "workspace.type.sandbox": "песок",
 diff --git a/packages/app/src/i18n/mn.ts b/packages/app/src/i18n/mn.ts
-index 57faaf89c8..259f30530a 100644
+index 57faaf8..259f305 100644
 --- a/packages/app/src/i18n/mn.ts
 +++ b/packages/app/src/i18n/mn.ts
 @@ -1138,7 +1138,14 @@ export const dict = {
@@ -832,7 +832,7 @@ index 57faaf89c8..259f30530a 100644
    "workspace.type.local": "орон нутгийн",
    "workspace.type.sandbox": "хамгаалагдсан хязгаарлагдмал орчин",
 diff --git a/packages/app/src/i18n/ms.ts b/packages/app/src/i18n/ms.ts
-index a46d6b63a2..e3592ec400 100644
+index a46d6b6..e3592ec 100644
 --- a/packages/app/src/i18n/ms.ts
 +++ b/packages/app/src/i18n/ms.ts
 @@ -1127,7 +1127,14 @@ export const dict = {
@@ -852,7 +852,7 @@ index a46d6b63a2..e3592ec400 100644
    "workspace.type.local": "setempat",
    "workspace.type.sandbox": "kotak pasir",
 diff --git a/packages/app/src/i18n/my.ts b/packages/app/src/i18n/my.ts
-index 65ff1c9216..dcbe7ba5cf 100644
+index 65ff1c9..dcbe7ba 100644
 --- a/packages/app/src/i18n/my.ts
 +++ b/packages/app/src/i18n/my.ts
 @@ -1146,7 +1146,14 @@ export const dict = {
@@ -872,7 +872,7 @@ index 65ff1c9216..dcbe7ba5cf 100644
    "workspace.type.local": "ပြည်တွင်း",
    "workspace.type.sandbox": "သဲပုံး",
 diff --git a/packages/app/src/i18n/ne.ts b/packages/app/src/i18n/ne.ts
-index 53d6fd7c00..16c67ed3aa 100644
+index 53d6fd7..16c67ed 100644
 --- a/packages/app/src/i18n/ne.ts
 +++ b/packages/app/src/i18n/ne.ts
 @@ -1127,7 +1127,14 @@ export const dict: Record<string, string> = {
@@ -892,7 +892,7 @@ index 53d6fd7c00..16c67ed3aa 100644
    "workspace.type.local": "स्थानीय",
    "workspace.type.sandbox": "स्यान्डबक्स",
 diff --git a/packages/app/src/i18n/nl.ts b/packages/app/src/i18n/nl.ts
-index de3a07b65c..6d976e8f91 100644
+index de3a07b..6d976e8 100644
 --- a/packages/app/src/i18n/nl.ts
 +++ b/packages/app/src/i18n/nl.ts
 @@ -1141,7 +1141,14 @@ export const dict = {
@@ -912,7 +912,7 @@ index de3a07b65c..6d976e8f91 100644
    "workspace.type.local": "lokaal",
    "workspace.type.sandbox": "sandbox",
 diff --git a/packages/app/src/i18n/no.ts b/packages/app/src/i18n/no.ts
-index 7632e57353..91c0dcd835 100644
+index 7632e57..91c0dcd 100644
 --- a/packages/app/src/i18n/no.ts
 +++ b/packages/app/src/i18n/no.ts
 @@ -961,7 +961,14 @@ export const dict = {
@@ -932,7 +932,7 @@ index 7632e57353..91c0dcd835 100644
    "workspace.new": "Nytt arbeidsområde",
    "workspace.type.local": "lokal",
 diff --git a/packages/app/src/i18n/pa.ts b/packages/app/src/i18n/pa.ts
-index 1823bd1db1..87068f914f 100644
+index 1823bd1..87068f9 100644
 --- a/packages/app/src/i18n/pa.ts
 +++ b/packages/app/src/i18n/pa.ts
 @@ -1132,7 +1132,14 @@ export const dict = {
@@ -952,7 +952,7 @@ index 1823bd1db1..87068f914f 100644
    "workspace.type.local": "مقامی",
    "workspace.type.sandbox": "سینڈ باکس",
 diff --git a/packages/app/src/i18n/pl.ts b/packages/app/src/i18n/pl.ts
-index 3b1b908555..a6bbea4a0f 100644
+index 3b1b908..a6bbea4 100644
 --- a/packages/app/src/i18n/pl.ts
 +++ b/packages/app/src/i18n/pl.ts
 @@ -1061,7 +1061,14 @@ export const dict = {
@@ -972,7 +972,7 @@ index 3b1b908555..a6bbea4a0f 100644
    "workspace.type.local": "lokalna",
    "workspace.type.sandbox": "piaskownica",
 diff --git a/packages/app/src/i18n/ro.ts b/packages/app/src/i18n/ro.ts
-index 74a7c45c1f..9b07fd7aec 100644
+index 74a7c45..9b07fd7 100644
 --- a/packages/app/src/i18n/ro.ts
 +++ b/packages/app/src/i18n/ro.ts
 @@ -1132,7 +1132,14 @@ export const dict = {
@@ -992,7 +992,7 @@ index 74a7c45c1f..9b07fd7aec 100644
    "workspace.type.local": "local",
    "workspace.type.sandbox": "sandbox",
 diff --git a/packages/app/src/i18n/ru.ts b/packages/app/src/i18n/ru.ts
-index e62d0f8fa6..90c863cec4 100644
+index e62d0f8..90c863c 100644
 --- a/packages/app/src/i18n/ru.ts
 +++ b/packages/app/src/i18n/ru.ts
 @@ -1139,7 +1139,14 @@ export const dict = {
@@ -1012,7 +1012,7 @@ index e62d0f8fa6..90c863cec4 100644
    "workspace.new": "Новое рабочее пространство",
    "workspace.type.local": "локальное",
 diff --git a/packages/app/src/i18n/si.ts b/packages/app/src/i18n/si.ts
-index bc25623fb6..c802ce63c9 100644
+index bc25623..c802ce6 100644
 --- a/packages/app/src/i18n/si.ts
 +++ b/packages/app/src/i18n/si.ts
 @@ -1123,7 +1123,14 @@ export const dict: Record<string, string> = {
@@ -1032,7 +1032,7 @@ index bc25623fb6..c802ce63c9 100644
    "workspace.type.local": "දේශීය",
    "workspace.type.sandbox": "වැලිපිල්ල",
 diff --git a/packages/app/src/i18n/sk.ts b/packages/app/src/i18n/sk.ts
-index 13cd97f94a..9423896f18 100644
+index 13cd97f..9423896 100644
 --- a/packages/app/src/i18n/sk.ts
 +++ b/packages/app/src/i18n/sk.ts
 @@ -1129,7 +1129,14 @@ export const dict = {
@@ -1052,7 +1052,7 @@ index 13cd97f94a..9423896f18 100644
    "workspace.type.local": "lokálny",
    "workspace.type.sandbox": "sandbox",
 diff --git a/packages/app/src/i18n/sl.ts b/packages/app/src/i18n/sl.ts
-index 23351459c5..d8c7df141e 100644
+index 2335145..d8c7df1 100644
 --- a/packages/app/src/i18n/sl.ts
 +++ b/packages/app/src/i18n/sl.ts
 @@ -1133,7 +1133,14 @@ export const dict = {
@@ -1072,7 +1072,7 @@ index 23351459c5..d8c7df141e 100644
    "workspace.type.local": "lokalni",
    "workspace.type.sandbox": "peskovnik",
 diff --git a/packages/app/src/i18n/sq.ts b/packages/app/src/i18n/sq.ts
-index a975596f83..474567eed4 100644
+index a975596..474567e 100644
 --- a/packages/app/src/i18n/sq.ts
 +++ b/packages/app/src/i18n/sq.ts
 @@ -1133,7 +1133,14 @@ export const dict = {
@@ -1092,7 +1092,7 @@ index a975596f83..474567eed4 100644
    "workspace.type.local": "lokale",
    "workspace.type.sandbox": "mjedis i izoluar",
 diff --git a/packages/app/src/i18n/sr.ts b/packages/app/src/i18n/sr.ts
-index 8ce11c23ab..e242871879 100644
+index 8ce11c2..e242871 100644
 --- a/packages/app/src/i18n/sr.ts
 +++ b/packages/app/src/i18n/sr.ts
 @@ -1131,7 +1131,14 @@ export const dict = {
@@ -1112,7 +1112,7 @@ index 8ce11c23ab..e242871879 100644
    "workspace.type.local": "локални",
    "workspace.type.sandbox": "сандбок",
 diff --git a/packages/app/src/i18n/sv.ts b/packages/app/src/i18n/sv.ts
-index b67fd1cfe3..6a9af9179d 100644
+index b67fd1c..6a9af91 100644
 --- a/packages/app/src/i18n/sv.ts
 +++ b/packages/app/src/i18n/sv.ts
 @@ -1131,7 +1131,14 @@ export const dict = {
@@ -1132,7 +1132,7 @@ index b67fd1cfe3..6a9af9179d 100644
    "workspace.type.local": "lokal",
    "workspace.type.sandbox": "sandlåda",
 diff --git a/packages/app/src/i18n/tg.ts b/packages/app/src/i18n/tg.ts
-index 67ed5937f3..386beba410 100644
+index 67ed593..386beba 100644
 --- a/packages/app/src/i18n/tg.ts
 +++ b/packages/app/src/i18n/tg.ts
 @@ -1134,7 +1134,14 @@ export const dict = {
@@ -1152,7 +1152,7 @@ index 67ed5937f3..386beba410 100644
    "workspace.type.local": "маҳаллӣ",
    "workspace.type.sandbox": "қуттии қум",
 diff --git a/packages/app/src/i18n/th.ts b/packages/app/src/i18n/th.ts
-index 995f8fe487..db369755a6 100644
+index 995f8fe..db36975 100644
 --- a/packages/app/src/i18n/th.ts
 +++ b/packages/app/src/i18n/th.ts
 @@ -1115,7 +1115,14 @@ export const dict = {
@@ -1172,7 +1172,7 @@ index 995f8fe487..db369755a6 100644
    "workspace.new": "พื้นที่ทำงานใหม่",
    "workspace.type.local": "ในเครื่อง",
 diff --git a/packages/app/src/i18n/tk.ts b/packages/app/src/i18n/tk.ts
-index 40fddbe76b..c1a6b80a86 100644
+index 40fddbe..c1a6b80 100644
 --- a/packages/app/src/i18n/tk.ts
 +++ b/packages/app/src/i18n/tk.ts
 @@ -1129,7 +1129,14 @@ export const dict = {
@@ -1192,7 +1192,7 @@ index 40fddbe76b..c1a6b80a86 100644
    "workspace.type.local": "ýerli",
    "workspace.type.sandbox": "sandyk",
 diff --git a/packages/app/src/i18n/tr.ts b/packages/app/src/i18n/tr.ts
-index b0a2d7239f..e6c46024ef 100644
+index b0a2d72..e6c4602 100644
 --- a/packages/app/src/i18n/tr.ts
 +++ b/packages/app/src/i18n/tr.ts
 @@ -1141,7 +1141,14 @@ export const dict = {
@@ -1212,7 +1212,7 @@ index b0a2d7239f..e6c46024ef 100644
    "workspace.new": "Yeni çalışma alanı",
    "workspace.type.local": "yerel",
 diff --git a/packages/app/src/i18n/uk.ts b/packages/app/src/i18n/uk.ts
-index fcdec79712..a7e816db37 100644
+index fcdec79..a7e816d 100644
 --- a/packages/app/src/i18n/uk.ts
 +++ b/packages/app/src/i18n/uk.ts
 @@ -1244,7 +1244,14 @@ export const dict = {
@@ -1232,7 +1232,7 @@ index fcdec79712..a7e816db37 100644
    "workspace.new": "Нова робоча область",
    "workspace.type.local": "локальна",
 diff --git a/packages/app/src/i18n/ur.ts b/packages/app/src/i18n/ur.ts
-index e970883cc8..c54c2f7836 100644
+index e970883..c54c2f7 100644
 --- a/packages/app/src/i18n/ur.ts
 +++ b/packages/app/src/i18n/ur.ts
 @@ -1135,7 +1135,14 @@ export const dict = {
@@ -1252,7 +1252,7 @@ index e970883cc8..c54c2f7836 100644
    "workspace.type.local": "مقامی",
    "workspace.type.sandbox": "سینڈ باکس",
 diff --git a/packages/app/src/i18n/uz.ts b/packages/app/src/i18n/uz.ts
-index 15397fb1af..bafdaa025b 100644
+index 15397fb..bafdaa0 100644
 --- a/packages/app/src/i18n/uz.ts
 +++ b/packages/app/src/i18n/uz.ts
 @@ -1141,7 +1141,14 @@ export const dict = {
@@ -1272,7 +1272,7 @@ index 15397fb1af..bafdaa025b 100644
    "workspace.type.local": "mahalliy",
    "workspace.type.sandbox": "qum qutisi",
 diff --git a/packages/app/src/i18n/vi.ts b/packages/app/src/i18n/vi.ts
-index f92208d5a1..c5d1b60c35 100644
+index f92208d..c5d1b60 100644
 --- a/packages/app/src/i18n/vi.ts
 +++ b/packages/app/src/i18n/vi.ts
 @@ -1140,7 +1140,14 @@ export const dict = {
@@ -1292,7 +1292,7 @@ index f92208d5a1..c5d1b60c35 100644
    "workspace.type.local": "cục bộ",
    "workspace.type.sandbox": "sandbox",
 diff --git a/packages/app/src/i18n/zh.ts b/packages/app/src/i18n/zh.ts
-index c2504cd778..5550930eda 100644
+index c2504cd..5550930 100644
 --- a/packages/app/src/i18n/zh.ts
 +++ b/packages/app/src/i18n/zh.ts
 @@ -1106,7 +1106,14 @@ export const dict = {
@@ -1312,7 +1312,7 @@ index c2504cd778..5550930eda 100644
    "workspace.new": "新建工作区",
    "workspace.type.local": "本地",
 diff --git a/packages/app/src/i18n/zht.ts b/packages/app/src/i18n/zht.ts
-index 3b471f5173..c1b143380e 100644
+index 3b471f5..c1b1433 100644
 --- a/packages/app/src/i18n/zht.ts
 +++ b/packages/app/src/i18n/zht.ts
 @@ -1102,7 +1102,14 @@ export const dict = {
@@ -1332,7 +1332,7 @@ index 3b471f5173..c1b143380e 100644
    "workspace.new": "新增工作區",
    "workspace.type.local": "本機",
 diff --git a/packages/app/src/pages/home/home-sessions-controller.tsx b/packages/app/src/pages/home/home-sessions-controller.tsx
-index f306f208cc..693651ab93 100644
+index f306f20..693651a 100644
 --- a/packages/app/src/pages/home/home-sessions-controller.tsx
 +++ b/packages/app/src/pages/home/home-sessions-controller.tsx
 @@ -1,9 +1,9 @@
@@ -1554,7 +1554,7 @@ index f306f208cc..693651ab93 100644
    sessions: () => Session[]
    projectDirectories: () => string[]
 diff --git a/packages/app/src/pages/home/home-sessions-view.tsx b/packages/app/src/pages/home/home-sessions-view.tsx
-index 72f2f37616..91b666e07b 100644
+index 72f2f37..91b666e 100644
 --- a/packages/app/src/pages/home/home-sessions-view.tsx
 +++ b/packages/app/src/pages/home/home-sessions-view.tsx
 @@ -19,7 +19,7 @@ import {
@@ -1802,7 +1802,7 @@ index 72f2f37616..91b666e07b 100644
    return (
      <span
 diff --git a/packages/app/src/pages/home/home-sessions.tsx b/packages/app/src/pages/home/home-sessions.tsx
-index 7bda4dd363..e60a4662ee 100644
+index 7bda4dd..e60a466 100644
 --- a/packages/app/src/pages/home/home-sessions.tsx
 +++ b/packages/app/src/pages/home/home-sessions.tsx
 @@ -27,6 +27,13 @@ export function HomeSessions(props: {
@@ -1820,7 +1820,7 @@ index 7bda4dd363..e60a4662ee 100644
        onSetThumbTrack={props.scroll.viewport.setThumbTrack}
        onSetContent={props.scroll.header.setContent}
 diff --git a/packages/app/src/pages/session/session-archive.ts b/packages/app/src/pages/session/session-archive.ts
-index 3968869539..717dd09764 100644
+index 3968869..717dd09 100644
 --- a/packages/app/src/pages/session/session-archive.ts
 +++ b/packages/app/src/pages/session/session-archive.ts
 @@ -1,4 +1,5 @@
@@ -1850,7 +1850,7 @@ index 3968869539..717dd09764 100644
        .catch((err) => {
          showToast({
 diff --git a/packages/app/src/utils/server-compat.ts b/packages/app/src/utils/server-compat.ts
-index 1df1338b71..1ba9181f35 100644
+index 1df1338..1ba9181 100644
 --- a/packages/app/src/utils/server-compat.ts
 +++ b/packages/app/src/utils/server-compat.ts
 @@ -71,7 +71,7 @@ function sessionInfo(session: Session): SessionInfo {
@@ -1863,7 +1863,7 @@ index 1df1338b71..1ba9181f35 100644
      location: { directory: session.directory, workspaceID: session.workspaceID },
      subpath: session.path,
 diff --git a/packages/opencode/src/server/routes/instance/httpapi/groups/session.ts b/packages/opencode/src/server/routes/instance/httpapi/groups/session.ts
-index 959a303dc9..d75450e416 100644
+index 959a303..d75450e 100644
 --- a/packages/opencode/src/server/routes/instance/httpapi/groups/session.ts
 +++ b/packages/opencode/src/server/routes/instance/httpapi/groups/session.ts
 @@ -35,6 +35,7 @@ export const ListQuery = Schema.Struct({
@@ -1875,7 +1875,7 @@ index 959a303dc9..d75450e416 100644
  export const DiffQuery = Schema.Struct({
    ...WorkspaceRoutingQueryFields,
 diff --git a/packages/opencode/src/server/routes/instance/httpapi/handlers/session.ts b/packages/opencode/src/server/routes/instance/httpapi/handlers/session.ts
-index 662585020a..fe99a88da0 100644
+index 6625850..fe99a88 100644
 --- a/packages/opencode/src/server/routes/instance/httpapi/handlers/session.ts
 +++ b/packages/opencode/src/server/routes/instance/httpapi/handlers/session.ts
 @@ -71,6 +71,7 @@ export const sessionHandlers = HttpApiBuilder.group(InstanceHttpApi, "session",
@@ -1887,7 +1887,7 @@ index 662585020a..fe99a88da0 100644
      })
  
 diff --git a/packages/opencode/src/session/retry.ts b/packages/opencode/src/session/retry.ts
-index 22059b813d..6b160c1279 100644
+index 22059b8..6b160c1 100644
 --- a/packages/opencode/src/session/retry.ts
 +++ b/packages/opencode/src/session/retry.ts
 @@ -181,7 +181,7 @@ export function retryable(error: Err, provider: string) {
@@ -1900,7 +1900,7 @@ index 22059b813d..6b160c1279 100644
      // Treat it like any other failure: retry the same key once, then rotate.
      if (status !== undefined && status >= 400 && status < 500) {
 diff --git a/packages/opencode/src/session/session.ts b/packages/opencode/src/session/session.ts
-index a2a91cd47b..424776b4e5 100644
+index a2a91cd..424776b 100644
 --- a/packages/opencode/src/session/session.ts
 +++ b/packages/opencode/src/session/session.ts
 @@ -18,7 +18,7 @@ import { NotFoundError } from "@/storage/storage"
@@ -1962,7 +1962,7 @@ index a2a91cd47b..424776b4e5 100644
      conditions.push(gte(SessionTable.time_updated, input.start))
    }
 diff --git a/packages/opencode/test/server/httpapi-session.test.ts b/packages/opencode/test/server/httpapi-session.test.ts
-index 9d7643cb33..a292ce5a8b 100644
+index 9d7643c..a292ce5 100644
 --- a/packages/opencode/test/server/httpapi-session.test.ts
 +++ b/packages/opencode/test/server/httpapi-session.test.ts
 @@ -844,6 +844,86 @@ describe("session HttpApi", () => {
@@ -2053,7 +2053,7 @@ index 9d7643cb33..a292ce5a8b 100644
      "uses project-scoped path and directory precedence",
      () =>
 diff --git a/packages/opencode/test/session/retry.test.ts b/packages/opencode/test/session/retry.test.ts
-index 424b1f1d9d..27be0b3df8 100644
+index 424b1f1..27be0b3 100644
 --- a/packages/opencode/test/session/retry.test.ts
 +++ b/packages/opencode/test/session/retry.test.ts
 @@ -359,24 +359,6 @@ describe("session.retry.retryable", () => {
@@ -2082,7 +2082,7 @@ index 424b1f1d9d..27be0b3df8 100644
      const error = Schema.decodeUnknownSync(SessionV1.APIError.Schema)(
        new SessionV1.APIError({
 diff --git a/packages/schema/src/v1/session.ts b/packages/schema/src/v1/session.ts
-index b2b712de96..40d56e8095 100644
+index b2b712d..40d56e8 100644
 --- a/packages/schema/src/v1/session.ts
 +++ b/packages/schema/src/v1/session.ts
 @@ -562,7 +562,7 @@ export const SessionInfo = Schema.Struct({
@@ -2095,7 +2095,7 @@ index b2b712de96..40d56e8095 100644
    permission: optional(PermissionV1.Ruleset),
    revert: optional(SessionRevert),
 diff --git a/packages/sdk/js/src/v2/gen/sdk.gen.ts b/packages/sdk/js/src/v2/gen/sdk.gen.ts
-index a2bcd4252c..60eac83923 100644
+index a2bcd42..60eac83 100644
 --- a/packages/sdk/js/src/v2/gen/sdk.gen.ts
 +++ b/packages/sdk/js/src/v2/gen/sdk.gen.ts
 @@ -3375,6 +3375,7 @@ export class Session2 extends HeyApiClient {
@@ -2124,7 +2124,7 @@ index a2bcd4252c..60eac83923 100644
      },
      options?: Options<never, ThrowOnError>,
 diff --git a/packages/sdk/js/src/v2/gen/types.gen.ts b/packages/sdk/js/src/v2/gen/types.gen.ts
-index b3ca8ef315..b1ef0e5a1d 100644
+index b3ca8ef..b1ef0e5 100644
 --- a/packages/sdk/js/src/v2/gen/types.gen.ts
 +++ b/packages/sdk/js/src/v2/gen/types.gen.ts
 @@ -209,7 +209,7 @@ export type Session = {
@@ -2172,7 +2172,7 @@ index b3ca8ef315..b1ef0e5a1d 100644
    }
    path: {
 diff --git a/packages/ui/src/v2/components/icon.tsx b/packages/ui/src/v2/components/icon.tsx
-index b22d3140fe..a76acc385a 100644
+index b22d314..a76acc3 100644
 --- a/packages/ui/src/v2/components/icon.tsx
 +++ b/packages/ui/src/v2/components/icon.tsx
 @@ -149,6 +149,10 @@ const icons = {

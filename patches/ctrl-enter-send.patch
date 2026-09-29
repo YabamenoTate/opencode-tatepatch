@@ -1,5 +1,5 @@
 diff --git a/packages/app/src/components/prompt-input.tsx b/packages/app/src/components/prompt-input.tsx
-index 41cf7d30ca..3436526d6e 100644
+index 41cf7d3..3436526 100644
 --- a/packages/app/src/components/prompt-input.tsx
 +++ b/packages/app/src/components/prompt-input.tsx
 @@ -1304,16 +1304,38 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
@@ -84,7 +84,7 @@ index 41cf7d30ca..3436526d6e 100644
              </div>
            </div>
 diff --git a/packages/app/src/i18n/am.ts b/packages/app/src/i18n/am.ts
-index 07fa4dd47b..6e29fffed6 100644
+index 07fa4dd..6e29fff 100644
 --- a/packages/app/src/i18n/am.ts
 +++ b/packages/app/src/i18n/am.ts
 @@ -1133,4 +1133,5 @@ export const dict = {
@@ -94,7 +94,7 @@ index 07fa4dd47b..6e29fffed6 100644
 +  "prompt.action.enterNewline": "Enter for newline",
  }
 diff --git a/packages/app/src/i18n/ar.ts b/packages/app/src/i18n/ar.ts
-index f24736934a..6a7b1cf769 100644
+index f247369..6a7b1cf 100644
 --- a/packages/app/src/i18n/ar.ts
 +++ b/packages/app/src/i18n/ar.ts
 @@ -384,6 +384,7 @@ export const dict = {
@@ -106,7 +106,7 @@ index f24736934a..6a7b1cf769 100644
    "prompt.action.send": "إرسال",
    "prompt.action.stop": "إيقاف",
 diff --git a/packages/app/src/i18n/az.ts b/packages/app/src/i18n/az.ts
-index b185c32b34..90901c69f6 100644
+index b185c32..90901c6 100644
 --- a/packages/app/src/i18n/az.ts
 +++ b/packages/app/src/i18n/az.ts
 @@ -1171,4 +1171,5 @@ export const dict = {
@@ -116,7 +116,7 @@ index b185c32b34..90901c69f6 100644
 +  "prompt.action.enterNewline": "Enter for newline",
  }
 diff --git a/packages/app/src/i18n/bg.ts b/packages/app/src/i18n/bg.ts
-index 21f40515ec..646079e311 100644
+index 21f4051..646079e 100644
 --- a/packages/app/src/i18n/bg.ts
 +++ b/packages/app/src/i18n/bg.ts
 @@ -1173,4 +1173,5 @@ export const dict = {
@@ -126,7 +126,7 @@ index 21f40515ec..646079e311 100644
 +  "prompt.action.enterNewline": "Enter for newline",
  }
 diff --git a/packages/app/src/i18n/bn.ts b/packages/app/src/i18n/bn.ts
-index 7f819d3516..eaf58d4196 100644
+index 7f819d3..eaf58d4 100644
 --- a/packages/app/src/i18n/bn.ts
 +++ b/packages/app/src/i18n/bn.ts
 @@ -1155,4 +1155,5 @@ export const dict: Record<string, string> = {
@@ -136,7 +136,7 @@ index 7f819d3516..eaf58d4196 100644
 +  "prompt.action.enterNewline": "Enter for newline",
  }
 diff --git a/packages/app/src/i18n/br.ts b/packages/app/src/i18n/br.ts
-index 3d9aa285c5..cd67ce8397 100644
+index 3d9aa28..cd67ce8 100644
 --- a/packages/app/src/i18n/br.ts
 +++ b/packages/app/src/i18n/br.ts
 @@ -386,6 +386,7 @@ export const dict = {
@@ -148,7 +148,7 @@ index 3d9aa285c5..cd67ce8397 100644
    "prompt.action.send": "Enviar",
    "prompt.action.stop": "Parar",
 diff --git a/packages/app/src/i18n/bs.ts b/packages/app/src/i18n/bs.ts
-index a09e2995d7..3a91288667 100644
+index a09e299..3a91288 100644
 --- a/packages/app/src/i18n/bs.ts
 +++ b/packages/app/src/i18n/bs.ts
 @@ -406,6 +406,7 @@ export const dict = {
@@ -160,7 +160,7 @@ index a09e2995d7..3a91288667 100644
    "prompt.action.send": "Pošalji",
    "prompt.action.stop": "Zaustavi",
 diff --git a/packages/app/src/i18n/ca.ts b/packages/app/src/i18n/ca.ts
-index de6a067443..2883efc00c 100644
+index de6a067..2883efc 100644
 --- a/packages/app/src/i18n/ca.ts
 +++ b/packages/app/src/i18n/ca.ts
 @@ -1176,4 +1176,5 @@ export const dict = {
@@ -170,7 +170,7 @@ index de6a067443..2883efc00c 100644
 +  "prompt.action.enterNewline": "Enter for newline",
  }
 diff --git a/packages/app/src/i18n/cs.ts b/packages/app/src/i18n/cs.ts
-index 5caf029cd2..779c889af7 100644
+index 5caf029..779c889 100644
 --- a/packages/app/src/i18n/cs.ts
 +++ b/packages/app/src/i18n/cs.ts
 @@ -1166,4 +1166,5 @@ export const dict = {
@@ -180,7 +180,7 @@ index 5caf029cd2..779c889af7 100644
 +  "prompt.action.enterNewline": "Enter for newline",
  }
 diff --git a/packages/app/src/i18n/da.ts b/packages/app/src/i18n/da.ts
-index 9615641116..24718a88b0 100644
+index 9615641..24718a8 100644
 --- a/packages/app/src/i18n/da.ts
 +++ b/packages/app/src/i18n/da.ts
 @@ -303,6 +303,7 @@ export const dict = {
@@ -192,7 +192,7 @@ index 9615641116..24718a88b0 100644
    "prompt.action.send": "Send",
    "prompt.action.stop": "Stop",
 diff --git a/packages/app/src/i18n/de.ts b/packages/app/src/i18n/de.ts
-index 30732c8d84..c2a107adba 100644
+index 30732c8..c2a107a 100644
 --- a/packages/app/src/i18n/de.ts
 +++ b/packages/app/src/i18n/de.ts
 @@ -290,6 +290,7 @@ export const dict = {
@@ -204,7 +204,7 @@ index 30732c8d84..c2a107adba 100644
    "prompt.action.send": "Senden",
    "prompt.action.stop": "Stoppen",
 diff --git a/packages/app/src/i18n/dv.ts b/packages/app/src/i18n/dv.ts
-index 582650d1c8..4ea4a2f4a2 100644
+index 582650d..4ea4a2f 100644
 --- a/packages/app/src/i18n/dv.ts
 +++ b/packages/app/src/i18n/dv.ts
 @@ -1180,4 +1180,5 @@ export const dict = {
@@ -214,7 +214,7 @@ index 582650d1c8..4ea4a2f4a2 100644
 +  "prompt.action.enterNewline": "Enter for newline",
  }
 diff --git a/packages/app/src/i18n/dz.ts b/packages/app/src/i18n/dz.ts
-index b3ffa6f640..ab0c108f99 100644
+index b3ffa6f..ab0c108 100644
 --- a/packages/app/src/i18n/dz.ts
 +++ b/packages/app/src/i18n/dz.ts
 @@ -1184,4 +1184,5 @@ export const dict: Record<string, string> = {
@@ -224,7 +224,7 @@ index b3ffa6f640..ab0c108f99 100644
 +  "prompt.action.enterNewline": "Enter for newline",
  }
 diff --git a/packages/app/src/i18n/el.ts b/packages/app/src/i18n/el.ts
-index 1d5d86da9f..99b2f4a9a3 100644
+index 1d5d86d..99b2f4a 100644
 --- a/packages/app/src/i18n/el.ts
 +++ b/packages/app/src/i18n/el.ts
 @@ -1176,4 +1176,5 @@ export const dict = {
@@ -234,7 +234,7 @@ index 1d5d86da9f..99b2f4a9a3 100644
 +  "prompt.action.enterNewline": "Enter for newline",
  }
 diff --git a/packages/app/src/i18n/en.ts b/packages/app/src/i18n/en.ts
-index b5e692ab15..7257c1bdd5 100644
+index b5e692a..7257c1b 100644
 --- a/packages/app/src/i18n/en.ts
 +++ b/packages/app/src/i18n/en.ts
 @@ -308,6 +308,7 @@ export const dict = {
@@ -246,7 +246,7 @@ index b5e692ab15..7257c1bdd5 100644
    "prompt.action.send": "Send",
    "prompt.action.stop": "Stop",
 diff --git a/packages/app/src/i18n/es.ts b/packages/app/src/i18n/es.ts
-index c82fe31025..7d759f7c58 100644
+index c82fe31..7d759f7 100644
 --- a/packages/app/src/i18n/es.ts
 +++ b/packages/app/src/i18n/es.ts
 @@ -406,6 +406,7 @@ export const dict = {
@@ -258,7 +258,7 @@ index c82fe31025..7d759f7c58 100644
    "prompt.action.send": "Enviar",
    "prompt.action.stop": "Detener",
 diff --git a/packages/app/src/i18n/et.ts b/packages/app/src/i18n/et.ts
-index 91217e5aca..f71f55b8d0 100644
+index 91217e5..f71f55b 100644
 --- a/packages/app/src/i18n/et.ts
 +++ b/packages/app/src/i18n/et.ts
 @@ -1154,4 +1154,5 @@ export const dict = {
@@ -268,7 +268,7 @@ index 91217e5aca..f71f55b8d0 100644
 +  "prompt.action.enterNewline": "Enter for newline",
  }
 diff --git a/packages/app/src/i18n/fa.ts b/packages/app/src/i18n/fa.ts
-index a5d49b2fbe..4278383037 100644
+index a5d49b2..4278383 100644
 --- a/packages/app/src/i18n/fa.ts
 +++ b/packages/app/src/i18n/fa.ts
 @@ -1158,4 +1158,5 @@ export const dict = {
@@ -278,7 +278,7 @@ index a5d49b2fbe..4278383037 100644
 +  "prompt.action.enterNewline": "Enter for newline",
  }
 diff --git a/packages/app/src/i18n/fi.ts b/packages/app/src/i18n/fi.ts
-index 83a17fc5f6..746d2d5fcc 100644
+index 83a17fc..746d2d5 100644
 --- a/packages/app/src/i18n/fi.ts
 +++ b/packages/app/src/i18n/fi.ts
 @@ -1171,4 +1171,5 @@ export const dict = {
@@ -288,7 +288,7 @@ index 83a17fc5f6..746d2d5fcc 100644
 +  "prompt.action.enterNewline": "Enter for newline",
  }
 diff --git a/packages/app/src/i18n/fo.ts b/packages/app/src/i18n/fo.ts
-index 26e18af39c..499666ff32 100644
+index 26e18af..499666f 100644
 --- a/packages/app/src/i18n/fo.ts
 +++ b/packages/app/src/i18n/fo.ts
 @@ -1157,4 +1157,5 @@ export const dict = {
@@ -298,7 +298,7 @@ index 26e18af39c..499666ff32 100644
 +  "prompt.action.enterNewline": "Enter for newline",
  }
 diff --git a/packages/app/src/i18n/fr.ts b/packages/app/src/i18n/fr.ts
-index fea33f0b21..6caee4b6bf 100644
+index fea33f0..6caee4b 100644
 --- a/packages/app/src/i18n/fr.ts
 +++ b/packages/app/src/i18n/fr.ts
 @@ -389,6 +389,7 @@ export const dict = {
@@ -310,7 +310,7 @@ index fea33f0b21..6caee4b6bf 100644
    "prompt.action.send": "Envoyer",
    "prompt.action.stop": "Arrêter",
 diff --git a/packages/app/src/i18n/hi.ts b/packages/app/src/i18n/hi.ts
-index 34a8a7a743..85a3095ef9 100644
+index 34a8a7a..85a3095 100644
 --- a/packages/app/src/i18n/hi.ts
 +++ b/packages/app/src/i18n/hi.ts
 @@ -1166,4 +1166,5 @@ export const dict = {
@@ -320,7 +320,7 @@ index 34a8a7a743..85a3095ef9 100644
 +  "prompt.action.enterNewline": "Enter for newline",
  }
 diff --git a/packages/app/src/i18n/hr.ts b/packages/app/src/i18n/hr.ts
-index 3ca31a44f5..770d32f778 100644
+index 3ca31a4..770d32f 100644
 --- a/packages/app/src/i18n/hr.ts
 +++ b/packages/app/src/i18n/hr.ts
 @@ -1171,4 +1171,5 @@ export const dict = {
@@ -330,7 +330,7 @@ index 3ca31a44f5..770d32f778 100644
 +  "prompt.action.enterNewline": "Enter for newline",
  }
 diff --git a/packages/app/src/i18n/hu.ts b/packages/app/src/i18n/hu.ts
-index 1dcfe35b6c..dc4a1005b6 100644
+index 1dcfe35..dc4a100 100644
 --- a/packages/app/src/i18n/hu.ts
 +++ b/packages/app/src/i18n/hu.ts
 @@ -1173,4 +1173,5 @@ export const dict = {
@@ -340,7 +340,7 @@ index 1dcfe35b6c..dc4a1005b6 100644
 +  "prompt.action.enterNewline": "Enter for newline",
  }
 diff --git a/packages/app/src/i18n/hy.ts b/packages/app/src/i18n/hy.ts
-index 725c27205f..2ca575211a 100644
+index 725c272..2ca5752 100644
 --- a/packages/app/src/i18n/hy.ts
 +++ b/packages/app/src/i18n/hy.ts
 @@ -1168,4 +1168,5 @@ export const dict = {
@@ -350,7 +350,7 @@ index 725c27205f..2ca575211a 100644
 +  "prompt.action.enterNewline": "Enter for newline",
  }
 diff --git a/packages/app/src/i18n/id.ts b/packages/app/src/i18n/id.ts
-index 2babcad3f2..5975444e5c 100644
+index 2babcad..5975444 100644
 --- a/packages/app/src/i18n/id.ts
 +++ b/packages/app/src/i18n/id.ts
 @@ -1253,4 +1253,5 @@ export const dict = {
@@ -360,7 +360,7 @@ index 2babcad3f2..5975444e5c 100644
 +  "prompt.action.enterNewline": "Enter for newline",
  }
 diff --git a/packages/app/src/i18n/is.ts b/packages/app/src/i18n/is.ts
-index bb9ada772f..af904ab6b3 100644
+index bb9ada7..af904ab 100644
 --- a/packages/app/src/i18n/is.ts
 +++ b/packages/app/src/i18n/is.ts
 @@ -1160,4 +1160,5 @@ export const dict = {
@@ -370,7 +370,7 @@ index bb9ada772f..af904ab6b3 100644
 +  "prompt.action.enterNewline": "Enter for newline",
  }
 diff --git a/packages/app/src/i18n/it.ts b/packages/app/src/i18n/it.ts
-index bc4a455703..5a53a4e9df 100644
+index bc4a455..5a53a4e 100644
 --- a/packages/app/src/i18n/it.ts
 +++ b/packages/app/src/i18n/it.ts
 @@ -1179,4 +1179,5 @@ export const dict = {
@@ -380,7 +380,7 @@ index bc4a455703..5a53a4e9df 100644
 +  "prompt.action.enterNewline": "Enter for newline",
  }
 diff --git a/packages/app/src/i18n/ja.ts b/packages/app/src/i18n/ja.ts
-index dc7c957663..d85c7c0c3f 100644
+index dc7c957..d85c7c0 100644
 --- a/packages/app/src/i18n/ja.ts
 +++ b/packages/app/src/i18n/ja.ts
 @@ -383,6 +383,7 @@ export const dict = {
@@ -392,7 +392,7 @@ index dc7c957663..d85c7c0c3f 100644
    "prompt.action.send": "送信",
    "prompt.action.stop": "停止",
 diff --git a/packages/app/src/i18n/ka.ts b/packages/app/src/i18n/ka.ts
-index 6bced1a427..e9287174c8 100644
+index 6bced1a..e928717 100644
 --- a/packages/app/src/i18n/ka.ts
 +++ b/packages/app/src/i18n/ka.ts
 @@ -1159,4 +1159,5 @@ export const dict = {
@@ -402,7 +402,7 @@ index 6bced1a427..e9287174c8 100644
 +  "prompt.action.enterNewline": "Enter for newline",
  }
 diff --git a/packages/app/src/i18n/km.ts b/packages/app/src/i18n/km.ts
-index 15038b3181..378933c8dc 100644
+index 15038b3..378933c 100644
 --- a/packages/app/src/i18n/km.ts
 +++ b/packages/app/src/i18n/km.ts
 @@ -1154,4 +1154,5 @@ export const dict = {
@@ -412,7 +412,7 @@ index 15038b3181..378933c8dc 100644
 +  "prompt.action.enterNewline": "Enter for newline",
  }
 diff --git a/packages/app/src/i18n/ko.ts b/packages/app/src/i18n/ko.ts
-index 73c145ec9f..a476e85d37 100644
+index 73c145e..a476e85 100644
 --- a/packages/app/src/i18n/ko.ts
 +++ b/packages/app/src/i18n/ko.ts
 @@ -272,6 +272,7 @@ export const dict = {
@@ -424,7 +424,7 @@ index 73c145ec9f..a476e85d37 100644
    "prompt.action.send": "전송",
    "prompt.action.stop": "중지",
 diff --git a/packages/app/src/i18n/lo.ts b/packages/app/src/i18n/lo.ts
-index cb0e3833bb..8bb290f213 100644
+index cb0e383..8bb290f 100644
 --- a/packages/app/src/i18n/lo.ts
 +++ b/packages/app/src/i18n/lo.ts
 @@ -1151,4 +1151,5 @@ export const dict = {
@@ -434,7 +434,7 @@ index cb0e3833bb..8bb290f213 100644
 +  "prompt.action.enterNewline": "Enter for newline",
  }
 diff --git a/packages/app/src/i18n/lt.ts b/packages/app/src/i18n/lt.ts
-index 1e5e1efcbd..c5aaf20d86 100644
+index 1e5e1ef..c5aaf20 100644
 --- a/packages/app/src/i18n/lt.ts
 +++ b/packages/app/src/i18n/lt.ts
 @@ -1176,4 +1176,5 @@ export const dict = {
@@ -444,7 +444,7 @@ index 1e5e1efcbd..c5aaf20d86 100644
 +  "prompt.action.enterNewline": "Enter for newline",
  }
 diff --git a/packages/app/src/i18n/lv.ts b/packages/app/src/i18n/lv.ts
-index 982c1bfc78..8db9eb370b 100644
+index 982c1bf..8db9eb3 100644
 --- a/packages/app/src/i18n/lv.ts
 +++ b/packages/app/src/i18n/lv.ts
 @@ -1165,4 +1165,5 @@ export const dict = {
@@ -454,7 +454,7 @@ index 982c1bfc78..8db9eb370b 100644
 +  "prompt.action.enterNewline": "Enter for newline",
  }
 diff --git a/packages/app/src/i18n/mk.ts b/packages/app/src/i18n/mk.ts
-index e8a46eec84..90de24e5a2 100644
+index e8a46ee..90de24e 100644
 --- a/packages/app/src/i18n/mk.ts
 +++ b/packages/app/src/i18n/mk.ts
 @@ -1169,4 +1169,5 @@ export const dict = {
@@ -464,7 +464,7 @@ index e8a46eec84..90de24e5a2 100644
 +  "prompt.action.enterNewline": "Enter for newline",
  }
 diff --git a/packages/app/src/i18n/mn.ts b/packages/app/src/i18n/mn.ts
-index 0b521f5293..57faaf89c8 100644
+index 0b521f5..57faaf8 100644
 --- a/packages/app/src/i18n/mn.ts
 +++ b/packages/app/src/i18n/mn.ts
 @@ -1171,4 +1171,5 @@ export const dict = {
@@ -474,7 +474,7 @@ index 0b521f5293..57faaf89c8 100644
 +  "prompt.action.enterNewline": "Enter for newline",
  }
 diff --git a/packages/app/src/i18n/ms.ts b/packages/app/src/i18n/ms.ts
-index 71f6955a72..a46d6b63a2 100644
+index 71f6955..a46d6b6 100644
 --- a/packages/app/src/i18n/ms.ts
 +++ b/packages/app/src/i18n/ms.ts
 @@ -1160,4 +1160,5 @@ export const dict = {
@@ -484,7 +484,7 @@ index 71f6955a72..a46d6b63a2 100644
 +  "prompt.action.enterNewline": "Enter for newline",
  }
 diff --git a/packages/app/src/i18n/my.ts b/packages/app/src/i18n/my.ts
-index da166d06f3..65ff1c9216 100644
+index da166d0..65ff1c9 100644
 --- a/packages/app/src/i18n/my.ts
 +++ b/packages/app/src/i18n/my.ts
 @@ -1179,4 +1179,5 @@ export const dict = {
@@ -494,7 +494,7 @@ index da166d06f3..65ff1c9216 100644
 +  "prompt.action.enterNewline": "Enter for newline",
  }
 diff --git a/packages/app/src/i18n/ne.ts b/packages/app/src/i18n/ne.ts
-index 1f76484ed6..53d6fd7c00 100644
+index 1f76484..53d6fd7 100644
 --- a/packages/app/src/i18n/ne.ts
 +++ b/packages/app/src/i18n/ne.ts
 @@ -1160,4 +1160,5 @@ export const dict: Record<string, string> = {
@@ -504,7 +504,7 @@ index 1f76484ed6..53d6fd7c00 100644
 +  "prompt.action.enterNewline": "Enter for newline",
  }
 diff --git a/packages/app/src/i18n/nl.ts b/packages/app/src/i18n/nl.ts
-index f1d6ae4bb6..de3a07b65c 100644
+index f1d6ae4..de3a07b 100644
 --- a/packages/app/src/i18n/nl.ts
 +++ b/packages/app/src/i18n/nl.ts
 @@ -1174,4 +1174,5 @@ export const dict = {
@@ -514,7 +514,7 @@ index f1d6ae4bb6..de3a07b65c 100644
 +  "prompt.action.enterNewline": "Enter for newline",
  }
 diff --git a/packages/app/src/i18n/no.ts b/packages/app/src/i18n/no.ts
-index 8c782f63a0..3778f373dc 100644
+index 8c782f6..3778f37 100644
 --- a/packages/app/src/i18n/no.ts
 +++ b/packages/app/src/i18n/no.ts
 @@ -396,6 +396,7 @@ export const dict = {
@@ -526,7 +526,7 @@ index 8c782f63a0..3778f373dc 100644
    "prompt.action.send": "Send",
    "prompt.action.stop": "Stopp",
 diff --git a/packages/app/src/i18n/pa.ts b/packages/app/src/i18n/pa.ts
-index 1b169d5f78..1823bd1db1 100644
+index 1b169d5..1823bd1 100644
 --- a/packages/app/src/i18n/pa.ts
 +++ b/packages/app/src/i18n/pa.ts
 @@ -1164,4 +1164,5 @@ export const dict = {
@@ -536,7 +536,7 @@ index 1b169d5f78..1823bd1db1 100644
 +  "prompt.action.enterNewline": "Enter for newline",
  }
 diff --git a/packages/app/src/i18n/pl.ts b/packages/app/src/i18n/pl.ts
-index bc5e5ef3b2..19dca275fc 100644
+index bc5e5ef..19dca27 100644
 --- a/packages/app/src/i18n/pl.ts
 +++ b/packages/app/src/i18n/pl.ts
 @@ -386,6 +386,7 @@ export const dict = {
@@ -548,7 +548,7 @@ index bc5e5ef3b2..19dca275fc 100644
    "prompt.action.send": "Wyślij",
    "prompt.action.stop": "Zatrzymaj",
 diff --git a/packages/app/src/i18n/ro.ts b/packages/app/src/i18n/ro.ts
-index 9830e2e72d..74a7c45c1f 100644
+index 9830e2e..74a7c45 100644
 --- a/packages/app/src/i18n/ro.ts
 +++ b/packages/app/src/i18n/ro.ts
 @@ -1165,4 +1165,5 @@ export const dict = {
@@ -558,7 +558,7 @@ index 9830e2e72d..74a7c45c1f 100644
 +  "prompt.action.enterNewline": "Enter for newline",
  }
 diff --git a/packages/app/src/i18n/ru.ts b/packages/app/src/i18n/ru.ts
-index 465a3e6b37..3da58544eb 100644
+index 465a3e6..3da5854 100644
 --- a/packages/app/src/i18n/ru.ts
 +++ b/packages/app/src/i18n/ru.ts
 @@ -404,6 +404,7 @@ export const dict = {
@@ -570,7 +570,7 @@ index 465a3e6b37..3da58544eb 100644
    "prompt.action.send": "Отправить",
    "prompt.action.stop": "Остановить",
 diff --git a/packages/app/src/i18n/si.ts b/packages/app/src/i18n/si.ts
-index a961b26f3c..bc25623fb6 100644
+index a961b26..bc25623 100644
 --- a/packages/app/src/i18n/si.ts
 +++ b/packages/app/src/i18n/si.ts
 @@ -1156,4 +1156,5 @@ export const dict: Record<string, string> = {
@@ -580,7 +580,7 @@ index a961b26f3c..bc25623fb6 100644
 +  "prompt.action.enterNewline": "Enter for newline",
  }
 diff --git a/packages/app/src/i18n/sk.ts b/packages/app/src/i18n/sk.ts
-index 0d56695c89..13cd97f94a 100644
+index 0d56695..13cd97f 100644
 --- a/packages/app/src/i18n/sk.ts
 +++ b/packages/app/src/i18n/sk.ts
 @@ -1162,4 +1162,5 @@ export const dict = {
@@ -590,7 +590,7 @@ index 0d56695c89..13cd97f94a 100644
 +  "prompt.action.enterNewline": "Enter for newline",
  }
 diff --git a/packages/app/src/i18n/sl.ts b/packages/app/src/i18n/sl.ts
-index 084715c1d9..23351459c5 100644
+index 084715c..2335145 100644
 --- a/packages/app/src/i18n/sl.ts
 +++ b/packages/app/src/i18n/sl.ts
 @@ -1166,4 +1166,5 @@ export const dict = {
@@ -600,7 +600,7 @@ index 084715c1d9..23351459c5 100644
 +  "prompt.action.enterNewline": "Enter for newline",
  }
 diff --git a/packages/app/src/i18n/sq.ts b/packages/app/src/i18n/sq.ts
-index 15b2534681..a975596f83 100644
+index 15b2534..a975596 100644
 --- a/packages/app/src/i18n/sq.ts
 +++ b/packages/app/src/i18n/sq.ts
 @@ -1166,4 +1166,5 @@ export const dict = {
@@ -610,7 +610,7 @@ index 15b2534681..a975596f83 100644
 +  "prompt.action.enterNewline": "Enter for newline",
  }
 diff --git a/packages/app/src/i18n/sr.ts b/packages/app/src/i18n/sr.ts
-index b0b28e1224..8ce11c23ab 100644
+index b0b28e1..8ce11c2 100644
 --- a/packages/app/src/i18n/sr.ts
 +++ b/packages/app/src/i18n/sr.ts
 @@ -1164,4 +1164,5 @@ export const dict = {
@@ -620,7 +620,7 @@ index b0b28e1224..8ce11c23ab 100644
 +  "prompt.action.enterNewline": "Enter for newline",
  }
 diff --git a/packages/app/src/i18n/sv.ts b/packages/app/src/i18n/sv.ts
-index 2561aa77df..b67fd1cfe3 100644
+index 2561aa7..b67fd1c 100644
 --- a/packages/app/src/i18n/sv.ts
 +++ b/packages/app/src/i18n/sv.ts
 @@ -1163,4 +1163,5 @@ export const dict = {
@@ -630,7 +630,7 @@ index 2561aa77df..b67fd1cfe3 100644
 +  "prompt.action.enterNewline": "Enter for newline",
  }
 diff --git a/packages/app/src/i18n/tg.ts b/packages/app/src/i18n/tg.ts
-index a5b6d97998..67ed5937f3 100644
+index a5b6d97..67ed593 100644
 --- a/packages/app/src/i18n/tg.ts
 +++ b/packages/app/src/i18n/tg.ts
 @@ -1167,4 +1167,5 @@ export const dict = {
@@ -640,7 +640,7 @@ index a5b6d97998..67ed5937f3 100644
 +  "prompt.action.enterNewline": "Enter for newline",
  }
 diff --git a/packages/app/src/i18n/th.ts b/packages/app/src/i18n/th.ts
-index 79431a0844..44b377c1e8 100644
+index 79431a0..44b377c 100644
 --- a/packages/app/src/i18n/th.ts
 +++ b/packages/app/src/i18n/th.ts
 @@ -403,6 +403,7 @@ export const dict = {
@@ -652,7 +652,7 @@ index 79431a0844..44b377c1e8 100644
    "prompt.action.send": "ส่ง",
    "prompt.action.stop": "หยุด",
 diff --git a/packages/app/src/i18n/tk.ts b/packages/app/src/i18n/tk.ts
-index aeef18c4d3..40fddbe76b 100644
+index aeef18c..40fddbe 100644
 --- a/packages/app/src/i18n/tk.ts
 +++ b/packages/app/src/i18n/tk.ts
 @@ -1162,4 +1162,5 @@ export const dict = {
@@ -662,7 +662,7 @@ index aeef18c4d3..40fddbe76b 100644
 +  "prompt.action.enterNewline": "Enter for newline",
  }
 diff --git a/packages/app/src/i18n/tr.ts b/packages/app/src/i18n/tr.ts
-index b567f1f051..bac5aa7c88 100644
+index b567f1f..bac5aa7 100644
 --- a/packages/app/src/i18n/tr.ts
 +++ b/packages/app/src/i18n/tr.ts
 @@ -410,6 +410,7 @@ export const dict = {
@@ -674,7 +674,7 @@ index b567f1f051..bac5aa7c88 100644
    "prompt.action.send": "Gönder",
    "prompt.action.stop": "Durdur",
 diff --git a/packages/app/src/i18n/uk.ts b/packages/app/src/i18n/uk.ts
-index 0b982537de..050971b73b 100644
+index 0b98253..050971b 100644
 --- a/packages/app/src/i18n/uk.ts
 +++ b/packages/app/src/i18n/uk.ts
 @@ -407,6 +407,7 @@ export const dict = {
@@ -686,7 +686,7 @@ index 0b982537de..050971b73b 100644
    "prompt.action.send": "Надіслати",
    "prompt.action.stop": "Зупинити",
 diff --git a/packages/app/src/i18n/ur.ts b/packages/app/src/i18n/ur.ts
-index 57c84ffba9..e970883cc8 100644
+index 57c84ff..e970883 100644
 --- a/packages/app/src/i18n/ur.ts
 +++ b/packages/app/src/i18n/ur.ts
 @@ -1167,4 +1167,5 @@ export const dict = {
@@ -696,7 +696,7 @@ index 57c84ffba9..e970883cc8 100644
 +  "prompt.action.enterNewline": "Enter for newline",
  }
 diff --git a/packages/app/src/i18n/uz.ts b/packages/app/src/i18n/uz.ts
-index ef2b31cd9d..15397fb1af 100644
+index ef2b31c..15397fb 100644
 --- a/packages/app/src/i18n/uz.ts
 +++ b/packages/app/src/i18n/uz.ts
 @@ -1174,4 +1174,5 @@ export const dict = {
@@ -706,7 +706,7 @@ index ef2b31cd9d..15397fb1af 100644
 +  "prompt.action.enterNewline": "Enter for newline",
  }
 diff --git a/packages/app/src/i18n/vi.ts b/packages/app/src/i18n/vi.ts
-index 6888729744..f92208d5a1 100644
+index 6888729..f92208d 100644
 --- a/packages/app/src/i18n/vi.ts
 +++ b/packages/app/src/i18n/vi.ts
 @@ -1172,4 +1172,5 @@ export const dict = {
@@ -716,7 +716,7 @@ index 6888729744..f92208d5a1 100644
 +  "prompt.action.enterNewline": "Enter for newline",
  }
 diff --git a/packages/app/src/i18n/zh.ts b/packages/app/src/i18n/zh.ts
-index 1801e66951..662a4537fa 100644
+index 1801e66..662a453 100644
 --- a/packages/app/src/i18n/zh.ts
 +++ b/packages/app/src/i18n/zh.ts
 @@ -423,6 +423,7 @@ export const dict = {
@@ -728,7 +728,7 @@ index 1801e66951..662a4537fa 100644
    "prompt.action.send": "发送",
    "prompt.action.stop": "停止",
 diff --git a/packages/app/src/i18n/zht.ts b/packages/app/src/i18n/zht.ts
-index 946ef1eae6..56ae91d26e 100644
+index 946ef1e..56ae91d 100644
 --- a/packages/app/src/i18n/zht.ts
 +++ b/packages/app/src/i18n/zht.ts
 @@ -403,6 +403,7 @@ export const dict = {
@@ -740,7 +740,7 @@ index 946ef1eae6..56ae91d26e 100644
    "prompt.action.send": "傳送",
    "prompt.action.stop": "停止",
 diff --git a/packages/session-ui/src/v2/components/prompt-input/index.tsx b/packages/session-ui/src/v2/components/prompt-input/index.tsx
-index ff4ff0f1d4..bf40689fef 100644
+index ff4ff0f..bf40689 100644
 --- a/packages/session-ui/src/v2/components/prompt-input/index.tsx
 +++ b/packages/session-ui/src/v2/components/prompt-input/index.tsx
 @@ -171,10 +171,15 @@ export function PromptInputV2(props: PromptInputV2Props) {
@@ -776,7 +776,7 @@ index ff4ff0f1d4..bf40689fef 100644
              mode={state.mode}
              stopping={view.submit.stopping()}
 diff --git a/packages/ui/src/i18n/am.ts b/packages/ui/src/i18n/am.ts
-index 01d5cd425a..373c8db005 100644
+index 01d5cd4..373c8db 100644
 --- a/packages/ui/src/i18n/am.ts
 +++ b/packages/ui/src/i18n/am.ts
 @@ -124,7 +124,8 @@ export const dict: Record<string, string> = {
@@ -790,7 +790,7 @@ index 01d5cd425a..373c8db005 100644
    "ui.textField.copyToClipboard": "ወደ ቅንጥብ ሰሌዳ ቅዳ",
    "ui.textField.copyLink": "መገልበጥ አገናኝ",
 diff --git a/packages/ui/src/i18n/ar.ts b/packages/ui/src/i18n/ar.ts
-index b23c24b5bf..a17b588827 100644
+index b23c24b..a17b588 100644
 --- a/packages/ui/src/i18n/ar.ts
 +++ b/packages/ui/src/i18n/ar.ts
 @@ -146,7 +146,8 @@ export const dict = {
@@ -804,7 +804,7 @@ index b23c24b5bf..a17b588827 100644
    "ui.tabs.close": "إغلاق علامة التبويب",
  
 diff --git a/packages/ui/src/i18n/az.ts b/packages/ui/src/i18n/az.ts
-index d5fa9cb250..1e1794338a 100644
+index d5fa9cb..1e17943 100644
 --- a/packages/ui/src/i18n/az.ts
 +++ b/packages/ui/src/i18n/az.ts
 @@ -125,7 +125,8 @@ export const dict: Record<string, string> = {
@@ -818,7 +818,7 @@ index d5fa9cb250..1e1794338a 100644
    "ui.textField.copyToClipboard": "Buferə kopyala",
    "ui.textField.copyLink": "Linki kopyala",
 diff --git a/packages/ui/src/i18n/bg.ts b/packages/ui/src/i18n/bg.ts
-index ea10ab5987..be162ce82c 100644
+index ea10ab5..be162ce 100644
 --- a/packages/ui/src/i18n/bg.ts
 +++ b/packages/ui/src/i18n/bg.ts
 @@ -125,7 +125,8 @@ export const dict = {
@@ -832,7 +832,7 @@ index ea10ab5987..be162ce82c 100644
    "ui.textField.copyToClipboard": "Копиране в клипборда",
    "ui.textField.copyLink": "Копиране на връзката",
 diff --git a/packages/ui/src/i18n/bn.ts b/packages/ui/src/i18n/bn.ts
-index 74a6940586..01a50e5aee 100644
+index 74a6940..01a50e5 100644
 --- a/packages/ui/src/i18n/bn.ts
 +++ b/packages/ui/src/i18n/bn.ts
 @@ -127,7 +127,8 @@ export const dict: Record<string, string> = {
@@ -846,7 +846,7 @@ index 74a6940586..01a50e5aee 100644
    "ui.textField.copyToClipboard": "ক্লিপবোর্ডে কপি করুন",
    "ui.textField.copyLink": "লিঙ্ক কপি করুন",
 diff --git a/packages/ui/src/i18n/br.ts b/packages/ui/src/i18n/br.ts
-index 19fc683655..a77152cd40 100644
+index 19fc683..a77152c 100644
 --- a/packages/ui/src/i18n/br.ts
 +++ b/packages/ui/src/i18n/br.ts
 @@ -134,7 +134,8 @@ export const dict = {
@@ -860,7 +860,7 @@ index 19fc683655..a77152cd40 100644
    "ui.tabs.close": "Fechar aba",
  
 diff --git a/packages/ui/src/i18n/bs.ts b/packages/ui/src/i18n/bs.ts
-index 5b33f068b4..36b17040a4 100644
+index 5b33f06..36b1704 100644
 --- a/packages/ui/src/i18n/bs.ts
 +++ b/packages/ui/src/i18n/bs.ts
 @@ -138,7 +138,8 @@ export const dict = {
@@ -874,7 +874,7 @@ index 5b33f068b4..36b17040a4 100644
    "ui.tabs.close": "Zatvori karticu",
  
 diff --git a/packages/ui/src/i18n/ca.ts b/packages/ui/src/i18n/ca.ts
-index 1141fa404e..990f7062c5 100644
+index 1141fa4..990f706 100644
 --- a/packages/ui/src/i18n/ca.ts
 +++ b/packages/ui/src/i18n/ca.ts
 @@ -129,7 +129,8 @@ export const dict: Record<string, string> = {
@@ -888,7 +888,7 @@ index 1141fa404e..990f7062c5 100644
    "ui.textField.copyToClipboard": "Copia al porta-retalls",
    "ui.textField.copyLink": "Copia l'enllaç",
 diff --git a/packages/ui/src/i18n/cs.ts b/packages/ui/src/i18n/cs.ts
-index 58f508cd79..7f971fde7e 100644
+index 58f508c..7f971fd 100644
 --- a/packages/ui/src/i18n/cs.ts
 +++ b/packages/ui/src/i18n/cs.ts
 @@ -133,7 +133,8 @@ export const dict: Record<string, string> = {
@@ -902,7 +902,7 @@ index 58f508cd79..7f971fde7e 100644
    "ui.textField.copyToClipboard": "Kopírovat do schránky",
    "ui.textField.copyLink": "Zkopírujte odkaz",
 diff --git a/packages/ui/src/i18n/da.ts b/packages/ui/src/i18n/da.ts
-index a3f256c7b4..ddb9fb940b 100644
+index a3f256c..ddb9fb9 100644
 --- a/packages/ui/src/i18n/da.ts
 +++ b/packages/ui/src/i18n/da.ts
 @@ -210,7 +210,8 @@ export const dict = {
@@ -916,7 +916,7 @@ index a3f256c7b4..ddb9fb940b 100644
    "ui.tabs.close": "Luk fane",
  }
 diff --git a/packages/ui/src/i18n/de.ts b/packages/ui/src/i18n/de.ts
-index ca86cba28c..9014498b87 100644
+index ca86cba..9014498 100644
 --- a/packages/ui/src/i18n/de.ts
 +++ b/packages/ui/src/i18n/de.ts
 @@ -216,6 +216,7 @@ export const dict = {
@@ -929,7 +929,7 @@ index ca86cba28c..9014498b87 100644
    "ui.tabs.close": "Tab schließen",
  } satisfies Partial<Record<Keys, string>>
 diff --git a/packages/ui/src/i18n/dv.ts b/packages/ui/src/i18n/dv.ts
-index 9b7f26e8f4..0a2fb81274 100644
+index 9b7f26e..0a2fb81 100644
 --- a/packages/ui/src/i18n/dv.ts
 +++ b/packages/ui/src/i18n/dv.ts
 @@ -126,7 +126,8 @@ export const dict: Record<string, string> = {
@@ -943,7 +943,7 @@ index 9b7f26e8f4..0a2fb81274 100644
    "ui.textField.copyToClipboard": "ކްލިޕްބޯޑަށް ކޮޕީ ކުރާށެވެ",
    "ui.textField.copyLink": "ކޮޕީ ލިންކް",
 diff --git a/packages/ui/src/i18n/dz.ts b/packages/ui/src/i18n/dz.ts
-index 545be671e7..c1604eeea1 100644
+index 545be67..c1604ee 100644
 --- a/packages/ui/src/i18n/dz.ts
 +++ b/packages/ui/src/i18n/dz.ts
 @@ -127,7 +127,8 @@ export const dict: Record<string, string> = {
@@ -957,7 +957,7 @@ index 545be671e7..c1604eeea1 100644
    "ui.textField.copyToClipboard": "འཛིན་པང་ལུ་འདྲ་བཤུས་རྐྱབས།",
    "ui.textField.copyLink": "འབྲེལ་མཐུད་འདྲ་བཤུས།",
 diff --git a/packages/ui/src/i18n/el.ts b/packages/ui/src/i18n/el.ts
-index 0c9971489b..40c46b7ef5 100644
+index 0c99714..40c46b7 100644
 --- a/packages/ui/src/i18n/el.ts
 +++ b/packages/ui/src/i18n/el.ts
 @@ -125,7 +125,8 @@ export const dict: Record<string, string> = {
@@ -971,7 +971,7 @@ index 0c9971489b..40c46b7ef5 100644
    "ui.textField.copyToClipboard": "Αντιγραφή στο πρόχειρο",
    "ui.textField.copyLink": "Αντιγραφή συνδέσμου",
 diff --git a/packages/ui/src/i18n/en.ts b/packages/ui/src/i18n/en.ts
-index ced143f5ba..597ba7d0f1 100644
+index ced143f..597ba7d 100644
 --- a/packages/ui/src/i18n/en.ts
 +++ b/packages/ui/src/i18n/en.ts
 @@ -138,7 +138,8 @@ export const dict: Record<string, string> = {
@@ -985,7 +985,7 @@ index ced143f5ba..597ba7d0f1 100644
    "ui.tabs.close": "Close tab",
  
 diff --git a/packages/ui/src/i18n/es.ts b/packages/ui/src/i18n/es.ts
-index 07d3f42435..74f75123c1 100644
+index 07d3f42..74f7512 100644
 --- a/packages/ui/src/i18n/es.ts
 +++ b/packages/ui/src/i18n/es.ts
 @@ -134,7 +134,8 @@ export const dict = {
@@ -999,7 +999,7 @@ index 07d3f42435..74f75123c1 100644
    "ui.tabs.close": "Cerrar pestaña",
  
 diff --git a/packages/ui/src/i18n/et.ts b/packages/ui/src/i18n/et.ts
-index 5c548c84ec..9f706233bd 100644
+index 5c548c8..9f70623 100644
 --- a/packages/ui/src/i18n/et.ts
 +++ b/packages/ui/src/i18n/et.ts
 @@ -125,7 +125,8 @@ export const dict: Record<string, string> = {
@@ -1013,7 +1013,7 @@ index 5c548c84ec..9f706233bd 100644
    "ui.textField.copyToClipboard": "Kopeeri lõikelauale",
    "ui.textField.copyLink": "Kopeeri link",
 diff --git a/packages/ui/src/i18n/fa.ts b/packages/ui/src/i18n/fa.ts
-index 54b356d10e..c915d691ac 100644
+index 54b356d..c915d69 100644
 --- a/packages/ui/src/i18n/fa.ts
 +++ b/packages/ui/src/i18n/fa.ts
 @@ -125,7 +125,8 @@ export const dict: Record<string, string> = {
@@ -1027,7 +1027,7 @@ index 54b356d10e..c915d691ac 100644
    "ui.textField.copyToClipboard": "در کلیپ بورد کپی کنید",
    "ui.textField.copyLink": "لینک را کپی کنید",
 diff --git a/packages/ui/src/i18n/fi.ts b/packages/ui/src/i18n/fi.ts
-index d3a26cb439..1c3ed332c2 100644
+index d3a26cb..1c3ed33 100644
 --- a/packages/ui/src/i18n/fi.ts
 +++ b/packages/ui/src/i18n/fi.ts
 @@ -192,6 +192,7 @@ export const dict: Record<string, string> = {
@@ -1040,7 +1040,7 @@ index d3a26cb439..1c3ed332c2 100644
    "ui.tabs.close": "Sulje välilehti",
  }
 diff --git a/packages/ui/src/i18n/fo.ts b/packages/ui/src/i18n/fo.ts
-index 098ea8f5b8..f985445bf5 100644
+index 098ea8f..f985445 100644
 --- a/packages/ui/src/i18n/fo.ts
 +++ b/packages/ui/src/i18n/fo.ts
 @@ -125,7 +125,8 @@ export const dict: Record<string, string> = {
@@ -1054,7 +1054,7 @@ index 098ea8f5b8..f985445bf5 100644
    "ui.textField.copyToClipboard": "Avrita til klippiborð",
    "ui.textField.copyLink": "Avrita leinkju",
 diff --git a/packages/ui/src/i18n/fr.ts b/packages/ui/src/i18n/fr.ts
-index c008c2a34f..a11b8e8c64 100644
+index c008c2a..a11b8e8 100644
 --- a/packages/ui/src/i18n/fr.ts
 +++ b/packages/ui/src/i18n/fr.ts
 @@ -136,7 +136,8 @@ export const dict = {
@@ -1068,7 +1068,7 @@ index c008c2a34f..a11b8e8c64 100644
    "ui.tabs.close": "Fermer l'onglet",
  
 diff --git a/packages/ui/src/i18n/hi.ts b/packages/ui/src/i18n/hi.ts
-index 6da92d275a..af7064afe2 100644
+index 6da92d2..af7064a 100644
 --- a/packages/ui/src/i18n/hi.ts
 +++ b/packages/ui/src/i18n/hi.ts
 @@ -126,7 +126,8 @@ export const dict: Record<string, string> = {
@@ -1082,7 +1082,7 @@ index 6da92d275a..af7064afe2 100644
    "ui.tabs.close": "टैब बंद करें",
    "ui.textField.copyToClipboard": "क्लिपबोर्ड पर कॉपी करें",
 diff --git a/packages/ui/src/i18n/hr.ts b/packages/ui/src/i18n/hr.ts
-index 4eb129c9ef..ed94e58f23 100644
+index 4eb129c..ed94e58 100644
 --- a/packages/ui/src/i18n/hr.ts
 +++ b/packages/ui/src/i18n/hr.ts
 @@ -130,7 +130,8 @@ export const dict: Record<string, string> = {
@@ -1096,7 +1096,7 @@ index 4eb129c9ef..ed94e58f23 100644
    "ui.textField.copyToClipboard": "Kopiraj u međuspremnik",
    "ui.textField.copyLink": "Kopiraj vezu",
 diff --git a/packages/ui/src/i18n/hu.ts b/packages/ui/src/i18n/hu.ts
-index b4d61b4f5e..407544e23c 100644
+index b4d61b4..407544e 100644
 --- a/packages/ui/src/i18n/hu.ts
 +++ b/packages/ui/src/i18n/hu.ts
 @@ -127,7 +127,8 @@ export const dict: Record<string, string> = {
@@ -1110,7 +1110,7 @@ index b4d61b4f5e..407544e23c 100644
    "ui.textField.copyToClipboard": "Másolás a vágólapra",
    "ui.textField.copyLink": "Link másolása",
 diff --git a/packages/ui/src/i18n/hy.ts b/packages/ui/src/i18n/hy.ts
-index 39f073c6e5..d8ad237161 100644
+index 39f073c..d8ad237 100644
 --- a/packages/ui/src/i18n/hy.ts
 +++ b/packages/ui/src/i18n/hy.ts
 @@ -125,7 +125,8 @@ export const dict: Record<string, string> = {
@@ -1124,7 +1124,7 @@ index 39f073c6e5..d8ad237161 100644
    "ui.textField.copyToClipboard": "Պատճենել սեղմատախտակին",
    "ui.textField.copyLink": "Պատճենել հղումը",
 diff --git a/packages/ui/src/i18n/id.ts b/packages/ui/src/i18n/id.ts
-index 22e4d46223..9ff4f30c00 100644
+index 22e4d46..9ff4f30 100644
 --- a/packages/ui/src/i18n/id.ts
 +++ b/packages/ui/src/i18n/id.ts
 @@ -136,7 +136,8 @@ export const dict: Record<string, string> = {
@@ -1138,7 +1138,7 @@ index 22e4d46223..9ff4f30c00 100644
    "ui.tabs.close": "Tutup tab",
  
 diff --git a/packages/ui/src/i18n/is.ts b/packages/ui/src/i18n/is.ts
-index 7b3bf0fb2e..ebe7a6155c 100644
+index 7b3bf0f..ebe7a61 100644
 --- a/packages/ui/src/i18n/is.ts
 +++ b/packages/ui/src/i18n/is.ts
 @@ -125,7 +125,8 @@ export const dict: Record<string, string> = {
@@ -1152,7 +1152,7 @@ index 7b3bf0fb2e..ebe7a6155c 100644
    "ui.textField.copyToClipboard": "Afritaðu á klemmuspjald",
    "ui.textField.copyLink": "Afritaðu tengil",
 diff --git a/packages/ui/src/i18n/it.ts b/packages/ui/src/i18n/it.ts
-index 9d104a6775..dbb2516276 100644
+index 9d104a6..dbb2516 100644
 --- a/packages/ui/src/i18n/it.ts
 +++ b/packages/ui/src/i18n/it.ts
 @@ -130,7 +130,8 @@ export const dict: Record<string, string> = {
@@ -1166,7 +1166,7 @@ index 9d104a6775..dbb2516276 100644
    "ui.textField.copyToClipboard": "Copia negli appunti",
    "ui.textField.copyLink": "Copia collegamento",
 diff --git a/packages/ui/src/i18n/ja.ts b/packages/ui/src/i18n/ja.ts
-index f93a8013f5..5f0e9d70d4 100644
+index f93a801..5f0e9d7 100644
 --- a/packages/ui/src/i18n/ja.ts
 +++ b/packages/ui/src/i18n/ja.ts
 @@ -130,7 +130,8 @@ export const dict = {
@@ -1180,7 +1180,7 @@ index f93a8013f5..5f0e9d70d4 100644
    "ui.tabs.close": "タブを閉じる",
  
 diff --git a/packages/ui/src/i18n/ka.ts b/packages/ui/src/i18n/ka.ts
-index 68f19bc00d..bbfec04d35 100644
+index 68f19bc..bbfec04 100644
 --- a/packages/ui/src/i18n/ka.ts
 +++ b/packages/ui/src/i18n/ka.ts
 @@ -125,7 +125,8 @@ export const dict: Record<string, string> = {
@@ -1194,7 +1194,7 @@ index 68f19bc00d..bbfec04d35 100644
    "ui.textField.copyToClipboard": "ასლი ბუფერში",
    "ui.textField.copyLink": "ბმულის კოპირება",
 diff --git a/packages/ui/src/i18n/km.ts b/packages/ui/src/i18n/km.ts
-index b50e9c53e7..5baf68be54 100644
+index b50e9c5..5baf68b 100644
 --- a/packages/ui/src/i18n/km.ts
 +++ b/packages/ui/src/i18n/km.ts
 @@ -126,7 +126,8 @@ export const dict = {
@@ -1208,7 +1208,7 @@ index b50e9c53e7..5baf68be54 100644
    "ui.textField.copyToClipboard": "ចម្លងទៅក្ដារតម្បៀតខ្ទាស់",
    "ui.textField.copyLink": "ចម្លងតំណ",
 diff --git a/packages/ui/src/i18n/ko.ts b/packages/ui/src/i18n/ko.ts
-index 942fa873dd..f754a3bb32 100644
+index 942fa87..f754a3b 100644
 --- a/packages/ui/src/i18n/ko.ts
 +++ b/packages/ui/src/i18n/ko.ts
 @@ -106,7 +106,8 @@ export const dict = {
@@ -1222,7 +1222,7 @@ index 942fa873dd..f754a3bb32 100644
    "ui.tabs.close": "탭 닫기",
  
 diff --git a/packages/ui/src/i18n/lo.ts b/packages/ui/src/i18n/lo.ts
-index 5053377f33..979bc90de8 100644
+index 5053377..979bc90 100644
 --- a/packages/ui/src/i18n/lo.ts
 +++ b/packages/ui/src/i18n/lo.ts
 @@ -125,7 +125,8 @@ export const dict = {
@@ -1236,7 +1236,7 @@ index 5053377f33..979bc90de8 100644
    "ui.textField.copyToClipboard": "ສຳເນົາໃສ່ຄລິບບອດ",
    "ui.textField.copyLink": "ສຳເນົາລິ້ງ",
 diff --git a/packages/ui/src/i18n/lt.ts b/packages/ui/src/i18n/lt.ts
-index da2e30d962..213fbd99aa 100644
+index da2e30d..213fbd9 100644
 --- a/packages/ui/src/i18n/lt.ts
 +++ b/packages/ui/src/i18n/lt.ts
 @@ -133,7 +133,8 @@ export const dict: Record<string, string> = {
@@ -1250,7 +1250,7 @@ index da2e30d962..213fbd99aa 100644
    "ui.textField.copyToClipboard": "Kopijuoti į mainų sritį",
    "ui.textField.copyLink": "Nukopijuoti nuorodą",
 diff --git a/packages/ui/src/i18n/lv.ts b/packages/ui/src/i18n/lv.ts
-index 774b1af1bc..07b49f5fc0 100644
+index 774b1af..07b49f5 100644
 --- a/packages/ui/src/i18n/lv.ts
 +++ b/packages/ui/src/i18n/lv.ts
 @@ -129,7 +129,8 @@ export const dict: Record<string, string> = {
@@ -1264,7 +1264,7 @@ index 774b1af1bc..07b49f5fc0 100644
    "ui.textField.copyToClipboard": "Kopēt starpliktuvē",
    "ui.textField.copyLink": "Kopēt saiti",
 diff --git a/packages/ui/src/i18n/mk.ts b/packages/ui/src/i18n/mk.ts
-index d154cac1a9..324fd9e02c 100644
+index d154cac..324fd9e 100644
 --- a/packages/ui/src/i18n/mk.ts
 +++ b/packages/ui/src/i18n/mk.ts
 @@ -125,7 +125,8 @@ export const dict = {
@@ -1278,7 +1278,7 @@ index d154cac1a9..324fd9e02c 100644
    "ui.textField.copyToClipboard": "Копирај во таблата со исечоци",
    "ui.textField.copyLink": "Копирај ја врската",
 diff --git a/packages/ui/src/i18n/mn.ts b/packages/ui/src/i18n/mn.ts
-index dafe0067da..eeb1655f64 100644
+index dafe006..eeb1655 100644
 --- a/packages/ui/src/i18n/mn.ts
 +++ b/packages/ui/src/i18n/mn.ts
 @@ -125,7 +125,8 @@ export const dict = {
@@ -1292,7 +1292,7 @@ index dafe0067da..eeb1655f64 100644
    "ui.textField.copyToClipboard": "Түр санах ойд хуулах",
    "ui.textField.copyLink": "Холбоосыг хуулах",
 diff --git a/packages/ui/src/i18n/ms.ts b/packages/ui/src/i18n/ms.ts
-index f71223f176..50ef1c73a2 100644
+index f71223f..50ef1c7 100644
 --- a/packages/ui/src/i18n/ms.ts
 +++ b/packages/ui/src/i18n/ms.ts
 @@ -125,7 +125,8 @@ export const dict: Record<string, string> = {
@@ -1306,7 +1306,7 @@ index f71223f176..50ef1c73a2 100644
    "ui.textField.copyToClipboard": "Salin ke papan klip",
    "ui.textField.copyLink": "Salin pautan",
 diff --git a/packages/ui/src/i18n/my.ts b/packages/ui/src/i18n/my.ts
-index eab3b950e6..8fb5df69e2 100644
+index eab3b95..8fb5df6 100644
 --- a/packages/ui/src/i18n/my.ts
 +++ b/packages/ui/src/i18n/my.ts
 @@ -126,7 +126,8 @@ export const dict = {
@@ -1320,7 +1320,7 @@ index eab3b950e6..8fb5df69e2 100644
    "ui.textField.copyToClipboard": "ကလစ်ဘုတ်သို့ ကူးယူပါ။",
    "ui.textField.copyLink": "လင့်ခ်ကို ကူးယူပါ။",
 diff --git a/packages/ui/src/i18n/ne.ts b/packages/ui/src/i18n/ne.ts
-index bc3f8408e5..2d58f47169 100644
+index bc3f840..2d58f47 100644
 --- a/packages/ui/src/i18n/ne.ts
 +++ b/packages/ui/src/i18n/ne.ts
 @@ -127,7 +127,8 @@ export const dict: Record<string, string> = {
@@ -1334,7 +1334,7 @@ index bc3f8408e5..2d58f47169 100644
    "ui.textField.copyToClipboard": "क्लिपबोर्डमा प्रतिलिपि गर्नुहोस्",
    "ui.textField.copyLink": "लिङ्क प्रतिलिपि गर्नुहोस्",
 diff --git a/packages/ui/src/i18n/nl.ts b/packages/ui/src/i18n/nl.ts
-index 0a5fe58e78..de3a3ecd13 100644
+index 0a5fe58..de3a3ec 100644
 --- a/packages/ui/src/i18n/nl.ts
 +++ b/packages/ui/src/i18n/nl.ts
 @@ -125,7 +125,8 @@ export const dict: Record<string, string> = {
@@ -1348,7 +1348,7 @@ index 0a5fe58e78..de3a3ecd13 100644
    "ui.textField.copyToClipboard": "Kopiëren naar klembord",
    "ui.textField.copyLink": "Link kopiëren",
 diff --git a/packages/ui/src/i18n/no.ts b/packages/ui/src/i18n/no.ts
-index 0cdd653908..224383328f 100644
+index 0cdd653..2243833 100644
 --- a/packages/ui/src/i18n/no.ts
 +++ b/packages/ui/src/i18n/no.ts
 @@ -109,7 +109,8 @@ export const dict: Record<Keys, string> = {
@@ -1362,7 +1362,7 @@ index 0cdd653908..224383328f 100644
    "ui.tabs.close": "Lukk fane",
  
 diff --git a/packages/ui/src/i18n/pa.ts b/packages/ui/src/i18n/pa.ts
-index 5ecb6b67b7..7a502c1ea3 100644
+index 5ecb6b6..7a502c1 100644
 --- a/packages/ui/src/i18n/pa.ts
 +++ b/packages/ui/src/i18n/pa.ts
 @@ -126,7 +126,8 @@ export const dict: Record<string, string> = {
@@ -1376,7 +1376,7 @@ index 5ecb6b67b7..7a502c1ea3 100644
    "ui.textField.copyToClipboard": "کلپ بورڈ تے کاپی کرو",
    "ui.textField.copyLink": "لنک کاپی کرو",
 diff --git a/packages/ui/src/i18n/pl.ts b/packages/ui/src/i18n/pl.ts
-index 7181b00806..fd430843df 100644
+index 7181b00..fd43084 100644
 --- a/packages/ui/src/i18n/pl.ts
 +++ b/packages/ui/src/i18n/pl.ts
 @@ -138,7 +138,8 @@ export const dict = {
@@ -1390,7 +1390,7 @@ index 7181b00806..fd430843df 100644
    "ui.tabs.close": "Zamknij kartę",
  
 diff --git a/packages/ui/src/i18n/ro.ts b/packages/ui/src/i18n/ro.ts
-index 6d187caf5f..1af26355bc 100644
+index 6d187ca..1af2635 100644
 --- a/packages/ui/src/i18n/ro.ts
 +++ b/packages/ui/src/i18n/ro.ts
 @@ -129,7 +129,8 @@ export const dict: Record<string, string> = {
@@ -1404,7 +1404,7 @@ index 6d187caf5f..1af26355bc 100644
    "ui.textField.copyToClipboard": "Copiază în clipboard",
    "ui.textField.copyLink": "Copiază linkul",
 diff --git a/packages/ui/src/i18n/ru.ts b/packages/ui/src/i18n/ru.ts
-index 2b733166f7..679ef9e29a 100644
+index 2b73316..679ef9e 100644
 --- a/packages/ui/src/i18n/ru.ts
 +++ b/packages/ui/src/i18n/ru.ts
 @@ -137,7 +137,8 @@ export const dict = {
@@ -1418,7 +1418,7 @@ index 2b733166f7..679ef9e29a 100644
    "ui.tabs.close": "Закрыть вкладку",
  
 diff --git a/packages/ui/src/i18n/si.ts b/packages/ui/src/i18n/si.ts
-index 3550df3aaa..dbfb1d886a 100644
+index 3550df3..dbfb1d8 100644
 --- a/packages/ui/src/i18n/si.ts
 +++ b/packages/ui/src/i18n/si.ts
 @@ -125,7 +125,8 @@ export const dict: Record<string, string> = {
@@ -1432,7 +1432,7 @@ index 3550df3aaa..dbfb1d886a 100644
    "ui.textField.copyToClipboard": "පසුරු පුවරුවට පිටපත් කරන්න",
    "ui.textField.copyLink": "සබැඳිය පිටපත් කරන්න",
 diff --git a/packages/ui/src/i18n/sk.ts b/packages/ui/src/i18n/sk.ts
-index a8ec929b61..c60b6abf72 100644
+index a8ec929..c60b6ab 100644
 --- a/packages/ui/src/i18n/sk.ts
 +++ b/packages/ui/src/i18n/sk.ts
 @@ -133,7 +133,8 @@ export const dict: Record<string, string> = {
@@ -1446,7 +1446,7 @@ index a8ec929b61..c60b6abf72 100644
    "ui.textField.copyToClipboard": "Kopírovať do schránky",
    "ui.textField.copyLink": "Kopírovať odkaz",
 diff --git a/packages/ui/src/i18n/sl.ts b/packages/ui/src/i18n/sl.ts
-index 8d5718fc01..8a0c0078ec 100644
+index 8d5718f..8a0c007 100644
 --- a/packages/ui/src/i18n/sl.ts
 +++ b/packages/ui/src/i18n/sl.ts
 @@ -134,7 +134,8 @@ export const dict: Record<string, string> = {
@@ -1460,7 +1460,7 @@ index 8d5718fc01..8a0c0078ec 100644
    "ui.textField.copyToClipboard": "Kopiraj v odložišče",
    "ui.textField.copyLink": "Kopiraj povezavo",
 diff --git a/packages/ui/src/i18n/sq.ts b/packages/ui/src/i18n/sq.ts
-index 3c1cd24e9f..4f8f6f6027 100644
+index 3c1cd24..4f8f6f6 100644
 --- a/packages/ui/src/i18n/sq.ts
 +++ b/packages/ui/src/i18n/sq.ts
 @@ -125,7 +125,8 @@ export const dict: Record<string, string> = {
@@ -1474,7 +1474,7 @@ index 3c1cd24e9f..4f8f6f6027 100644
    "ui.textField.copyToClipboard": "Kopjo në kujtesën e fragmenteve",
    "ui.textField.copyLink": "Kopjo lidhjen",
 diff --git a/packages/ui/src/i18n/sr.ts b/packages/ui/src/i18n/sr.ts
-index 9f090cd2e2..fc9487e5b5 100644
+index 9f090cd..fc9487e 100644
 --- a/packages/ui/src/i18n/sr.ts
 +++ b/packages/ui/src/i18n/sr.ts
 @@ -130,7 +130,8 @@ export const dict = {
@@ -1488,7 +1488,7 @@ index 9f090cd2e2..fc9487e5b5 100644
    "ui.textField.copyToClipboard": "Копирај у међуспремник",
    "ui.textField.copyLink": "Копирај везу",
 diff --git a/packages/ui/src/i18n/sv.ts b/packages/ui/src/i18n/sv.ts
-index 3fcc6ff765..fc45fb4b8f 100644
+index 3fcc6ff..fc45fb4 100644
 --- a/packages/ui/src/i18n/sv.ts
 +++ b/packages/ui/src/i18n/sv.ts
 @@ -125,7 +125,8 @@ export const dict: Record<string, string> = {
@@ -1502,7 +1502,7 @@ index 3fcc6ff765..fc45fb4b8f 100644
    "ui.textField.copyToClipboard": "Kopiera till urklipp",
    "ui.textField.copyLink": "Kopiera länk",
 diff --git a/packages/ui/src/i18n/tg.ts b/packages/ui/src/i18n/tg.ts
-index 4c3e824c6c..ec3488b2f8 100644
+index 4c3e824..ec3488b 100644
 --- a/packages/ui/src/i18n/tg.ts
 +++ b/packages/ui/src/i18n/tg.ts
 @@ -125,7 +125,8 @@ export const dict = {
@@ -1516,7 +1516,7 @@ index 4c3e824c6c..ec3488b2f8 100644
    "ui.textField.copyToClipboard": "Ба буфер нусхабардорӣ кунед",
    "ui.textField.copyLink": "Истиноди нусхабардорӣ",
 diff --git a/packages/ui/src/i18n/th.ts b/packages/ui/src/i18n/th.ts
-index ae0d820d4e..aeb6ffd0ba 100644
+index ae0d820..aeb6ffd 100644
 --- a/packages/ui/src/i18n/th.ts
 +++ b/packages/ui/src/i18n/th.ts
 @@ -130,7 +130,8 @@ export const dict = {
@@ -1530,7 +1530,7 @@ index ae0d820d4e..aeb6ffd0ba 100644
    "ui.tabs.close": "ปิดแท็บ",
  
 diff --git a/packages/ui/src/i18n/tk.ts b/packages/ui/src/i18n/tk.ts
-index e1bf43208f..927822c0bd 100644
+index e1bf432..927822c 100644
 --- a/packages/ui/src/i18n/tk.ts
 +++ b/packages/ui/src/i18n/tk.ts
 @@ -125,7 +125,8 @@ export const dict: Record<string, string> = {
@@ -1544,7 +1544,7 @@ index e1bf43208f..927822c0bd 100644
    "ui.textField.copyToClipboard": "Paneli göçüriň",
    "ui.textField.copyLink": "Baglanyşygy göçüriň",
 diff --git a/packages/ui/src/i18n/tr.ts b/packages/ui/src/i18n/tr.ts
-index e0b6fd0ccd..c6fc0d2ff4 100644
+index e0b6fd0..c6fc0d2 100644
 --- a/packages/ui/src/i18n/tr.ts
 +++ b/packages/ui/src/i18n/tr.ts
 @@ -136,7 +136,8 @@ export const dict = {
@@ -1558,7 +1558,7 @@ index e0b6fd0ccd..c6fc0d2ff4 100644
    "ui.tabs.close": "Sekmeyi kapat",
  
 diff --git a/packages/ui/src/i18n/uk.ts b/packages/ui/src/i18n/uk.ts
-index 9643b52a94..8b6c25a554 100644
+index 9643b52..8b6c25a 100644
 --- a/packages/ui/src/i18n/uk.ts
 +++ b/packages/ui/src/i18n/uk.ts
 @@ -145,7 +145,8 @@ export const dict: Record<string, string> = {
@@ -1572,7 +1572,7 @@ index 9643b52a94..8b6c25a554 100644
    "ui.tabs.close": "Закрити вкладку",
  
 diff --git a/packages/ui/src/i18n/ur.ts b/packages/ui/src/i18n/ur.ts
-index b9aaa429e6..fc5f7601ae 100644
+index b9aaa42..fc5f760 100644
 --- a/packages/ui/src/i18n/ur.ts
 +++ b/packages/ui/src/i18n/ur.ts
 @@ -126,7 +126,8 @@ export const dict: Record<string, string> = {
@@ -1586,7 +1586,7 @@ index b9aaa429e6..fc5f7601ae 100644
    "ui.textField.copyToClipboard": "کلپ بورڈ پر کاپی کریں۔",
    "ui.textField.copyLink": "لنک کاپی کریں۔",
 diff --git a/packages/ui/src/i18n/uz.ts b/packages/ui/src/i18n/uz.ts
-index c1a1e671e3..e12be5d3ac 100644
+index c1a1e67..e12be5d 100644
 --- a/packages/ui/src/i18n/uz.ts
 +++ b/packages/ui/src/i18n/uz.ts
 @@ -128,7 +128,8 @@ export const dict: Record<string, string> = {
@@ -1600,7 +1600,7 @@ index c1a1e671e3..e12be5d3ac 100644
    "ui.textField.copyToClipboard": "Buferga nusxalash",
    "ui.textField.copyLink": "Havolani nusxalash",
 diff --git a/packages/ui/src/i18n/vi.ts b/packages/ui/src/i18n/vi.ts
-index c37ff1a66f..0932124745 100644
+index c37ff1a..0932124 100644
 --- a/packages/ui/src/i18n/vi.ts
 +++ b/packages/ui/src/i18n/vi.ts
 @@ -125,7 +125,8 @@ export const dict: Record<string, string> = {
@@ -1614,7 +1614,7 @@ index c37ff1a66f..0932124745 100644
    "ui.textField.copyToClipboard": "Sao chép vào bảng tạm",
    "ui.textField.copyLink": "Sao chép liên kết",
 diff --git a/packages/ui/src/i18n/zh.ts b/packages/ui/src/i18n/zh.ts
-index c5a33efef0..69a48c5c0f 100644
+index c5a33ef..69a48c5 100644
 --- a/packages/ui/src/i18n/zh.ts
 +++ b/packages/ui/src/i18n/zh.ts
 @@ -132,7 +132,8 @@ export const dict = {
@@ -1628,7 +1628,7 @@ index c5a33efef0..69a48c5c0f 100644
    "ui.tabs.close": "关闭标签页",
  
 diff --git a/packages/ui/src/i18n/zht.ts b/packages/ui/src/i18n/zht.ts
-index 736a7961b0..0c2c96e826 100644
+index 736a796..0c2c96e 100644
 --- a/packages/ui/src/i18n/zht.ts
 +++ b/packages/ui/src/i18n/zht.ts
 @@ -132,7 +132,8 @@ export const dict = {

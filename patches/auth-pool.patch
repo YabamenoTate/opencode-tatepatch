@@ -1,5 +1,5 @@
 diff --git a/packages/app/src/components/dialog-connect-provider.tsx b/packages/app/src/components/dialog-connect-provider.tsx
-index 1081310e5f..5733c10530 100644
+index 1081310..5733c10 100644
 --- a/packages/app/src/components/dialog-connect-provider.tsx
 +++ b/packages/app/src/components/dialog-connect-provider.tsx
 @@ -19,6 +19,7 @@ import {
@@ -363,7 +363,7 @@ index 1081310e5f..5733c10530 100644
                <MethodSelection />
              </Match>
 diff --git a/packages/app/src/components/prompt-input/submit.ts b/packages/app/src/components/prompt-input/submit.ts
-index c82c3a4399..220cf8053d 100644
+index c82c3a4..220cf80 100644
 --- a/packages/app/src/components/prompt-input/submit.ts
 +++ b/packages/app/src/components/prompt-input/submit.ts
 @@ -4,8 +4,10 @@ import { base64Encode } from "@opencode-ai/core/util/encode"
@@ -419,7 +419,7 @@ index c82c3a4399..220cf8053d 100644
      if (!session && isNewSession) {
        const created = await sdk()
 diff --git a/packages/app/src/i18n/am.ts b/packages/app/src/i18n/am.ts
-index bda48350e5..07fa4dd47b 100644
+index bda4835..07fa4dd 100644
 --- a/packages/app/src/i18n/am.ts
 +++ b/packages/app/src/i18n/am.ts
 @@ -1127,4 +1127,10 @@ export const dict = {
@@ -434,7 +434,7 @@ index bda48350e5..07fa4dd47b 100644
 +  "common.done": "Done",
  }
 diff --git a/packages/app/src/i18n/ar.ts b/packages/app/src/i18n/ar.ts
-index 3f55b30840..f24736934a 100644
+index 3f55b30..f247369 100644
 --- a/packages/app/src/i18n/ar.ts
 +++ b/packages/app/src/i18n/ar.ts
 @@ -253,6 +253,10 @@ export const dict = {
@@ -458,7 +458,7 @@ index 3f55b30840..f24736934a 100644
    "common.edit": "تحرير",
    "common.loadMore": "تحميل المزيد",
 diff --git a/packages/app/src/i18n/az.ts b/packages/app/src/i18n/az.ts
-index d818ae57fd..b185c32b34 100644
+index d818ae5..b185c32 100644
 --- a/packages/app/src/i18n/az.ts
 +++ b/packages/app/src/i18n/az.ts
 @@ -1165,4 +1165,10 @@ export const dict = {
@@ -473,7 +473,7 @@ index d818ae57fd..b185c32b34 100644
 +  "common.done": "Done",
  }
 diff --git a/packages/app/src/i18n/bg.ts b/packages/app/src/i18n/bg.ts
-index 7f63d1fa4b..21f40515ec 100644
+index 7f63d1f..21f4051 100644
 --- a/packages/app/src/i18n/bg.ts
 +++ b/packages/app/src/i18n/bg.ts
 @@ -1167,4 +1167,10 @@ export const dict = {
@@ -488,7 +488,7 @@ index 7f63d1fa4b..21f40515ec 100644
 +  "common.done": "Done",
  }
 diff --git a/packages/app/src/i18n/bn.ts b/packages/app/src/i18n/bn.ts
-index 5f0698ab64..7f819d3516 100644
+index 5f0698a..7f819d3 100644
 --- a/packages/app/src/i18n/bn.ts
 +++ b/packages/app/src/i18n/bn.ts
 @@ -1149,4 +1149,10 @@ export const dict: Record<string, string> = {
@@ -503,7 +503,7 @@ index 5f0698ab64..7f819d3516 100644
 +  "common.done": "Done",
  }
 diff --git a/packages/app/src/i18n/br.ts b/packages/app/src/i18n/br.ts
-index 09da845ccb..3d9aa285c5 100644
+index 09da845..3d9aa28 100644
 --- a/packages/app/src/i18n/br.ts
 +++ b/packages/app/src/i18n/br.ts
 @@ -255,6 +255,10 @@ export const dict = {
@@ -527,7 +527,7 @@ index 09da845ccb..3d9aa285c5 100644
    "common.edit": "Editar",
    "common.loadMore": "Carregar mais",
 diff --git a/packages/app/src/i18n/bs.ts b/packages/app/src/i18n/bs.ts
-index feb41c651a..a09e2995d7 100644
+index feb41c6..a09e299 100644
 --- a/packages/app/src/i18n/bs.ts
 +++ b/packages/app/src/i18n/bs.ts
 @@ -267,6 +267,10 @@ export const dict = {
@@ -551,7 +551,7 @@ index feb41c651a..a09e2995d7 100644
    "common.edit": "Uredi",
    "common.loadMore": "Učitaj još",
 diff --git a/packages/app/src/i18n/ca.ts b/packages/app/src/i18n/ca.ts
-index 21ad325607..de6a067443 100644
+index 21ad325..de6a067 100644
 --- a/packages/app/src/i18n/ca.ts
 +++ b/packages/app/src/i18n/ca.ts
 @@ -1170,4 +1170,10 @@ export const dict = {
@@ -566,7 +566,7 @@ index 21ad325607..de6a067443 100644
 +  "common.done": "Done",
  }
 diff --git a/packages/app/src/i18n/cs.ts b/packages/app/src/i18n/cs.ts
-index d79d4eb5a7..5caf029cd2 100644
+index d79d4eb..5caf029 100644
 --- a/packages/app/src/i18n/cs.ts
 +++ b/packages/app/src/i18n/cs.ts
 @@ -1160,4 +1160,10 @@ export const dict = {
@@ -581,7 +581,7 @@ index d79d4eb5a7..5caf029cd2 100644
 +  "common.done": "Done",
  }
 diff --git a/packages/app/src/i18n/da.ts b/packages/app/src/i18n/da.ts
-index 87737b0942..9615641116 100644
+index 87737b0..9615641 100644
 --- a/packages/app/src/i18n/da.ts
 +++ b/packages/app/src/i18n/da.ts
 @@ -166,6 +166,10 @@ export const dict = {
@@ -605,7 +605,7 @@ index 87737b0942..9615641116 100644
    "common.edit": "Rediger",
    "common.loadMore": "Indlæs flere",
 diff --git a/packages/app/src/i18n/de.ts b/packages/app/src/i18n/de.ts
-index 00849598c5..30732c8d84 100644
+index 0084959..30732c8 100644
 --- a/packages/app/src/i18n/de.ts
 +++ b/packages/app/src/i18n/de.ts
 @@ -158,6 +158,10 @@ export const dict = {
@@ -629,7 +629,7 @@ index 00849598c5..30732c8d84 100644
    "common.edit": "Bearbeiten",
    "common.loadMore": "Mehr laden",
 diff --git a/packages/app/src/i18n/dv.ts b/packages/app/src/i18n/dv.ts
-index 27b5fea869..582650d1c8 100644
+index 27b5fea..582650d 100644
 --- a/packages/app/src/i18n/dv.ts
 +++ b/packages/app/src/i18n/dv.ts
 @@ -1174,4 +1174,10 @@ export const dict = {
@@ -644,7 +644,7 @@ index 27b5fea869..582650d1c8 100644
 +  "common.done": "Done",
  }
 diff --git a/packages/app/src/i18n/dz.ts b/packages/app/src/i18n/dz.ts
-index 3b2ad46ca3..b3ffa6f640 100644
+index 3b2ad46..b3ffa6f 100644
 --- a/packages/app/src/i18n/dz.ts
 +++ b/packages/app/src/i18n/dz.ts
 @@ -1178,4 +1178,10 @@ export const dict: Record<string, string> = {
@@ -659,7 +659,7 @@ index 3b2ad46ca3..b3ffa6f640 100644
 +  "common.done": "Done",
  }
 diff --git a/packages/app/src/i18n/el.ts b/packages/app/src/i18n/el.ts
-index 8f91b46af0..1d5d86da9f 100644
+index 8f91b46..1d5d86d 100644
 --- a/packages/app/src/i18n/el.ts
 +++ b/packages/app/src/i18n/el.ts
 @@ -1170,4 +1170,10 @@ export const dict = {
@@ -674,7 +674,7 @@ index 8f91b46af0..1d5d86da9f 100644
 +  "common.done": "Done",
  }
 diff --git a/packages/app/src/i18n/en.ts b/packages/app/src/i18n/en.ts
-index 62d4dc1ae6..b5e692ab15 100644
+index 62d4dc1..b5e692a 100644
 --- a/packages/app/src/i18n/en.ts
 +++ b/packages/app/src/i18n/en.ts
 @@ -169,6 +169,10 @@ export const dict = {
@@ -698,7 +698,7 @@ index 62d4dc1ae6..b5e692ab15 100644
    "common.edit": "Edit",
    "common.loadMore": "Load more",
 diff --git a/packages/app/src/i18n/es.ts b/packages/app/src/i18n/es.ts
-index 9e9ff2c367..c82fe31025 100644
+index 9e9ff2c..c82fe31 100644
 --- a/packages/app/src/i18n/es.ts
 +++ b/packages/app/src/i18n/es.ts
 @@ -267,6 +267,10 @@ export const dict = {
@@ -722,7 +722,7 @@ index 9e9ff2c367..c82fe31025 100644
    "common.edit": "Editar",
    "common.loadMore": "Cargar más",
 diff --git a/packages/app/src/i18n/et.ts b/packages/app/src/i18n/et.ts
-index d78296675e..91217e5aca 100644
+index d782966..91217e5 100644
 --- a/packages/app/src/i18n/et.ts
 +++ b/packages/app/src/i18n/et.ts
 @@ -1148,4 +1148,10 @@ export const dict = {
@@ -737,7 +737,7 @@ index d78296675e..91217e5aca 100644
 +  "common.done": "Done",
  }
 diff --git a/packages/app/src/i18n/fa.ts b/packages/app/src/i18n/fa.ts
-index 0d3d721b53..a5d49b2fbe 100644
+index 0d3d721..a5d49b2 100644
 --- a/packages/app/src/i18n/fa.ts
 +++ b/packages/app/src/i18n/fa.ts
 @@ -1152,4 +1152,10 @@ export const dict = {
@@ -752,7 +752,7 @@ index 0d3d721b53..a5d49b2fbe 100644
 +  "common.done": "Done",
  }
 diff --git a/packages/app/src/i18n/fi.ts b/packages/app/src/i18n/fi.ts
-index aa9c92574c..83a17fc5f6 100644
+index aa9c925..83a17fc 100644
 --- a/packages/app/src/i18n/fi.ts
 +++ b/packages/app/src/i18n/fi.ts
 @@ -1165,4 +1165,10 @@ export const dict = {
@@ -767,7 +767,7 @@ index aa9c92574c..83a17fc5f6 100644
 +  "common.done": "Done",
  }
 diff --git a/packages/app/src/i18n/fo.ts b/packages/app/src/i18n/fo.ts
-index 4329a35b42..26e18af39c 100644
+index 4329a35..26e18af 100644
 --- a/packages/app/src/i18n/fo.ts
 +++ b/packages/app/src/i18n/fo.ts
 @@ -1151,4 +1151,10 @@ export const dict = {
@@ -782,7 +782,7 @@ index 4329a35b42..26e18af39c 100644
 +  "common.done": "Done",
  }
 diff --git a/packages/app/src/i18n/fr.ts b/packages/app/src/i18n/fr.ts
-index 3c89860a44..fea33f0b21 100644
+index 3c89860..fea33f0 100644
 --- a/packages/app/src/i18n/fr.ts
 +++ b/packages/app/src/i18n/fr.ts
 @@ -255,6 +255,10 @@ export const dict = {
@@ -806,7 +806,7 @@ index 3c89860a44..fea33f0b21 100644
    "common.edit": "Modifier",
    "common.loadMore": "Charger plus",
 diff --git a/packages/app/src/i18n/hi.ts b/packages/app/src/i18n/hi.ts
-index 0aaf8e14dc..34a8a7a743 100644
+index 0aaf8e1..34a8a7a 100644
 --- a/packages/app/src/i18n/hi.ts
 +++ b/packages/app/src/i18n/hi.ts
 @@ -1160,4 +1160,10 @@ export const dict = {
@@ -821,7 +821,7 @@ index 0aaf8e14dc..34a8a7a743 100644
 +  "common.done": "Done",
  }
 diff --git a/packages/app/src/i18n/hr.ts b/packages/app/src/i18n/hr.ts
-index 2130c88ada..3ca31a44f5 100644
+index 2130c88..3ca31a4 100644
 --- a/packages/app/src/i18n/hr.ts
 +++ b/packages/app/src/i18n/hr.ts
 @@ -1165,4 +1165,10 @@ export const dict = {
@@ -836,7 +836,7 @@ index 2130c88ada..3ca31a44f5 100644
 +  "common.done": "Done",
  }
 diff --git a/packages/app/src/i18n/hu.ts b/packages/app/src/i18n/hu.ts
-index 664abf8ee4..1dcfe35b6c 100644
+index 664abf8..1dcfe35 100644
 --- a/packages/app/src/i18n/hu.ts
 +++ b/packages/app/src/i18n/hu.ts
 @@ -1167,4 +1167,10 @@ export const dict = {
@@ -851,7 +851,7 @@ index 664abf8ee4..1dcfe35b6c 100644
 +  "common.done": "Done",
  }
 diff --git a/packages/app/src/i18n/hy.ts b/packages/app/src/i18n/hy.ts
-index 6eac43b5e6..725c27205f 100644
+index 6eac43b..725c272 100644
 --- a/packages/app/src/i18n/hy.ts
 +++ b/packages/app/src/i18n/hy.ts
 @@ -1162,4 +1162,10 @@ export const dict = {
@@ -866,7 +866,7 @@ index 6eac43b5e6..725c27205f 100644
 +  "common.done": "Done",
  }
 diff --git a/packages/app/src/i18n/id.ts b/packages/app/src/i18n/id.ts
-index 96dc3c7592..2babcad3f2 100644
+index 96dc3c7..2babcad 100644
 --- a/packages/app/src/i18n/id.ts
 +++ b/packages/app/src/i18n/id.ts
 @@ -1247,4 +1247,10 @@ export const dict = {
@@ -881,7 +881,7 @@ index 96dc3c7592..2babcad3f2 100644
 +  "common.done": "Done",
  }
 diff --git a/packages/app/src/i18n/is.ts b/packages/app/src/i18n/is.ts
-index a45ed9a40c..bb9ada772f 100644
+index a45ed9a..bb9ada7 100644
 --- a/packages/app/src/i18n/is.ts
 +++ b/packages/app/src/i18n/is.ts
 @@ -1154,4 +1154,10 @@ export const dict = {
@@ -896,7 +896,7 @@ index a45ed9a40c..bb9ada772f 100644
 +  "common.done": "Done",
  }
 diff --git a/packages/app/src/i18n/it.ts b/packages/app/src/i18n/it.ts
-index a093e11485..bc4a455703 100644
+index a093e11..bc4a455 100644
 --- a/packages/app/src/i18n/it.ts
 +++ b/packages/app/src/i18n/it.ts
 @@ -1173,4 +1173,10 @@ export const dict = {
@@ -911,7 +911,7 @@ index a093e11485..bc4a455703 100644
 +  "common.done": "Done",
  }
 diff --git a/packages/app/src/i18n/ja.ts b/packages/app/src/i18n/ja.ts
-index b96e8b544b..dc7c957663 100644
+index b96e8b5..dc7c957 100644
 --- a/packages/app/src/i18n/ja.ts
 +++ b/packages/app/src/i18n/ja.ts
 @@ -252,6 +252,10 @@ export const dict = {
@@ -935,7 +935,7 @@ index b96e8b544b..dc7c957663 100644
    "common.edit": "編集",
    "common.loadMore": "さらに読み込む",
 diff --git a/packages/app/src/i18n/ka.ts b/packages/app/src/i18n/ka.ts
-index be052930a2..6bced1a427 100644
+index be05293..6bced1a 100644
 --- a/packages/app/src/i18n/ka.ts
 +++ b/packages/app/src/i18n/ka.ts
 @@ -1153,4 +1153,10 @@ export const dict = {
@@ -950,7 +950,7 @@ index be052930a2..6bced1a427 100644
 +  "common.done": "Done",
  }
 diff --git a/packages/app/src/i18n/km.ts b/packages/app/src/i18n/km.ts
-index 7f1b61fe36..15038b3181 100644
+index 7f1b61f..15038b3 100644
 --- a/packages/app/src/i18n/km.ts
 +++ b/packages/app/src/i18n/km.ts
 @@ -1148,4 +1148,10 @@ export const dict = {
@@ -965,7 +965,7 @@ index 7f1b61fe36..15038b3181 100644
 +  "common.done": "Done",
  }
 diff --git a/packages/app/src/i18n/ko.ts b/packages/app/src/i18n/ko.ts
-index b96fb4c594..73c145ec9f 100644
+index b96fb4c..73c145e 100644
 --- a/packages/app/src/i18n/ko.ts
 +++ b/packages/app/src/i18n/ko.ts
 @@ -149,6 +149,10 @@ export const dict = {
@@ -989,7 +989,7 @@ index b96fb4c594..73c145ec9f 100644
    "common.edit": "편집",
    "common.loadMore": "더 불러오기",
 diff --git a/packages/app/src/i18n/lo.ts b/packages/app/src/i18n/lo.ts
-index acdc26df08..cb0e3833bb 100644
+index acdc26d..cb0e383 100644
 --- a/packages/app/src/i18n/lo.ts
 +++ b/packages/app/src/i18n/lo.ts
 @@ -1145,4 +1145,10 @@ export const dict = {
@@ -1004,7 +1004,7 @@ index acdc26df08..cb0e3833bb 100644
 +  "common.done": "Done",
  }
 diff --git a/packages/app/src/i18n/lt.ts b/packages/app/src/i18n/lt.ts
-index ba161eb318..1e5e1efcbd 100644
+index ba161eb..1e5e1ef 100644
 --- a/packages/app/src/i18n/lt.ts
 +++ b/packages/app/src/i18n/lt.ts
 @@ -1170,4 +1170,10 @@ export const dict = {
@@ -1019,7 +1019,7 @@ index ba161eb318..1e5e1efcbd 100644
 +  "common.done": "Done",
  }
 diff --git a/packages/app/src/i18n/lv.ts b/packages/app/src/i18n/lv.ts
-index df4c5b2dcd..982c1bfc78 100644
+index df4c5b2..982c1bf 100644
 --- a/packages/app/src/i18n/lv.ts
 +++ b/packages/app/src/i18n/lv.ts
 @@ -1159,4 +1159,10 @@ export const dict = {
@@ -1034,7 +1034,7 @@ index df4c5b2dcd..982c1bfc78 100644
 +  "common.done": "Done",
  }
 diff --git a/packages/app/src/i18n/mk.ts b/packages/app/src/i18n/mk.ts
-index 01e60baa40..e8a46eec84 100644
+index 01e60ba..e8a46ee 100644
 --- a/packages/app/src/i18n/mk.ts
 +++ b/packages/app/src/i18n/mk.ts
 @@ -1163,4 +1163,10 @@ export const dict = {
@@ -1049,7 +1049,7 @@ index 01e60baa40..e8a46eec84 100644
 +  "common.done": "Done",
  }
 diff --git a/packages/app/src/i18n/mn.ts b/packages/app/src/i18n/mn.ts
-index 41c4fa085d..0b521f5293 100644
+index 41c4fa0..0b521f5 100644
 --- a/packages/app/src/i18n/mn.ts
 +++ b/packages/app/src/i18n/mn.ts
 @@ -1165,4 +1165,10 @@ export const dict = {
@@ -1064,7 +1064,7 @@ index 41c4fa085d..0b521f5293 100644
 +  "common.done": "Done",
  }
 diff --git a/packages/app/src/i18n/ms.ts b/packages/app/src/i18n/ms.ts
-index 2c3783d43b..71f6955a72 100644
+index 2c3783d..71f6955 100644
 --- a/packages/app/src/i18n/ms.ts
 +++ b/packages/app/src/i18n/ms.ts
 @@ -1154,4 +1154,10 @@ export const dict = {
@@ -1079,7 +1079,7 @@ index 2c3783d43b..71f6955a72 100644
 +  "common.done": "Done",
  }
 diff --git a/packages/app/src/i18n/my.ts b/packages/app/src/i18n/my.ts
-index 6046f337ff..da166d06f3 100644
+index 6046f33..da166d0 100644
 --- a/packages/app/src/i18n/my.ts
 +++ b/packages/app/src/i18n/my.ts
 @@ -1173,4 +1173,10 @@ export const dict = {
@@ -1094,7 +1094,7 @@ index 6046f337ff..da166d06f3 100644
 +  "common.done": "Done",
  }
 diff --git a/packages/app/src/i18n/ne.ts b/packages/app/src/i18n/ne.ts
-index cc60bff9f4..1f76484ed6 100644
+index cc60bff..1f76484 100644
 --- a/packages/app/src/i18n/ne.ts
 +++ b/packages/app/src/i18n/ne.ts
 @@ -1154,4 +1154,10 @@ export const dict: Record<string, string> = {
@@ -1109,7 +1109,7 @@ index cc60bff9f4..1f76484ed6 100644
 +  "common.done": "Done",
  }
 diff --git a/packages/app/src/i18n/nl.ts b/packages/app/src/i18n/nl.ts
-index 6fb1dc09f2..f1d6ae4bb6 100644
+index 6fb1dc0..f1d6ae4 100644
 --- a/packages/app/src/i18n/nl.ts
 +++ b/packages/app/src/i18n/nl.ts
 @@ -1168,4 +1168,10 @@ export const dict = {
@@ -1124,7 +1124,7 @@ index 6fb1dc09f2..f1d6ae4bb6 100644
 +  "common.done": "Done",
  }
 diff --git a/packages/app/src/i18n/no.ts b/packages/app/src/i18n/no.ts
-index 11958029dc..8c782f63a0 100644
+index 1195802..8c782f6 100644
 --- a/packages/app/src/i18n/no.ts
 +++ b/packages/app/src/i18n/no.ts
 @@ -265,6 +265,10 @@ export const dict = {
@@ -1148,7 +1148,7 @@ index 11958029dc..8c782f63a0 100644
    "common.edit": "Rediger",
    "common.loadMore": "Last inn flere",
 diff --git a/packages/app/src/i18n/pa.ts b/packages/app/src/i18n/pa.ts
-index 6298581c0a..1b169d5f78 100644
+index 6298581..1b169d5 100644
 --- a/packages/app/src/i18n/pa.ts
 +++ b/packages/app/src/i18n/pa.ts
 @@ -1158,4 +1158,10 @@ export const dict = {
@@ -1163,7 +1163,7 @@ index 6298581c0a..1b169d5f78 100644
 +  "common.done": "Done",
  }
 diff --git a/packages/app/src/i18n/pl.ts b/packages/app/src/i18n/pl.ts
-index 9b3c927498..bc5e5ef3b2 100644
+index 9b3c927..bc5e5ef 100644
 --- a/packages/app/src/i18n/pl.ts
 +++ b/packages/app/src/i18n/pl.ts
 @@ -254,6 +254,10 @@ export const dict = {
@@ -1187,7 +1187,7 @@ index 9b3c927498..bc5e5ef3b2 100644
    "common.edit": "Edytuj",
    "common.loadMore": "Załaduj więcej",
 diff --git a/packages/app/src/i18n/ro.ts b/packages/app/src/i18n/ro.ts
-index c84f9a4ee7..9830e2e72d 100644
+index c84f9a4..9830e2e 100644
 --- a/packages/app/src/i18n/ro.ts
 +++ b/packages/app/src/i18n/ro.ts
 @@ -1159,4 +1159,10 @@ export const dict = {
@@ -1202,7 +1202,7 @@ index c84f9a4ee7..9830e2e72d 100644
 +  "common.done": "Done",
  }
 diff --git a/packages/app/src/i18n/ru.ts b/packages/app/src/i18n/ru.ts
-index cf4fa8d8f4..465a3e6b37 100644
+index cf4fa8d..465a3e6 100644
 --- a/packages/app/src/i18n/ru.ts
 +++ b/packages/app/src/i18n/ru.ts
 @@ -266,6 +266,10 @@ export const dict = {
@@ -1226,7 +1226,7 @@ index cf4fa8d8f4..465a3e6b37 100644
    "common.edit": "Редактировать",
    "common.loadMore": "Загрузить ещё",
 diff --git a/packages/app/src/i18n/si.ts b/packages/app/src/i18n/si.ts
-index 00ca188b15..a961b26f3c 100644
+index 00ca188..a961b26 100644
 --- a/packages/app/src/i18n/si.ts
 +++ b/packages/app/src/i18n/si.ts
 @@ -1150,4 +1150,10 @@ export const dict: Record<string, string> = {
@@ -1241,7 +1241,7 @@ index 00ca188b15..a961b26f3c 100644
 +  "common.done": "Done",
  }
 diff --git a/packages/app/src/i18n/sk.ts b/packages/app/src/i18n/sk.ts
-index 9992e06cc4..0d56695c89 100644
+index 9992e06..0d56695 100644
 --- a/packages/app/src/i18n/sk.ts
 +++ b/packages/app/src/i18n/sk.ts
 @@ -1156,4 +1156,10 @@ export const dict = {
@@ -1256,7 +1256,7 @@ index 9992e06cc4..0d56695c89 100644
 +  "common.done": "Done",
  }
 diff --git a/packages/app/src/i18n/sl.ts b/packages/app/src/i18n/sl.ts
-index 3c23fcd7f7..084715c1d9 100644
+index 3c23fcd..084715c 100644
 --- a/packages/app/src/i18n/sl.ts
 +++ b/packages/app/src/i18n/sl.ts
 @@ -1160,4 +1160,10 @@ export const dict = {
@@ -1271,7 +1271,7 @@ index 3c23fcd7f7..084715c1d9 100644
 +  "common.done": "Done",
  }
 diff --git a/packages/app/src/i18n/sq.ts b/packages/app/src/i18n/sq.ts
-index ca94793ab0..15b2534681 100644
+index ca94793..15b2534 100644
 --- a/packages/app/src/i18n/sq.ts
 +++ b/packages/app/src/i18n/sq.ts
 @@ -1160,4 +1160,10 @@ export const dict = {
@@ -1286,7 +1286,7 @@ index ca94793ab0..15b2534681 100644
 +  "common.done": "Done",
  }
 diff --git a/packages/app/src/i18n/sr.ts b/packages/app/src/i18n/sr.ts
-index f059160087..b0b28e1224 100644
+index f059160..b0b28e1 100644
 --- a/packages/app/src/i18n/sr.ts
 +++ b/packages/app/src/i18n/sr.ts
 @@ -1158,4 +1158,10 @@ export const dict = {
@@ -1301,7 +1301,7 @@ index f059160087..b0b28e1224 100644
 +  "common.done": "Done",
  }
 diff --git a/packages/app/src/i18n/sv.ts b/packages/app/src/i18n/sv.ts
-index 39b363c6b6..2561aa77df 100644
+index 39b363c..2561aa7 100644
 --- a/packages/app/src/i18n/sv.ts
 +++ b/packages/app/src/i18n/sv.ts
 @@ -1157,4 +1157,10 @@ export const dict = {
@@ -1316,7 +1316,7 @@ index 39b363c6b6..2561aa77df 100644
 +  "common.done": "Done",
  }
 diff --git a/packages/app/src/i18n/tg.ts b/packages/app/src/i18n/tg.ts
-index ffa08409f6..a5b6d97998 100644
+index ffa0840..a5b6d97 100644
 --- a/packages/app/src/i18n/tg.ts
 +++ b/packages/app/src/i18n/tg.ts
 @@ -1161,4 +1161,10 @@ export const dict = {
@@ -1331,7 +1331,7 @@ index ffa08409f6..a5b6d97998 100644
 +  "common.done": "Done",
  }
 diff --git a/packages/app/src/i18n/th.ts b/packages/app/src/i18n/th.ts
-index 1a0e9db72b..79431a0844 100644
+index 1a0e9db..79431a0 100644
 --- a/packages/app/src/i18n/th.ts
 +++ b/packages/app/src/i18n/th.ts
 @@ -265,6 +265,10 @@ export const dict = {
@@ -1355,7 +1355,7 @@ index 1a0e9db72b..79431a0844 100644
    "common.edit": "แก้ไข",
    "common.loadMore": "โหลดเพิ่มเติม",
 diff --git a/packages/app/src/i18n/tk.ts b/packages/app/src/i18n/tk.ts
-index 2b144c6a26..aeef18c4d3 100644
+index 2b144c6..aeef18c 100644
 --- a/packages/app/src/i18n/tk.ts
 +++ b/packages/app/src/i18n/tk.ts
 @@ -1156,4 +1156,10 @@ export const dict = {
@@ -1370,7 +1370,7 @@ index 2b144c6a26..aeef18c4d3 100644
 +  "common.done": "Done",
  }
 diff --git a/packages/app/src/i18n/tr.ts b/packages/app/src/i18n/tr.ts
-index 85623036e4..b567f1f051 100644
+index 8562303..b567f1f 100644
 --- a/packages/app/src/i18n/tr.ts
 +++ b/packages/app/src/i18n/tr.ts
 @@ -271,6 +271,10 @@ export const dict = {
@@ -1394,7 +1394,7 @@ index 85623036e4..b567f1f051 100644
    "common.edit": "Düzenle",
    "common.loadMore": "Daha fazla yükle",
 diff --git a/packages/app/src/i18n/uk.ts b/packages/app/src/i18n/uk.ts
-index 54732a87b7..0b982537de 100644
+index 54732a8..0b98253 100644
 --- a/packages/app/src/i18n/uk.ts
 +++ b/packages/app/src/i18n/uk.ts
 @@ -267,6 +267,10 @@ export const dict = {
@@ -1418,7 +1418,7 @@ index 54732a87b7..0b982537de 100644
    "common.edit": "Редагувати",
    "common.loadMore": "Завантажити більше",
 diff --git a/packages/app/src/i18n/ur.ts b/packages/app/src/i18n/ur.ts
-index 2ab69e7aec..57c84ffba9 100644
+index 2ab69e7..57c84ff 100644
 --- a/packages/app/src/i18n/ur.ts
 +++ b/packages/app/src/i18n/ur.ts
 @@ -1161,4 +1161,10 @@ export const dict = {
@@ -1433,7 +1433,7 @@ index 2ab69e7aec..57c84ffba9 100644
 +  "common.done": "Done",
  }
 diff --git a/packages/app/src/i18n/uz.ts b/packages/app/src/i18n/uz.ts
-index 8cb7097fc0..ef2b31cd9d 100644
+index 8cb7097..ef2b31c 100644
 --- a/packages/app/src/i18n/uz.ts
 +++ b/packages/app/src/i18n/uz.ts
 @@ -1168,4 +1168,10 @@ export const dict = {
@@ -1448,7 +1448,7 @@ index 8cb7097fc0..ef2b31cd9d 100644
 +  "common.done": "Done",
  }
 diff --git a/packages/app/src/i18n/vi.ts b/packages/app/src/i18n/vi.ts
-index 06fda4ce70..6888729744 100644
+index 06fda4c..6888729 100644
 --- a/packages/app/src/i18n/vi.ts
 +++ b/packages/app/src/i18n/vi.ts
 @@ -1166,4 +1166,10 @@ export const dict = {
@@ -1463,7 +1463,7 @@ index 06fda4ce70..6888729744 100644
 +  "common.done": "Done",
  }
 diff --git a/packages/app/src/i18n/zh.ts b/packages/app/src/i18n/zh.ts
-index b0ba045347..1801e66951 100644
+index b0ba045..1801e66 100644
 --- a/packages/app/src/i18n/zh.ts
 +++ b/packages/app/src/i18n/zh.ts
 @@ -287,6 +287,10 @@ export const dict = {
@@ -1487,7 +1487,7 @@ index b0ba045347..1801e66951 100644
    "common.edit": "编辑",
    "common.loadMore": "加载更多",
 diff --git a/packages/app/src/i18n/zht.ts b/packages/app/src/i18n/zht.ts
-index 6cc3d55528..946ef1eae6 100644
+index 6cc3d55..946ef1e 100644
 --- a/packages/app/src/i18n/zht.ts
 +++ b/packages/app/src/i18n/zht.ts
 @@ -266,6 +266,10 @@ export const dict = {
@@ -1511,7 +1511,7 @@ index 6cc3d55528..946ef1eae6 100644
    "common.edit": "編輯",
    "common.loadMore": "載入更多",
 diff --git a/packages/app/src/pages/session/usage-exceeded-dialogs.tsx b/packages/app/src/pages/session/usage-exceeded-dialogs.tsx
-index d56fa3d1f4..4f3c372205 100644
+index d56fa3d..4f3c372 100644
 --- a/packages/app/src/pages/session/usage-exceeded-dialogs.tsx
 +++ b/packages/app/src/pages/session/usage-exceeded-dialogs.tsx
 @@ -5,11 +5,10 @@ import { onCleanup } from "solid-js"
@@ -1624,7 +1624,7 @@ index d56fa3d1f4..4f3c372205 100644
  }
 diff --git a/packages/opencode/src/auth/pool.ts b/packages/opencode/src/auth/pool.ts
 new file mode 100644
-index 0000000000..8a139270ba
+index 0000000..8a13927
 --- /dev/null
 +++ b/packages/opencode/src/auth/pool.ts
 @@ -0,0 +1,282 @@
@@ -1911,7 +1911,7 @@ index 0000000000..8a139270ba
 +
 +export const node = LayerNode.make({ service: Service, layer: layer, deps: [FSUtil.node] })
 diff --git a/packages/opencode/src/cli/cmd/providers.ts b/packages/opencode/src/cli/cmd/providers.ts
-index 3775123d83..0747d67e4b 100644
+index 3775123..0747d67 100644
 --- a/packages/opencode/src/cli/cmd/providers.ts
 +++ b/packages/opencode/src/cli/cmd/providers.ts
 @@ -1,5 +1,6 @@
@@ -2067,7 +2067,7 @@ index 3775123d83..0747d67e4b 100644
      yield* Prompt.outro("Done")
    }),
 diff --git a/packages/opencode/src/effect/app-runtime.ts b/packages/opencode/src/effect/app-runtime.ts
-index d17326966f..39b52544b4 100644
+index d173269..39b5254 100644
 --- a/packages/opencode/src/effect/app-runtime.ts
 +++ b/packages/opencode/src/effect/app-runtime.ts
 @@ -5,6 +5,7 @@ import * as Observability from "@opencode-ai/core/observability"
@@ -2087,7 +2087,7 @@ index d17326966f..39b52544b4 100644
      Config.node,
      Git.node,
 diff --git a/packages/opencode/src/server/routes/instance/httpapi/groups/control.ts b/packages/opencode/src/server/routes/instance/httpapi/groups/control.ts
-index 49f43f0154..76bd4d173b 100644
+index 49f43f0..76bd4d1 100644
 --- a/packages/opencode/src/server/routes/instance/httpapi/groups/control.ts
 +++ b/packages/opencode/src/server/routes/instance/httpapi/groups/control.ts
 @@ -28,9 +28,29 @@ export const LogInput = Schema.Struct({
@@ -2193,7 +2193,7 @@ index 49f43f0154..76bd4d173b 100644
          payload: LogInput,
 diff --git a/packages/opencode/src/server/routes/instance/httpapi/groups/persist.ts b/packages/opencode/src/server/routes/instance/httpapi/groups/persist.ts
 new file mode 100644
-index 0000000000..3d6fb3f675
+index 0000000..3d6fb3f
 --- /dev/null
 +++ b/packages/opencode/src/server/routes/instance/httpapi/groups/persist.ts
 @@ -0,0 +1,63 @@
@@ -2261,7 +2261,7 @@ index 0000000000..3d6fb3f675
 +    }),
 +  )
 diff --git a/packages/opencode/src/server/routes/instance/httpapi/handlers/control.ts b/packages/opencode/src/server/routes/instance/httpapi/handlers/control.ts
-index 9974b19b4d..2aa96350e3 100644
+index 9974b19..2aa9635 100644
 --- a/packages/opencode/src/server/routes/instance/httpapi/handlers/control.ts
 +++ b/packages/opencode/src/server/routes/instance/httpapi/handlers/control.ts
 @@ -1,6 +1,7 @@
@@ -2381,7 +2381,7 @@ index 9974b19b4d..2aa96350e3 100644
 +}
 diff --git a/packages/opencode/src/server/routes/instance/httpapi/handlers/persist.ts b/packages/opencode/src/server/routes/instance/httpapi/handlers/persist.ts
 new file mode 100644
-index 0000000000..07d54023b3
+index 0000000..07d5402
 --- /dev/null
 +++ b/packages/opencode/src/server/routes/instance/httpapi/handlers/persist.ts
 @@ -0,0 +1,53 @@
@@ -2439,7 +2439,7 @@ index 0000000000..07d54023b3
 +  }),
 +)
 diff --git a/packages/opencode/src/server/routes/instance/httpapi/server.ts b/packages/opencode/src/server/routes/instance/httpapi/server.ts
-index 2347d7f053..4153905855 100644
+index 2347d7f..4153905 100644
 --- a/packages/opencode/src/server/routes/instance/httpapi/server.ts
 +++ b/packages/opencode/src/server/routes/instance/httpapi/server.ts
 @@ -8,6 +8,7 @@ import { Account } from "@/account/account"
@@ -2459,7 +2459,7 @@ index 2347d7f053..4153905855 100644
    Config.node,
    Env.node,
 diff --git a/packages/opencode/src/session/llm.ts b/packages/opencode/src/session/llm.ts
-index a99f8acff2..dfcf6594f2 100644
+index a99f8ac..dfcf659 100644
 --- a/packages/opencode/src/session/llm.ts
 +++ b/packages/opencode/src/session/llm.ts
 @@ -45,6 +45,7 @@ export type StreamInput = {
@@ -2482,7 +2482,7 @@ index a99f8acff2..dfcf6594f2 100644
          { concurrency: "unbounded" },
        )
 diff --git a/packages/opencode/src/session/message-v2.ts b/packages/opencode/src/session/message-v2.ts
-index 9b3f2c46f4..c74514307b 100644
+index 9b3f2c4..c745143 100644
 --- a/packages/opencode/src/session/message-v2.ts
 +++ b/packages/opencode/src/session/message-v2.ts
 @@ -203,7 +203,7 @@ export const toModelMessagesEffect = Effect.fnUntraced(function* (
@@ -2495,7 +2495,7 @@ index 9b3f2c46f4..c74514307b 100644
              type: "text",
              text: part.text,
 diff --git a/packages/opencode/src/session/processor.ts b/packages/opencode/src/session/processor.ts
-index 9f8530929c..5646267ba9 100644
+index 9f85309..5646267 100644
 --- a/packages/opencode/src/session/processor.ts
 +++ b/packages/opencode/src/session/processor.ts
 @@ -9,6 +9,8 @@ import { Config } from "@/config/config"
@@ -2726,7 +2726,7 @@ index 9f8530929c..5646267ba9 100644
      LLM.node,
      Permission.node,
 diff --git a/packages/opencode/src/session/prompt.ts b/packages/opencode/src/session/prompt.ts
-index 0f85d44f20..0f0d230efe 100644
+index 0f85d44..0f0d230 100644
 --- a/packages/opencode/src/session/prompt.ts
 +++ b/packages/opencode/src/session/prompt.ts
 @@ -1107,11 +1107,20 @@ const layer = Layer.effect(
@@ -2752,7 +2752,7 @@ index 0f85d44f20..0f0d230efe 100644
            ) {
              const orphan = lastAssistantMsg?.parts.find(
 diff --git a/packages/opencode/src/session/retry.ts b/packages/opencode/src/session/retry.ts
-index 284c0f0ade..6b160c1279 100644
+index 284c0f0..6b160c1 100644
 --- a/packages/opencode/src/session/retry.ts
 +++ b/packages/opencode/src/session/retry.ts
 @@ -7,9 +7,7 @@ import { isRecord } from "@/util/record"
@@ -2974,7 +2974,7 @@ index 284c0f0ade..6b160c1279 100644
      }),
    )
 diff --git a/packages/opencode/src/session/status.ts b/packages/opencode/src/session/status.ts
-index 11140acfee..e8ea3c21e5 100644
+index 11140ac..e8ea3c2 100644
 --- a/packages/opencode/src/session/status.ts
 +++ b/packages/opencode/src/session/status.ts
 @@ -7,7 +7,6 @@ import { SessionStatusEvent } from "@opencode-ai/schema/session-status-event"
@@ -2987,7 +2987,7 @@ index 11140acfee..e8ea3c21e5 100644
  export interface Interface {
 diff --git a/packages/opencode/test/auth/pool.test.ts b/packages/opencode/test/auth/pool.test.ts
 new file mode 100644
-index 0000000000..e55c6c6b12
+index 0000000..e55c6c6
 --- /dev/null
 +++ b/packages/opencode/test/auth/pool.test.ts
 @@ -0,0 +1,86 @@
@@ -3079,7 +3079,7 @@ index 0000000000..e55c6c6b12
 +})
 \ No newline at end of file
 diff --git a/packages/opencode/test/server/httpapi-control-plane.test.ts b/packages/opencode/test/server/httpapi-control-plane.test.ts
-index b837bf7556..63402414af 100644
+index b837bf7..6340241 100644
 --- a/packages/opencode/test/server/httpapi-control-plane.test.ts
 +++ b/packages/opencode/test/server/httpapi-control-plane.test.ts
 @@ -7,6 +7,7 @@ import { MoveSession } from "@opencode-ai/core/control-plane/move-session"
@@ -3099,7 +3099,7 @@ index b837bf7556..63402414af 100644
    Layer.provide(Layer.mock(Installation.Service)({})),
    Layer.provide(
 diff --git a/packages/opencode/test/server/httpapi-global.test.ts b/packages/opencode/test/server/httpapi-global.test.ts
-index 55bdcff4f5..498ab586c0 100644
+index 55bdcff..498ab58 100644
 --- a/packages/opencode/test/server/httpapi-global.test.ts
 +++ b/packages/opencode/test/server/httpapi-global.test.ts
 @@ -4,6 +4,7 @@ import { Context, Effect, Layer, Option } from "effect"
@@ -3119,7 +3119,7 @@ index 55bdcff4f5..498ab586c0 100644
    Layer.provide(Layer.mock(MoveSession.Service)({})),
    Layer.provide(
 diff --git a/packages/opencode/test/session/processor-effect.test.ts b/packages/opencode/test/session/processor-effect.test.ts
-index c67f82d9c7..ae3dd64ed2 100644
+index c67f82d..ae3dd64 100644
 --- a/packages/opencode/test/session/processor-effect.test.ts
 +++ b/packages/opencode/test/session/processor-effect.test.ts
 @@ -514,13 +514,14 @@ it.live("session.processor effect tests reset reasoning state across retries", (
@@ -3218,7 +3218,7 @@ index c67f82d9c7..ae3dd64ed2 100644
          const chat = yield* session.create({})
          const parent = yield* user(chat.id, "retry")
 diff --git a/packages/opencode/test/session/prompt.test.ts b/packages/opencode/test/session/prompt.test.ts
-index da6e0f8d03..45ae364398 100644
+index da6e0f8..45ae364 100644
 --- a/packages/opencode/test/session/prompt.test.ts
 +++ b/packages/opencode/test/session/prompt.test.ts
 @@ -492,6 +492,13 @@ noLLMServer.instance(
@@ -3298,7 +3298,7 @@ index da6e0f8d03..45ae364398 100644
    Effect.gen(function* () {
      const { llm } = yield* useServerConfig((url) => ({
 diff --git a/packages/opencode/test/session/retry.test.ts b/packages/opencode/test/session/retry.test.ts
-index 20c8678cf0..27be0b3df8 100644
+index 20c8678..27be0b3 100644
 --- a/packages/opencode/test/session/retry.test.ts
 +++ b/packages/opencode/test/session/retry.test.ts
 @@ -4,7 +4,7 @@ import { SessionV1 } from "@opencode-ai/core/v1/session"
@@ -3598,7 +3598,7 @@ index 20c8678cf0..27be0b3df8 100644
    test.concurrent(
      "converts ECONNRESET socket errors to retryable APIError",
 diff --git a/packages/schema/src/session-status-event.ts b/packages/schema/src/session-status-event.ts
-index f6a3022bcb..eb6331a37d 100644
+index f6a3022..eb6331a 100644
 --- a/packages/schema/src/session-status-event.ts
 +++ b/packages/schema/src/session-status-event.ts
 @@ -25,6 +25,13 @@ export const Info = Schema.Union([
@@ -3616,7 +3616,7 @@ index f6a3022bcb..eb6331a37d 100644
    Schema.Struct({
      type: Schema.Literal("busy"),
 diff --git a/packages/schema/src/v1/session.ts b/packages/schema/src/v1/session.ts
-index 75e9282f11..b2b712de96 100644
+index 75e9282..b2b712d 100644
 --- a/packages/schema/src/v1/session.ts
 +++ b/packages/schema/src/v1/session.ts
 @@ -105,6 +105,7 @@ export const TextPart = Schema.Struct({
@@ -3628,7 +3628,7 @@ index 75e9282f11..b2b712de96 100644
      Schema.Struct({
        start: NonNegativeInt,
 diff --git a/packages/sdk/js/src/v2/gen/types.gen.ts b/packages/sdk/js/src/v2/gen/types.gen.ts
-index f06c20cc41..b3ca8ef315 100644
+index f06c20c..b3ca8ef 100644
 --- a/packages/sdk/js/src/v2/gen/types.gen.ts
 +++ b/packages/sdk/js/src/v2/gen/types.gen.ts
 @@ -686,6 +686,11 @@ export type SessionStatus =
@@ -3644,7 +3644,7 @@ index f06c20cc41..b3ca8ef315 100644
      }
    | {
 diff --git a/packages/session-ui/src/components/session-retry.tsx b/packages/session-ui/src/components/session-retry.tsx
-index cf2d6c9459..ccf8800f2e 100644
+index cf2d6c9..ccf8800 100644
 --- a/packages/session-ui/src/components/session-retry.tsx
 +++ b/packages/session-ui/src/components/session-retry.tsx
 @@ -11,6 +11,7 @@ export function SessionRetry(props: { status: SessionStatus; show?: boolean }) {
@@ -3675,7 +3675,7 @@ index cf2d6c9459..ccf8800f2e 100644
              <Spinner class="size-4 mt-0.5" />
              <div class="min-w-0">
 diff --git a/packages/tui/src/component/prompt/index.tsx b/packages/tui/src/component/prompt/index.tsx
-index c48c751739..d6b78ded26 100644
+index c48c751..d6b78de 100644
 --- a/packages/tui/src/component/prompt/index.tsx
 +++ b/packages/tui/src/component/prompt/index.tsx
 @@ -1535,6 +1535,7 @@ export function Prompt(props: PromptProps) {
@@ -3687,7 +3687,7 @@ index c48c751739..d6b78ded26 100644
                            return "gemini is way too hot right now"
                          if (r.message.length > 80) return r.message.slice(0, 80) + "…"
 diff --git a/packages/ui/src/i18n/en.ts b/packages/ui/src/i18n/en.ts
-index 54008fbc8d..ced143f5ba 100644
+index 54008fb..ced143f 100644
 --- a/packages/ui/src/i18n/en.ts
 +++ b/packages/ui/src/i18n/en.ts
 @@ -70,6 +70,7 @@ export const dict: Record<string, string> = {
@@ -3699,7 +3699,7 @@ index 54008fbc8d..ced143f5ba 100644
    "ui.sessionTurn.error.addCredits": "Add credits",
  
 diff --git a/packages/ui/src/i18n/ja.ts b/packages/ui/src/i18n/ja.ts
-index 1b32e05deb..f93a8013f5 100644
+index 1b32e05..f93a801 100644
 --- a/packages/ui/src/i18n/ja.ts
 +++ b/packages/ui/src/i18n/ja.ts
 @@ -67,6 +67,7 @@ export const dict = {

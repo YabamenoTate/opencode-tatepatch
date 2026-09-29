@@ -1,0 +1,22 @@
+# opencode-tatepatch — single source of truth for versioning.
+#
+# These two lines are the ONLY place in this repository where a version number
+# is written down. patch.sh and patch.bat read this file and derive everything
+# else from it: the git tag they clone, the OPENCODE_VERSION define they build
+# with, the version string the CLI and the web app display, and the string they
+# grep for when deciding whether a binary is already patched.
+#
+# The patch sources do not hardcode either value either. They carry
+# @@TATEPATCH_BASE_VERSION@@ / @@TATEPATCH_PATCH_LEVEL@@ placeholders, which the
+# apply scripts substitute in packages/core/src/installation/version.ts. That file
+# then exports TATEPATCH_PATCH_LEVEL, TATEPATCH_LABEL, TATEPATCH_VERSION and
+# TATEPATCH_PLAIN_VERSION, and every other surface — CLI --version, the web app
+# banner, and the update check in cli/upgrade.ts — reads those constants.
+#
+# To cut a release: change these two lines, and nothing else.
+
+# The opencode release this patch set is written against.
+TATEPATCH_BASE_VERSION=1.18.31
+
+# The tatepatch revision. Bump on every release.
+TATEPATCH_PATCH_LEVEL=4

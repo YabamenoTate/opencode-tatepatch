@@ -51,7 +51,7 @@ Archived sessions are no longer hidden forever. The Home view gains a **Trash** 
 ## Installation & Usage
 
 ## Prerequisites
-- [opencode](https://opencode.ai) v1.18.31 installed
+- [opencode](https://opencode.ai) installed, at the base version named in [VERSION](VERSION)
 - [git](https://git-scm.com) installed
 - [bun](https://bun.sh) installed
 
@@ -130,7 +130,7 @@ If you want to revert back to the original unmodified binary:
 
 | # | Patch | Target | Description |
 |---|-------|--------|-------------|
-| 1 | `version.patch` | Version split | Shows `(Tate Patched 5)` in UI (CLI `--version`, health, TUI), while outbound User-Agents identify as clean `opencode/1.18.31` via `InstallationClientVersion` |
+| 1 | `version.patch` | Version split | Adds the tatepatch label (CLI `--version`, health, TUI) from `VERSION`, while outbound User-Agents stay clean semver via `InstallationClientVersion` |
 | 2 | `webapp-storage-proxy.patch` | Local persistence | Proxies webapp localStorage requests to server and persists layout config locally |
 | 3 | `auth-pool.patch` | Multi-account pool | Implements auth key pool management (CRUD backend APIs, WebUI connected badge & config page, CLI commands) with auto-rotation on quota or long waits and a no-hard-stop retry policy: offline shows a waiting banner (オンライン復帰を待機しています) in WebUI + CLI and keeps polling, empty provider replies auto-retry after ~2s until a real reply arrives, including localized language keys |
 | 4 | `ctrl-enter-send.patch` | Keyboard input | Rebinds Enter to newline and Ctrl/Cmd+Enter to send, adding UI tray hint with all translations |
@@ -138,7 +138,7 @@ If you want to revert back to the original unmodified binary:
 | 6 | `remove-share.patch` | Cloud share | Removes the cloud session publishing feature entirely (menus, commands, share button) |
 | 7 | `remove-upsell.patch` | Billing ads | Strips away Go subscription billing promotion banners and error messages |
 | 8 | `trash.patch` | Trash (archive) | Adds the Home trash tray (archive/restore/delete), makes the `archived` timestamp nullable for `archived: null` restore, and adds a trash icon plus all translations |
-| 9 | `anti-key-stick.patch` | Key switch integrity | Makes a switched API key take effect on the **next request, with no restart** (see below) |
+| 9 | `anti-key-stick.patch` | Key switch integrity | Makes a switched API key take effect on the **next request, with no restart**, and gives every session its own key that rotates only when that key is actually rate limited (see below) |
 
 #### Why `anti-key-stick.patch` exists
 
@@ -169,6 +169,82 @@ This patch:
   explicitly marked `local` (it reaches plugin-registered and remote adapters).
 
 Covered by `packages/opencode/test/provider/key-switch.test.ts`.
+
+#### One key per session, rotating only on a real rate limit
+
+Once several keys are configured, the interesting failure is no longer *"the switch
+did nothing"* but *"every key is rate limited and the client sits there for hours"*.
+A real `429 Rate limit reached` from the gateway carries `retry-after` in seconds
+until the quota resets, which can be tens of thousands of seconds. Rotating on a
+timer, or re-selecting a key per request, does not help: it either spreads the load
+or re-uses a key that has already been shown to be exhausted.
+
+So the key set is now just a set. The key in `auth.json` and every entry of
+`auth-pool.json` are candidates, and none of them is privileged:
+- the **first** request after startup uses the `auth.json` key, which keeps the
+  single-key configuration behaving exactly as it did before;
+- every other session is given a key that no other session is currently using, so
+  concurrent sessions spread across the accounts instead of piling onto one;
+- a session **keeps** its key for as long as that key stays healthy. It only gives it
+  up when that key comes back `429` (or is otherwise reported as a key-level
+  failure), at which point the key is put in cooldown for the window the gateway
+  asked for and the session moves to another one. Healthy sessions are never
+  disturbed;
+- a long `retry-after` (60s or more) on a rate-limit response rotates on the first
+  failure, because that is an unambiguous "this account is done for now". A short
+  one rotates after two consecutive failures, and a network error never rotates,
+  since a dropped connection is not the key's fault. The new key is tried
+  immediately rather than after a wait;
+- cooldown is remembered on disk and is applied to the `auth.json` key as well, so
+  an exhausted primary is not re-tried on every new session;
+- a session's key is released when the session is deleted, and otherwise expires
+  after an idle timeout, so a key is never stranded by a session that went away;
+- nothing is ever written back to `auth.json` automatically. Only the explicit
+  `PUT /auth/:providerID`, `pool/switch` and `pool/reset` endpoints still change
+  it, so a provider switch made by hand is never silently undone.
+
+`GET /auth/:providerID/pool` reports which keys are currently leased, by hash and
+masked form only, so it is possible to see at a glance which account a busy
+instance is sitting on.
+
+If **every** key is in cooldown there is nothing useful left to switch to, so the
+patch does not spin: it keeps the key that recovers first, reports the wait through
+`pool` state, and lets the normal retry backoff run rather than immediately
+re-requesting an account the gateway has already rejected.
+
+#### Keys and sessions are not allowed to leak into each other
+
+The header set on the wire is exactly the set upstream sends — the same fields, the
+same names, the same conditions for their presence, and the same User-Agent. What
+changes is that the values identifying this checkout are **per key rather than per
+machine**.
+
+The point is not to look anonymous. A stable project identity is what lets a gateway
+reuse a cached prefix for the same repository, so stripping it would only produce a
+slower and more obviously scripted client. Instead the identity is kept and
+re-keyed:
+
+- `x-opencode-project` used to be a hash of the checkout's git remote, identical for
+  every session of that repository and identical on every account. It is now derived
+  from the project **and the key in use**. One key always presents one project, so a
+  gateway caching per account still gets its cache hits; a different key presents a
+  project identity that account has never seen.
+- `x-opencode-session`, `x-session-affinity`, `X-Session-Id` and
+  `x-parent-session-id` are scoped the same way, so when a session rotates to
+  another key after a rate limit the new account is handed a session it has never
+  seen, and nothing cached for that session under the old key is visible to it.
+- `x-opencode-request` is scoped too. It is a per-message id, and retrying the same
+  message after a rotation would otherwise repeat it verbatim on the new account,
+  which links the two.
+
+So the same key looks like one consistent project and one consistent client for as
+long as it is in use, and switching keys breaks every identifier at once. Nothing is
+shared between accounts that has not been re-derived for that account. The
+derivation is one-way and hashes the key in, so the value can be walked back to
+neither the real project id nor the credential.
+
+Conversation content is of course still sent to whichever key answers it. Assistant
+responses are still not stored provider-side (`store: false`).
 
 ## Contributing
 
@@ -249,7 +325,7 @@ Tate Patchは、中央集権的な依存関係を排し、プライバシーを�
 ## インストールと使い方
 
 ### 必要条件
-- [opencode](https://opencode.ai) v1.18.31 がインストールされていること
+- [opencode](https://opencode.ai) が [VERSION](VERSION) のベースバージョンでインストールされていること
 - [git](https://git-scm.com) がインストールされていること
 - [bun](https://bun.sh) がインストールされていること
 
@@ -328,7 +404,7 @@ Tate Patchは、中央集権的な依存関係を排し、プライバシーを�
 
 | # | パッチ名 | 対象 | 説明 |
 |---|---------|------|------|
-| 1 | `version.patch` | バージョン表記 | UIでは `(Tate Patched 5)` を表示しつつ、対外的なUser-Agentは `InstallationClientVersion` によりクリーンな `opencode/1.18.31` として識別（表示と送信の分離） |
+| 1 | `version.patch` | バージョン表記 | `VERSION` から读了 tatepatch ラベルを UIでは表示しつつ、対外的なUser-Agentは `InstallationClientVersion` によりクリーンなセマンティクスとして識別（表示と送信の分離） |
 | 2 | `webapp-storage-proxy.patch` | 設定のローカル永続化 | localStorageの操作をサーバーへ転送し、レイアウト設定をPC上に保存 |
 | 3 | `auth-pool.patch` | 複数アカウントプール | APIキーのローカルプール管理機能（バックエンドAPI、CLI/WebUI管理画面、Connectedバッジ）と、クォータ・長時間待機時の自動ローテーション、および意図せぬ停止を防ぐリトライポリシー、関連言語ラベルを実装 |
 | 4 | `ctrl-enter-send.patch` | キーボード入力 | Enterを改行、Ctrl+Enterを送信にマッピング変更し、入力欄のヒント（多言語対応）を追加 |

@@ -1,6 +1,6 @@
 diff --git a/packages/app/src/components/dialog-usage-exceeded.tsx b/packages/app/src/components/dialog-usage-exceeded.tsx
 deleted file mode 100644
-index de6451a63b..0000000000
+index de6451a..0000000
 --- a/packages/app/src/components/dialog-usage-exceeded.tsx
 +++ /dev/null
 @@ -1,46 +0,0 @@
@@ -51,7 +51,7 @@ index de6451a63b..0000000000
 -  )
 -}
 diff --git a/packages/app/src/pages/session/usage-exceeded-dialogs.tsx b/packages/app/src/pages/session/usage-exceeded-dialogs.tsx
-index 4f3c372205..e29b23df26 100644
+index 4f3c372..e29b23d 100644
 --- a/packages/app/src/pages/session/usage-exceeded-dialogs.tsx
 +++ b/packages/app/src/pages/session/usage-exceeded-dialogs.tsx
 @@ -88,7 +88,8 @@ export function useUsageExceededDialogs(props?: {
@@ -65,7 +65,7 @@ index 4f3c372205..e29b23df26 100644
    )
  }
 diff --git a/packages/opencode/src/session/retry.ts b/packages/opencode/src/session/retry.ts
-index 6b160c1279..22059b813d 100644
+index 6b160c1..22059b8 100644
 --- a/packages/opencode/src/session/retry.ts
 +++ b/packages/opencode/src/session/retry.ts
 @@ -181,7 +181,7 @@ export function retryable(error: Err, provider: string) {
@@ -78,7 +78,7 @@ index 6b160c1279..22059b813d 100644
      // Treat it like any other failure: retry the same key once, then rotate.
      if (status !== undefined && status >= 400 && status < 500) {
 diff --git a/packages/opencode/test/session/retry.test.ts b/packages/opencode/test/session/retry.test.ts
-index 27be0b3df8..424b1f1d9d 100644
+index 27be0b3..424b1f1 100644
 --- a/packages/opencode/test/session/retry.test.ts
 +++ b/packages/opencode/test/session/retry.test.ts
 @@ -359,6 +359,24 @@ describe("session.retry.retryable", () => {
