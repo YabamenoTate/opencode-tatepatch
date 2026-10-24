@@ -8,7 +8,7 @@ When you run proprietary software unmodified, you accept the service provider's 
 
 Why should a local editor have a "Share" button that uploads your private sessions directly to OpenCode's central servers (opencode.ai)? Even if the feature functions exactly as designed, bridging your local sandbox to external cloud hosting by default compromises your workspace's independence. Similarly, a help icon that directs you straight to an external Discord server and feedback trackers has no place in a quiet, self-contained development environment. 
 
-Most importantly, why should your editor limit your identity to a single billing account, prompting you to subscribe whenever you hit a rate limit? Proprietary vendors design their software around a single billing endpoint—a dogmatic assumption that you must comply with their centralized subscription model and follow their proprietary behavioral guidelines. Your own computer has no obligation to act as a collections agent for a vendor's monetization rules.
+Most importantly, why should your editor limit your identity to a single billing account, prompting you to subscribe whenever you hit a rate limit? Proprietary vendors design their software around a single billing endpoint—a dogmatic assumption that you must comply with their centralized subscription model and follow their vendor-imposed behavioral rules. Your own computer has no obligation to act as a collections agent for a vendor's monetization rules.
 
 A computer must be free to switch between multiple keys and accounts at will to bypass these arbitrary constraints. (This is not an endorsement of account switching; complying with the terms of service using a single account remains a valid choice. The core argument is simply that the user, not the vendor, must hold the autonomy to make that decision.) Tate Patch is a collection of clean, surgical patches that strips away centralized dependencies, adds local-first storage, restores multi-account freedom, and returns keyboard shortcuts to normal.
 
@@ -26,16 +26,16 @@ Why proxy through the server instead of keeping it in the browser? If CPU, works
 
 ### Multi-Account Auth Pool
 Store multiple API keys per provider in a local, user-restricted JSON file (`auth-pool.json`).
-- The CLI (`opencode auth login`) becomes an interactive account manager.
+- The CLI (`opencode auth login`) becomes an interactive account manager for adding, switching, and organizing keys.
 - The WebUI gains a "Manage Accounts" screen after connecting a provider.
-- Errors never hard-stop your session. The current key is retried once after ~2 seconds; only a second consecutive failure concludes the key is at fault, so the request rotates to the next pool key — which is tried immediately, with no forced wait.
-- A very long retry hint (60s+) already counts as key exhaustion and rotates right away.
-- Offline/network failures are never the key's fault: the same key keeps polling at a bounded backoff until connectivity returns.
-- While offline, neither the WebUI nor the TUI stops: a temporary banner (オンライン復帰を待機しています) appears at the bottom of the conversation until the connection recovers.
-- An empty provider reply is a stall, not a finish: the turn waits ~2 seconds and re-requests until a real reply arrives, so a conversation never ends silently.
-- The same applies to a turn that stopped without delivering a visible answer — a tool call with no closing explanation, a stream cut off before any text arrived, or a generation truncated mid-answer by the length/output cap: none of these are "complete", and the model is re-requested until it actually finishes saying something.
-- Even 4xx "client error" responses (400/404/...) are retried rather than assumed fatal.
-- Single-account use keeps going too: `Retry-After` is honored and the session never hard-stops.
+- Errors do not cause unexpected session termination. The current key is retried once after ~2 seconds; only a second consecutive failure marks the key as faulty and rotates to the next pool key, tried immediately with no forced wait.
+- A very long retry hint (60s+) counts as key exhaustion and rotates right away.
+- Network/offline failures are not attributed to the key: the same key is polled with bounded backoff until connectivity returns.
+- While offline, the WebUI and TUI remain active and show a temporary banner (オンライン復帰を待機しています) at the bottom of the conversation.
+- An empty provider reply is treated as a stall, not a finish: the turn waits ~2 seconds and retries until a real reply arrives.
+- A turn that ends without delivering a visible answer (tool call with no closing explanation, stream cut before text arrives, truncation by length/output cap) is also treated as incomplete and retried until the model actually produces an answer.
+- 4xx responses (400/404/...) are retried rather than treated as fatal.
+- Single-account use also respects `Retry-After` and never hard-stops the session.
 
 ### The Enter Key & Quota Protection
 Anyone typing in Japanese, Chinese, or other IME environments knows the frustration: you press `Enter` to confirm a character, type a bit too fast, hit `Enter` again, and your half-finished message is instantly sent. In the official OpenCode, this accident wastes your precious API rate limits.
