@@ -31,7 +31,7 @@ Store multiple API keys per provider in a local, user-restricted JSON file (`aut
 - Errors do not cause unexpected session termination. The current key is retried once after ~2 seconds; only a second consecutive failure marks the key as faulty and rotates to the next pool key, tried immediately with no forced wait.
 - A very long retry hint (60s+) counts as key exhaustion and rotates right away.
 - Network/offline failures are not attributed to the key: the same key is polled with bounded backoff until connectivity returns.
-- While offline, the WebUI and TUI remain active and show a temporary banner (オンライン復帰を待機しています) at the bottom of the conversation.
+- While offline, the WebUI and TUI remain active and show a temporary banner ("Waiting for network recovery...") at the bottom of the conversation.
 - An empty provider reply is treated as a stall, not a finish: the turn waits ~2 seconds and retries until a real reply arrives.
 - A turn that ends without delivering a visible answer (tool call with no closing explanation, stream cut before text arrives, truncation by length/output cap) is also treated as incomplete and retried until the model actually produces an answer.
 - 4xx responses (400/404/...) are retried rather than treated as fatal.
