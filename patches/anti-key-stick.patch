@@ -483,6 +483,110 @@ index 8a13927..31c84d0 100644
  
 -export const node = LayerNode.make({ service: Service, layer: layer, deps: [FSUtil.node] })
 +export const node = LayerNode.make({ service: Service, layer: layer, deps: [FSUtil.node, Auth.node] })
+diff --git a/packages/opencode/src/auth/wire-identity.ts b/packages/opencode/src/auth/wire-identity.ts
+new file mode 100644
+index 0000000..7e89985
+--- /dev/null
++++ b/packages/opencode/src/auth/wire-identity.ts
+@@ -0,0 +1,97 @@
++import { createHash } from "crypto"
++
++// Wire identity, per session and per key.
++//
++// A gateway learns an account by the identity it is shown, and it learns that a
++// client is scripted by anything about the request that upstream would not have
++// produced. So there are two rules, in this order:
++//
++//  1. While a session stays on one key, the identity on the wire is the one
++//     upstream sends, untouched - same value, same length, same character class,
++//     same prefix. A session that never rotates a key is byte-identical to
++//     upstream, so nothing in the request gives this build away.
++//
++//  2. When a session moves to another key, by rotation or because the pool
++//     changed underneath it, every identity it sends is replaced at once by a
++//     freshly minted value in upstream's own format. Nothing the previous key
++//     already saw goes out again, so the two accounts cannot be joined from
++//     either side.
++//
++// The identity belongs to the key rather than to the attempt, so a key that
++// comes back presents the identity it had before. That is what lets a gateway
++// reuse a cached prefix per account, which is the only place such a cache is
++// worth anything. Epoch 0 is the key a session starts on and is deliberately
++// left alone for exactly that reason.
++
++const LENGTH = 26
++const CHARS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
++
++// sessionID -> (key fingerprint -> epoch)
++const bindings = new Map<string, Map<string, number>>()
++
++function fingerprint(key: string) {
++  return createHash("sha256").update(key).digest("hex").slice(0, 32)
++}
++
++// Which key of this session is in use, counting from the one it started on.
++function epochFor(sessionID: string, key: string | undefined) {
++  if (!key) return 0
++  const id = fingerprint(key)
++  let order = bindings.get(sessionID)
++  if (!order) {
++    order = new Map()
++    bindings.set(sessionID, order)
++  }
++  const seen = order.get(id)
++  if (seen !== undefined) return seen
++  const epoch = order.size
++  order.set(id, epoch)
++  return epoch
++}
++
++// Rebuild the shape the upstream identifier module emits: twelve hex characters
++// standing in for time and counter, then fourteen base62 characters.
++function mintIdentifier(prefix: string, seed: string) {
++  const digest = createHash("sha512").update(seed).digest()
++  let hex = ""
++  for (let index = 0; index < 6; index++) hex += digest[index]!.toString(16).padStart(2, "0")
++  let tail = ""
++  for (let index = 0; index < LENGTH - 12; index++) tail += CHARS[digest[6 + index]! % 62]
++  return `${prefix}_${hex}${tail}`
++}
++
++function mintProject(seed: string) {
++  return createHash("sha1").update(seed).digest("hex")
++}
++
++export type WireInput = {
++  readonly sessionID: string
++  readonly messageID: string
++  readonly projectID?: string
++  readonly parentSessionID?: string
++  readonly key: string | undefined
++}
++
++export function identity(input: WireInput) {
++  const epoch = epochFor(input.sessionID, input.key)
++  if (epoch === 0)
++    return {
++      session: input.sessionID,
++      message: input.messageID,
++      project: input.projectID,
++      parent: input.parentSessionID,
++    }
++  const salt = `\u0000${epoch}`
++  return {
++    session: mintIdentifier("ses", `${input.sessionID}${salt}`),
++    message: mintIdentifier("msg", `${input.messageID}${salt}`),
++    project: input.projectID ? mintProject(`${input.projectID}${salt}`) : undefined,
++    parent: input.parentSessionID ? mintIdentifier("ses", `${input.parentSessionID}${salt}`) : undefined,
++  }
++}
++
++export function release(sessionID: string) {
++  bindings.delete(sessionID)
++}
++
++export * as AuthWireIdentity from "./wire-identity"
+\ No newline at end of file
 diff --git a/packages/opencode/src/control-plane/adapters/worktree.ts b/packages/opencode/src/control-plane/adapters/worktree.ts
 index 87e30e1..19afb78 100644
 --- a/packages/opencode/src/control-plane/adapters/worktree.ts
@@ -712,71 +816,62 @@ index dfcf659..f2ea3b4 100644
          { concurrency: "unbounded" },
        )
 diff --git a/packages/opencode/src/session/llm/request.ts b/packages/opencode/src/session/llm/request.ts
-index bba8053..f7a8132 100644
+index bba8053..a6f2ecd 100644
 --- a/packages/opencode/src/session/llm/request.ts
 +++ b/packages/opencode/src/session/llm/request.ts
-@@ -14,9 +14,29 @@ import { Effect, Record } from "effect"
- import { jsonSchema, tool as aiTool, type ModelMessage, type Tool } from "ai"
- import type { Plugin } from "@/plugin"
- import { mergeDeep } from "remeda"
-+import { createHash } from "crypto"
- 
- const USER_AGENT = `opencode/${InstallationClientVersion}`
- 
-+// Every identity that goes on the wire is scoped to the API key in use.
-+//
-+// The point is not to look anonymous. A stable project identity is what lets a
-+// gateway reuse a cached prefix for the same repository, so removing it would just
-+// be a slower, more obviously scripted client. The identity is kept, and it is
-+// per key instead of per machine: the same key always presents the same project and
-+// the same session, while a session that rotates to another key after a rate limit
-+// presents a fingerprint the new account has never seen. Nothing about this machine
-+// or this checkout is shared across accounts, and nothing is lost for a gateway
-+// caching per account, which is the only place the cache is worth anything anyway.
-+//
-+// The derivation is one-way and the key is hashed in, so the value cannot be walked
-+// back to either the real project id or the credential.
-+const keyScoped = (value: string, auth: Auth.Info | undefined): string => {
-+  const key = auth?.type === "api" ? auth.key : undefined
-+  if (!key) return value
-+  return createHash("sha256").update(`${value}\u0000${key}`).digest("hex").slice(0, 32)
-+}
-+
- type PrepareInput = {
-   readonly user: SessionV1.User
-   readonly sessionID: string
-@@ -174,6 +194,9 @@ export const prepare = Effect.fn("LLMRequestPrep.prepare")(function* (input: Pre
+@@ -1,4 +1,5 @@
+ import { PermissionV1 } from "@opencode-ai/core/v1/permission"
++import { AuthWireIdentity } from "@/auth/wire-identity"
+ import type { Auth } from "@/auth"
+ import { SessionV1 } from "@opencode-ai/core/v1/session"
+ import type { RuntimeFlags } from "@/effect/runtime-flags"
+@@ -174,10 +175,24 @@ export const prepare = Effect.fn("LLMRequestPrep.prepare")(function* (input: Pre
      })
    }
  
 +  // The header set below is byte-for-byte the set upstream sends: the same fields,
-+  // the same names, the same conditions for their presence. Only the values that
-+  // identify this checkout change, and they change per key rather than per machine.
++  // the same names, the same conditions for their presence, and the same values in
++  // upstream's own format. Nothing is stripped and nothing is reshaped - a session
++  // that never leaves its key is indistinguishable from upstream. Only a session
++  // that has actually moved to a second key gets freshly minted identities, so that
++  // the two accounts it used cannot be joined.
    const opencodeProjectID = input.model.providerID.startsWith("opencode")
      ? (yield* InstanceState.context).project.id
      : undefined
-@@ -187,18 +210,18 @@ export const prepare = Effect.fn("LLMRequestPrep.prepare")(function* (input: Pre
+ 
++  const wire = AuthWireIdentity.identity({
++    sessionID: input.sessionID,
++    messageID: input.user.id,
++    projectID: opencodeProjectID,
++    parentSessionID: input.parentSessionID,
++    key: input.auth?.type === "api" ? input.auth.key : undefined,
++  })
++
+   return {
+     system,
+     messages,
+@@ -187,18 +202,18 @@ export const prepare = Effect.fn("LLMRequestPrep.prepare")(function* (input: Pre
      headers: {
        ...(input.model.providerID.startsWith("opencode")
          ? {
 -            ...(opencodeProjectID ? { "x-opencode-project": opencodeProjectID } : {}),
 -            "x-opencode-session": input.sessionID,
 -            "x-opencode-request": input.user.id,
-+            ...(opencodeProjectID ? { "x-opencode-project": keyScoped(opencodeProjectID, input.auth) } : {}),
-+            "x-opencode-session": keyScoped(input.sessionID, input.auth),
-+            "x-opencode-request": keyScoped(input.user.id, input.auth),
++            ...(wire.project ? { "x-opencode-project": wire.project } : {}),
++            "x-opencode-session": wire.session,
++            "x-opencode-request": wire.message,
              "x-opencode-client": input.flags.client,
              "User-Agent": USER_AGENT,
            }
          : {
 -            "x-session-affinity": input.sessionID,
 -            "X-Session-Id": input.sessionID,
-+            "x-session-affinity": keyScoped(input.sessionID, input.auth),
-+            "X-Session-Id": keyScoped(input.sessionID, input.auth),
++            "x-session-affinity": wire.session,
++            "X-Session-Id": wire.session,
              "User-Agent": USER_AGENT,
            }),
 -      ...(input.parentSessionID ? { "x-parent-session-id": input.parentSessionID } : {}),
-+      ...(input.parentSessionID ? { "x-parent-session-id": keyScoped(input.parentSessionID, input.auth) } : {}),
++      ...(wire.parent ? { "x-parent-session-id": wire.parent } : {}),
        ...input.model.headers,
        ...headers,
      },
@@ -862,18 +957,19 @@ index 5646267..2405da5 100644
                      Effect.andThen((rotated) => {
                        if (rotated.key) {
 diff --git a/packages/opencode/src/session/session.ts b/packages/opencode/src/session/session.ts
-index 424776b..03963f8 100644
+index 424776b..aa3648a 100644
 --- a/packages/opencode/src/session/session.ts
 +++ b/packages/opencode/src/session/session.ts
-@@ -10,6 +10,7 @@ import type { ProviderMetadata, Usage } from "@opencode-ai/llm"
+@@ -10,6 +10,8 @@ import type { ProviderMetadata, Usage } from "@opencode-ai/llm"
  import { InstallationVersion } from "@opencode-ai/core/installation/version"
  import { Database } from "@opencode-ai/core/database/database"
  import { EventV2Bridge } from "@/event-v2-bridge"
 +import * as AuthPool from "@/auth/pool"
++import * as AuthWireIdentity from "@/auth/wire-identity"
  import { SessionV2 } from "@opencode-ai/core/session"
  import * as SessionExecutionLocal from "@opencode-ai/core/session/execution/local"
  import { locationServiceMapLayer } from "@opencode-ai/core/location-services"
-@@ -488,7 +489,7 @@ export type Patch = Omit<Partial<Info>, "time" | "share" | "summary" | "revert"
+@@ -488,7 +490,7 @@ export type Patch = Omit<Partial<Info>, "time" | "share" | "summary" | "revert"
  const layer: Layer.Layer<
    Service,
    never,
@@ -882,7 +978,7 @@ index 424776b..03963f8 100644
  > = Layer.effect(
    Service,
    Effect.gen(function* () {
-@@ -497,6 +498,7 @@ const layer: Layer.Layer<
+@@ -497,6 +499,7 @@ const layer: Layer.Layer<
      const background = yield* BackgroundJob.Service
      const events = yield* EventV2Bridge.Service
      const flags = yield* RuntimeFlags.Service
@@ -890,17 +986,19 @@ index 424776b..03963f8 100644
  
      const createNext = Effect.fn("Session.createNext")(function* (input: {
        id?: SessionID
-@@ -623,6 +625,9 @@ const layer: Layer.Layer<
+@@ -623,6 +626,11 @@ const layer: Layer.Layer<
  
          yield* events.publish(SessionV1.Event.Deleted, { sessionID, info: session })
          yield* events.remove(sessionID)
 +        // Free the key this session was holding so another session can pick it up
 +        // immediately instead of waiting for the lease TTL to lapse.
 +        yield* authPool.releaseSession(sessionID)
++        // Drop the per-key wire identities minted for it as well.
++        AuthWireIdentity.release(sessionID)
        } catch (error) {
          yield* Effect.logError("failed to remove session", { sessionID, error })
        }
-@@ -1018,7 +1023,7 @@ function listByProject(
+@@ -1018,7 +1026,7 @@ function listByProject(
  export const node = LayerNode.make({
    service: Service,
    layer: layer,
@@ -909,24 +1007,53 @@ index 424776b..03963f8 100644
  })
  
  export * as Session from "./session"
+diff --git a/packages/opencode/test/control-plane/workspace.test.ts b/packages/opencode/test/control-plane/workspace.test.ts
+index 6d90eee..e7a026b 100644
+--- a/packages/opencode/test/control-plane/workspace.test.ts
++++ b/packages/opencode/test/control-plane/workspace.test.ts
+@@ -175,6 +175,9 @@ function recordedAdapter(input: {
+   create?: (info: WorkspaceInfo, env: Record<string, string | undefined>, from?: WorkspaceInfo) => Promise<void>
+   list?: () => Omit<WorkspaceInfo, "id">[] | Promise<Omit<WorkspaceInfo, "id">[]>
+   remove?: (info: WorkspaceInfo) => Promise<void>
++  // Adapters that stay on this machine opt in to being handed the credential
++  // store; one that reaches a remote endpoint must not receive it.
++  local?: boolean
+ }): RecordedAdapter {
+   const calls: RecordedAdapter["calls"] = {
+     configure: [],
+@@ -189,6 +192,7 @@ function recordedAdapter(input: {
+     adapter: {
+       name: "recorded",
+       description: "recorded",
++      ...(input.local === undefined ? {} : { local: input.local }),
+       configure(info) {
+         calls.configure.push(structuredClone(info))
+         return input.configure?.(info) ?? info
+@@ -448,6 +452,7 @@ describe("workspace CRUD", () => {
+         const type = unique("create-local")
+         const targetDir = path.join(instance.directory, "created-local")
+         const recorded = recordedAdapter({
++          local: true,
+           configure(info) {
+             return {
+               ...info,
 diff --git a/packages/opencode/test/provider/header-identity.test.ts b/packages/opencode/test/provider/header-identity.test.ts
 new file mode 100644
-index 0000000..d0013ca
+index 0000000..e101439
 --- /dev/null
 +++ b/packages/opencode/test/provider/header-identity.test.ts
-@@ -0,0 +1,76 @@
+@@ -0,0 +1,119 @@
 +// Proves the header contract, which is the part that is easy to get wrong by
-+// accident: the set of field names must equal upstream's, and the identifying
-+// values must be stable per key but different across keys.
++// accident: the set of field names must equal upstream's, and a session that
++// stays on one key must put upstream's own values on the wire, byte for byte.
 +import { expect, test } from "bun:test"
 +import { readFileSync } from "fs"
 +import { join } from "path"
-+import { createHash } from "crypto"
++import { AuthWireIdentity } from "../../src/auth/wire-identity"
 +
-+// The literal field names upstream v1.18.31 sends in session/llm/request.ts, read
-+// off that file rather than off our own, so the guard stays meaningful after this
-+// patch lands. `x-opencode-project` is the one this patch changes the value of; the
-+// contract is that the field is still there.
++// The literal field names upstream sends in session/llm/request.ts, transcribed
++// at the base version named in the tatepatch VERSION file. Re-read this list when
++// the base version moves.
 +const UPSTREAM_HEADER_FIELDS = [
 +  "User-Agent",
 +  "X-Session-Id",
@@ -954,43 +1081,88 @@ index 0000000..d0013ca
 +  expect(current).toEqual([...UPSTREAM_HEADER_FIELDS].toSorted())
 +})
 +
-+// The same derivation the client uses, so this checks the property rather than a
-+// hard-coded expectation.
-+const keyScoped = (value: string, key: string | undefined): string => {
-+  if (!key) return value
-+  return createHash("sha256").update(`${value}\u0000${key}`).digest("hex").slice(0, 32)
-+}
++const SESSION = "ses_0123456789abcdefghijklmn"
++const MESSAGE = "msg_0123456789abcdefghijklmn"
++const PROJECT = "783c65d89f614968990f66a33764ba28df48704a"
 +
-+test("an identity is stable while the session stays on one key", () => {
-+  expect(keyScoped("ses_1", "key-A")).toBe(keyScoped("ses_1", "key-A"))
++const wire = (key?: string) =>
++  AuthWireIdentity.identity({
++    sessionID: SESSION,
++    messageID: MESSAGE,
++    projectID: PROJECT,
++    key,
++  })
++
++test("a session that stays on one key sends upstream's own values", () => {
++  const out = wire("key-A")
++  expect(out.session).toBe(SESSION)
++  expect(out.message).toBe(MESSAGE)
++  expect(out.project).toBe(PROJECT)
 +})
 +
-+test("rotating to another key presents a fingerprint that key has never seen", () => {
-+  expect(keyScoped("ses_1", "key-B")).not.toBe(keyScoped("ses_1", "key-A"))
++test("a request with no API key is passed through unchanged", () => {
++  const out = wire(undefined)
++  expect(out.session).toBe(SESSION)
++  expect(out.message).toBe(MESSAGE)
++  expect(out.project).toBe(PROJECT)
 +})
 +
-+test("the project identity is preserved per key rather than removed", () => {
-+  // Same key, same project: stable, so a gateway can still cache per account.
-+  expect(keyScoped("git-remote:proj", "key-A")).toBe(keyScoped("git-remote:proj", "key-A"))
-+  // Different key, same checkout: a different project identity, so the two
-+  // accounts are not known to be the same machine.
-+  expect(keyScoped("git-remote:proj", "key-B")).not.toBe(keyScoped("git-remote:proj", "key-A"))
++test("a rotated key sends none of the strings the previous key was shown", () => {
++  const first = wire("key-A")
++  const second = wire("key-B")
++  expect(second.session).not.toBe(first.session)
++  expect(second.message).not.toBe(first.message)
++  expect(second.project).not.toBe(first.project)
 +})
 +
-+test("two different projects on one key stay distinguishable", () => {
-+  expect(keyScoped("git-remote:projA", "key-A")).not.toBe(keyScoped("git-remote:projB", "key-A"))
++test("a minted value keeps upstream's own format", () => {
++  const out = wire("key-B")
++  // Upstream identifiers are <prefix>_<26 chars>: 12 hex then 14 base62.
++  expect(out.session).toMatch(/^ses_[0-9a-f]{12}[0-9A-Za-z]{14}$/)
++  expect(out.message).toMatch(/^msg_[0-9a-f]{12}[0-9A-Za-z]{14}$/)
++  // Upstream project ids are 40 hex characters.
++  expect(out.project).toMatch(/^[0-9a-f]{40}$/)
 +})
 +
-+test("the derived value does not contain the key or the seed", () => {
-+  const derived = keyScoped("git-remote:proj", "sk-secret-value")
-+  expect(derived).not.toContain("sk-secret-value")
-+  expect(derived).not.toContain("git-remote")
-+  expect(derived).toMatch(/^[0-9a-f]{32}$/)
++test("a minted value does not contain the seed", () => {
++  const out = wire("key-B")
++  expect(out.project).not.toContain("git-remote")
++  expect(out.session).not.toContain(SESSION)
 +})
 +
-+test("a request without an API key is passed through unchanged", () => {
-+  expect(keyScoped("ses_1", undefined)).toBe("ses_1")
++test("an identity is stable while a key stays in use, so a gateway can cache it", () => {
++  expect(wire("key-A")).toEqual(wire("key-A"))
 +})
++
++test("a key that comes back presents the identity it had before", () => {
++  const before = wire("key-A")
++  wire("key-B")
++  expect(wire("key-A")).toEqual(before)
++})
++
++test("two sessions on one key stay distinguishable", () => {
++  const other = AuthWireIdentity.identity({ sessionID: "ses_other", messageID: MESSAGE, key: "key-C" })
++  expect(other.session).not.toBe(wire("key-C").session)
++})
++
++test("the parent identity follows the same rotation as the session", () => {
++  const parent = "ses_parent0123456789abcdefghi"
++  const out = (key?: string) =>
++    AuthWireIdentity.identity({ sessionID: SESSION, messageID: MESSAGE, parentSessionID: parent, key })
++  expect(out("key-A").parent).toBe(parent)
++  expect(out("key-B").parent).not.toBe(parent)
++  expect(out("key-B").parent).toMatch(/^ses_[0-9a-f]{12}[0-9A-Za-z]{14}$/)
++})
++
++test("releasing a session drops its identities", () => {
++  AuthWireIdentity.identity({ sessionID: "ses_release", messageID: MESSAGE, key: "key-A" })
++  AuthWireIdentity.release("ses_release")
++  // Back to epoch 0: the fresh session presents upstream's own values again.
++  expect(
++    AuthWireIdentity.identity({ sessionID: "ses_release", messageID: MESSAGE, key: "key-A" }).message,
++  ).toBe(MESSAGE)
++})
+\ No newline at end of file
 diff --git a/packages/opencode/test/provider/key-switch.test.ts b/packages/opencode/test/provider/key-switch.test.ts
 new file mode 100644
 index 0000000..1153e4c

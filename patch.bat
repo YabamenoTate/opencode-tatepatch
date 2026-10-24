@@ -24,6 +24,7 @@ set "VERSION_FILE=%TATEPATCH_DIR%VERSION"
 set "WORK_DIR=%TATEPATCH_DIR%_work"
 set "SOURCE_DIR=%WORK_DIR%\source"
 set "BACKUP_FILE=%TATEPATCH_DIR%opencode-official-backup.exe"
+set "SCRIPT_ABS=%~f0"
 
 REM ---------------------------------------------------------------------------
 REM Version settings. VERSION is the single source of truth; everything below is
@@ -149,6 +150,8 @@ for %%p in (
     remove-upsell.patch
     trash.patch
     anti-key-stick.patch
+    shell-background.patch
+    wait-commit.patch
 ) do (
     if exist "%PATCHES_DIR%\%%p" (
         echo Applying %%p ...
@@ -181,7 +184,7 @@ if %errorlevel% neq 0 (
 )
 echo   Base: !TATEPATCH_BASE_VERSION!  level: !TATEPATCH_PATCH_LEVEL!
 findstr /S /C:"@@TATEPATCH_" "%SOURCE_DIR%\*.ts" "%SOURCE_DIR%\*.tsx" >nul 2>&1
-if not %errorlevel% equ 0 (
+if %errorlevel% equ 0 (
     echo FAILED: Unsubstituted @@TATEPATCH_* placeholders remain in %SOURCE_DIR%
     popd
     exit /b 1
@@ -232,21 +235,37 @@ if "%BINARY_PATH%"=="" (
     popd
     exit /b 1
 )
+REM The scratch list only exists to carry the path out of `dir`; do not leave it
+REM in the repo.
+del /q "%TATEPATCH_DIR%\_binary_list.txt" 2>nul
 
 REM Verify version
 echo.
 echo ^=^=^> Installing patched binary
 echo Backing up original to %BACKUP_FILE%
 copy /y "%OPENCODE_BIN%" "%BACKUP_FILE%" >nul
+if %errorlevel% neq 0 (
+    echo FAILED: Could not back up %OPENCODE_BIN% to %BACKUP_FILE%
+    echo        The target is probably locked. Close opencode and retry.
+    popd
+    exit /b 1
+)
 echo Installing patched binary
 copy /y "%BINARY_PATH%" "%OPENCODE_BIN%" >nul
+if %errorlevel% neq 0 (
+    echo FAILED: Could not install patched binary to %OPENCODE_BIN%
+    echo        The target is probably locked. Close opencode and retry.
+    echo        Original was backed up to %BACKUP_FILE%
+    popd
+    exit /b 1
+)
 
 echo.
 echo ^=^=^= Installation complete! ^=^=^=
 for /f "tokens=*" %%v in ('"%OPENCODE_BIN%" --version 2^>nul') do echo Version: %%v
 echo.
 echo "!TATEPATCH_LABEL!" appears in version output on success.
-echo Restore original: %~0 unapply
+echo Restore original: %SCRIPT_ABS% unapply
 
 popd
 goto :eof

@@ -1,0 +1,671 @@
+diff --git a/packages/core/src/cross-spawn-spawner.ts b/packages/core/src/cross-spawn-spawner.ts
+index 6ea9022..cbcb520 100644
+--- a/packages/core/src/cross-spawn-spawner.ts
++++ b/packages/core/src/cross-spawn-spawner.ts
+@@ -96,6 +96,20 @@ const toPlatformError = (
+ 
+ type ExitSignal = Deferred.Deferred<readonly [code: number | null, signal: NodeJS.Signals | null]>
+ 
++/**
++ * Pids the caller has explicitly taken ownership of.
++ *
++ * Scope teardown kills the process it spawned, which is the right default but
++ * makes it impossible to move a still-running command into the background: the
++ * scope is exactly what we want to close in order to stop waiting on it. A pid
++ * registered here is skipped by every teardown path, so the command survives and
++ * keeps running after the caller has walked away.
++ *
++ * Entries are removed when the process actually closes, so the set stays bounded
++ * even though a backgrounded command is never awaited again.
++ */
++const backgrounded = new Set<number>()
++
+ export const make = Effect.gen(function* () {
+   const fs = yield* FileSystem.FileSystem
+   const path = yield* Path.Path
+@@ -279,12 +293,14 @@ export const make = Effect.gen(function* () {
+       proc.on("close", (...args) => {
+         if (end) return
+         end = true
++        backgrounded.delete(proc.pid!)
+         Deferred.doneUnsafe(signal, Exit.succeed(exit ?? args))
+       })
+       proc.on("spawn", () => {
+         resume(Effect.succeed([proc, signal]))
+       })
+       return Effect.sync(() => {
++        if (backgrounded.has(proc.pid!)) return
+         proc.kill("SIGTERM")
+       })
+     })
+@@ -380,6 +396,7 @@ export const make = Effect.gen(function* () {
+               windowsHide: process.platform === "win32",
+             }),
+             Effect.fnUntraced(function* ([proc, signal]) {
++              if (backgrounded.has(proc.pid!)) return yield* Effect.void
+               const done = yield* Deferred.isDone(signal)
+               const kill = timeout(proc, command, command.options)
+               if (done) {
+@@ -504,4 +521,15 @@ const layer: Layer.Layer<ChildProcessSpawner, never, FileSystem.FileSystem | Pat
+ 
+ export const node = makeGlobalNode({ service: ChildProcessSpawner, layer, deps: [filesystem, path] })
+ 
++/**
++ * Declare that the caller is done waiting on `pid` but wants it to keep running.
++ *
++ * After this call the process survives scope teardown, so the caller must also
++ * stop reading its output through an interruptible scope — otherwise the child
++ * gets `EPIPE` the next time it writes and dies anyway.
++ */
++export const background = (pid: number): void => {
++  if (Number.isFinite(pid) && pid > 0) backgrounded.add(pid)
++}
++
+ export * as CrossSpawnSpawner from "./cross-spawn-spawner"
+diff --git a/packages/opencode/src/effect/runtime-flags.ts b/packages/opencode/src/effect/runtime-flags.ts
+index 65e02f0..377fb10 100644
+--- a/packages/opencode/src/effect/runtime-flags.ts
++++ b/packages/opencode/src/effect/runtime-flags.ts
+@@ -51,6 +51,7 @@ export class Service extends ConfigService.Service<Service>()("@opencode/Runtime
+   experimentalIconDiscovery: enabledByExperimental("OPENCODE_EXPERIMENTAL_ICON_DISCOVERY"),
+   outputTokenMax: positiveInteger("OPENCODE_EXPERIMENTAL_OUTPUT_TOKEN_MAX"),
+   bashDefaultTimeoutMs: positiveInteger("OPENCODE_EXPERIMENTAL_BASH_DEFAULT_TIMEOUT_MS"),
++  bashIdleTimeoutMs: positiveInteger("OPENCODE_EXPERIMENTAL_BASH_IDLE_TIMEOUT_MS"),
+   experimentalNativeLlm: bool("OPENCODE_EXPERIMENTAL_NATIVE_LLM"),
+   experimentalWebSockets: bool("OPENCODE_EXPERIMENTAL_WEBSOCKETS"),
+   client: Config.string("OPENCODE_CLIENT").pipe(Config.withDefault("cli")),
+diff --git a/packages/opencode/src/tool/shell.ts b/packages/opencode/src/tool/shell.ts
+index 1e4423e..8929495 100644
+--- a/packages/opencode/src/tool/shell.ts
++++ b/packages/opencode/src/tool/shell.ts
+@@ -14,6 +14,7 @@ import { Config } from "@/config/config"
+ import { RuntimeFlags } from "@/effect/runtime-flags"
+ import { Shell } from "@opencode-ai/core/shell"
+ import { ShellID } from "./shell/id"
++import { background as backgroundProcess } from "@opencode-ai/core/cross-spawn-spawner"
+ 
+ import * as Truncate from "./truncate"
+ import { Plugin } from "@/plugin"
+@@ -25,6 +26,17 @@ import { BashArity } from "@/permission/arity"
+ export { Parameters } from "./shell/prompt"
+ 
+ const MAX_METADATA_LENGTH = 30_000
++/**
++ * Longest a command may go without writing anything before we stop waiting on it.
++ *
++ * The wall-clock `timeout` bounds total runtime; this bounds *silence*. A command
++ * that keeps printing for hours is a build, a test run or a download and is left
++ * alone however long it takes. A command that goes quiet for this long is a
++ * server, a watcher or a process waiting on stdin, and waiting on it blocks the
++ * whole turn — the model never gets to answer and the session appears hung.
++ */
++const IDLE_SUSPEND_MS = 5 * 60 * 1000
++const IDLE_POLL_MS = 1_000
+ const CWD = new Set(["cd", "chdir", "popd", "pushd", "push-location", "set-location"])
+ const FILES = new Set([
+   ...CWD,
+@@ -344,7 +356,13 @@ export const ShellTool = Tool.define(
+     const trunc = yield* Truncate.Service
+     const plugin = yield* Plugin.Service
+     const flags = yield* RuntimeFlags.Service
+-    const defaultTimeoutMs = flags.bashDefaultTimeoutMs ?? 2 * 60 * 1000
++    // No default wall-clock timeout. A command that is still producing output is
++    // doing real work - a build, a test run, a download - and may legitimately take
++    // hours, so nothing here is allowed to stop it just for having run a long time.
++    // Liveness is judged by output (see IDLE_SUSPEND_MS), and the only way a command
++    // gets cut short is an explicitly requested timeout or an abort.
++    const defaultTimeoutMs = flags.bashDefaultTimeoutMs
++    const idleTimeoutMs = flags.bashIdleTimeoutMs ?? IDLE_SUSPEND_MS
+ 
+     const cygpath = Effect.fn("ShellTool.cygpath")(function* (shell: string, text: string) {
+       const lines = yield* spawner
+@@ -431,7 +449,7 @@ export const ShellTool = Tool.define(
+         command: string
+         cwd: string
+         env: NodeJS.ProcessEnv
+-        timeout: number
++        timeout: number | undefined
+       },
+       ctx: Tool.Context,
+     ) {
+@@ -446,6 +464,11 @@ export const ShellTool = Tool.define(
+       let cut = false
+       let expired = false
+       let aborted = false
++      let suspended = false
++      let backgroundPid: number | undefined
++      let backgroundFile = ""
++      let backgroundSink: ReturnType<typeof createWriteStream> | undefined
++      let lastOutputAt = Date.now()
+ 
+       const closeSink = Effect.fnUntraced(function* () {
+         const stream = sink
+@@ -483,8 +506,33 @@ export const ShellTool = Tool.define(
+           yield* Effect.addFinalizer(closeSink)
+           const handle = yield* spawner.spawn(cmd(input.shell, input.command, input.cwd, input.env))
+ 
+-          yield* Effect.forkScoped(
++          // Detached rather than scoped: once the command is moved to the
++          // background the scope that spawned it has to close, and a scoped fork
++          // would be interrupted at that point. Stopping reading means the child
++          // gets EPIPE the next time it logs and dies, which defeats the purpose.
++          // The fiber ends on its own when the process finally exits.
++          yield* Effect.forkDetach(
+             Stream.runForEach(Stream.decodeText(handle.all), (chunk) => {
++              lastOutputAt = Date.now()
++
++              // After suspension this tool call is already finished. Keep draining
++              // so the child lives, but stop feeding a completed call.
++              if (suspended) {
++                if (!backgroundFile) {
++                  return trunc.write("").pipe(
++                    Effect.andThen((next) =>
++                      Effect.sync(() => {
++                        backgroundFile = next
++                        backgroundSink = createWriteStream(next, { flags: "a" })
++                        backgroundSink.write(chunk)
++                      }),
++                    ),
++                  )
++                }
++                backgroundSink?.write(chunk)
++                return Effect.void
++              }
++
+               const size = Buffer.byteLength(chunk, "utf-8")
+               list.push({ text: chunk, size })
+               used += size
+@@ -537,13 +585,36 @@ export const ShellTool = Tool.define(
+             return Effect.sync(() => ctx.abort.removeEventListener("abort", handler))
+           })
+ 
+-          const timeout = Effect.sleep(`${input.timeout + 100} millis`)
++          // Fires only after a full idleTimeoutMs with no output at all. A
++          // command that keeps writing never reaches this branch no matter how
++          // long it runs, which is what keeps long builds and test runs intact.
++          const idle = Effect.gen(function* () {
++            while (Date.now() - lastOutputAt < idleTimeoutMs) {
++              yield* Effect.sleep(`${IDLE_POLL_MS} millis`)
++            }
++            return { kind: "idle" as const, code: null }
++          })
+ 
+-          const exit = yield* Effect.raceAll([
++          type Raced = { kind: "exit" | "abort" | "timeout" | "idle"; code: number | null }
++          const raced: Effect.Effect<Raced, unknown>[] = [
+             handle.exitCode.pipe(Effect.map((code) => ({ kind: "exit" as const, code }))),
+             abort.pipe(Effect.map(() => ({ kind: "abort" as const, code: null }))),
+-            timeout.pipe(Effect.map(() => ({ kind: "timeout" as const, code: null }))),
+-          ])
++          ]
++
++          // Only an explicitly requested timeout bounds the wait. When nobody asked
++          // for one there is no clock at all, so a command that keeps working is left
++          // to finish and the idle watchdog above is the only thing that ever stops
++          // us waiting.
++          if (input.timeout !== undefined) {
++            raced.push(
++              Effect.sleep(`${input.timeout + 100} millis`).pipe(
++                Effect.map(() => ({ kind: "timeout" as const, code: null })),
++              ),
++            )
++          }
++          raced.push(idle)
++
++          const exit = yield* Effect.raceAll(raced)
+ 
+           if (exit.kind === "abort") {
+             aborted = true
+@@ -553,12 +624,44 @@ export const ShellTool = Tool.define(
+             expired = true
+             yield* handle.kill({ forceKillAfter: "3 seconds" }).pipe(Effect.orDie)
+           }
++          if (exit.kind === "idle") {
++            // Ctrl+Z rather than kill: the caller stops waiting, the command does
++            // not stop running. Releasing the handle from this scope is what makes
++            // that possible, and unref keeps it from holding the process open.
++            suspended = true
++            const pid = Number(handle.pid)
++            backgroundProcess(pid)
++            backgroundPid = Number.isFinite(pid) && pid > 0 ? pid : undefined
++            yield* handle.unref
++            yield* Effect.logInfo("shell tool backgrounded idle command", {
++              command: input.command,
++              pid: backgroundPid,
++            })
++          }
+ 
+           return exit.kind === "exit" ? exit.code : null
+         }),
+       ).pipe(Effect.orDie)
+ 
+       const meta: string[] = []
++      if (suspended) {
++        const seconds = Math.round(idleTimeoutMs / 1000)
++        const pid = backgroundPid ?? "unknown"
++        const stop =
++          process.platform === "win32"
++            ? `Stop-Process -Id ${pid}`
++            : `kill ${pid}`
++        meta.push(
++          `This command produced no output for ${seconds}s, so it was moved to the BACKGROUND instead of being waited on. ` +
++            `It is still running (PID ${pid}); this tool call has returned so the turn can continue. ` +
++            `Further output from it is being written to: ${backgroundFile || "(no output yet)"}\n` +
++            `If you meant to run a server or any long-lived process, do NOT wait for it to exit. Start it, ` +
++            `wait about 10 seconds to see whether it came up, then end your turn and carry on with the rest of ` +
++            `the task. Check on it later by reading that log file, and stop it with: ${stop}\n` +
++            `If you need to block until this process itself finishes, call the wait tool with ` +
++            `{ "kind": "process", "pid": ${pid} } rather than starting it again.`,
++        )
++      }
+       if (expired) {
+         meta.push(
+           `shell tool terminated command after exceeding timeout ${input.timeout} ms. If this command is expected to take longer and is not waiting for interactive input, retry with a larger timeout value in milliseconds.`,
+@@ -589,6 +690,9 @@ export const ShellTool = Tool.define(
+           exit: code,
+           truncated: cut,
+           ...(cut && file ? { outputPath: file } : {}),
++          ...(suspended
++            ? { backgrounded: true, backgroundPid, backgroundLog: backgroundFile || undefined }
++            : {}),
+         },
+         output,
+       }
+@@ -600,7 +704,9 @@ export const ShellTool = Tool.define(
+         const shell = Shell.acceptable(cfg.shell)
+         const name = Shell.name(shell)
+         const limits = yield* trunc.limits()
+-        const prompt = ShellPrompt.render(name, process.platform, limits, defaultTimeoutMs)
++        const prompt = ShellPrompt.render(name, process.platform, limits, defaultTimeoutMs, {
++          idleTimeoutMs,
++        })
+         yield* Effect.logInfo("shell tool using shell", { shell })
+ 
+         return {
+@@ -615,6 +721,8 @@ export const ShellTool = Tool.define(
+               if (params.timeout !== undefined && params.timeout < 0) {
+                 throw new Error(`Invalid timeout value: ${params.timeout}. Timeout must be a positive number.`)
+               }
++              // No ceiling on the requested timeout. A build that takes hours is a
++              // legitimate command; the model is expected to size this itself.
+               const timeout = params.timeout ?? defaultTimeoutMs
+               const ps = Shell.ps(shell)
+               yield* Effect.scoped(
+diff --git a/packages/opencode/src/tool/shell/prompt.ts b/packages/opencode/src/tool/shell/prompt.ts
+index b576b77..f542943 100644
+--- a/packages/opencode/src/tool/shell/prompt.ts
++++ b/packages/opencode/src/tool/shell/prompt.ts
+@@ -12,6 +12,42 @@ export type Limits = {
+   maxBytes: number
+ }
+ 
++export type Bounds = {
++  idleTimeoutMs: number
++}
++
++/**
++ * Guidance for commands that never finish on their own. Without this the model
++ * starts a dev server in the foreground and the turn sits there until something
++ * kills it, which reads to the user as a hung session.
++ */
++function longLivedSection(bounds: Bounds) {
++  return `  - Long-lived processes (dev servers, watchers, tail -f, REPLs): NEVER wait for them to exit.
++    Start the process, wait about 10 seconds to confirm it came up, then end this tool call and carry
++    on with the rest of the task. Checking on it later is done by reading its log, not by blocking here.
++  - If a command produces no output for ${Math.round(bounds.idleTimeoutMs / 1000)}s, this tool moves it to
++    the background and returns immediately with its PID instead of waiting. A command that keeps
++    printing is never suspended however long it runs, so there is no reason to shorten a timeout
++    for a build or a test run - just give it the timeout it actually needs. So backgrounding is a
++    safety net, not a way to run a server properly - you lose the chance to see whether it started
++    correctly.`
++}
++
++/**
++ * Wording for the timeout bullet. With no configured default there is no clock to
++ * mention at all, which is the whole point: nothing stops a command that keeps
++ * producing output.
++ */
++function timeoutLine(defaultTimeoutMs: number | undefined) {
++  const base =
++    defaultTimeoutMs === undefined
++      ? `If you do not specify one there is no time limit at all`
++      : `If you do not specify one, commands will time out after ${defaultTimeoutMs}ms`
++  return `  - You can specify an optional timeout in milliseconds. ${base}, and there is no upper limit on
++    what you can ask for. A build or a long test run may need hours, so size it to what the command
++    really needs instead of shortening it.`
++}
++
+ export function parameterSchema() {
+   return Schema.Struct({
+     command: Schema.String.annotate({ description: "The command to execute" }),
+@@ -75,7 +111,7 @@ function chainGuidance(name: string) {
+   return "If the commands depend on each other and must run sequentially, use a single Bash call with '&&' to chain them together (e.g., `git add . && git commit -m \"message\" && git push`). For instance, if one operation must complete before another starts (like mkdir before cp, Write before Bash for git operations, or git add before git commit), run these operations sequentially instead."
+ }
+ 
+-function bashCommandSection(chain: string, limits: Limits, defaultTimeoutMs: number) {
++function bashCommandSection(chain: string, limits: Limits, defaultTimeoutMs: number | undefined, bounds: Bounds) {
+   return `Before executing the command, please follow these steps:
+ 
+ 1. Directory Verification:
+@@ -94,7 +130,9 @@ function bashCommandSection(chain: string, limits: Limits, defaultTimeoutMs: num
+ 
+ Usage notes:
+   - The command argument is required.
+-  - You can specify an optional timeout in milliseconds. If not specified, commands will time out after ${defaultTimeoutMs}ms.
++  ${timeoutLine(defaultTimeoutMs)}
++
++${longLivedSection(bounds)}
+   - If the output exceeds ${limits.maxLines} lines or ${limits.maxBytes} bytes, it will be truncated and the full output will be written to a file. You can use Read with offset/limit to read specific sections or Grep to search the full content. Do NOT use \`head\`, \`tail\`, or other truncation commands to limit output; the full output will already be captured to a file for more precise searching.
+ 
+   - Avoid using Bash with the \`find\`, \`grep\`, \`cat\`, \`head\`, \`tail\`, \`sed\`, \`awk\`, or \`echo\` commands, unless explicitly instructed or when these commands are truly necessary for the task. Instead, always prefer using the dedicated tools for these commands:
+@@ -123,7 +161,8 @@ function powershellCommandSection(
+   chain: string,
+   pathSep: string,
+   limits: Limits,
+-  defaultTimeoutMs: number,
++  defaultTimeoutMs: number | undefined,
++  bounds: Bounds,
+ ) {
+   return `${powershellNotes(name)}
+ 
+@@ -145,7 +184,9 @@ Before executing the command, please follow these steps:
+ 
+ Usage notes:
+   - The command argument is required.
+-  - You can specify an optional timeout in milliseconds. If not specified, commands will time out after ${defaultTimeoutMs}ms.
++  ${timeoutLine(defaultTimeoutMs)}
++
++${longLivedSection(bounds)}
+   - If the output exceeds ${limits.maxLines} lines or ${limits.maxBytes} bytes, it will be truncated and the full output will be written to a file. You can use Read with offset/limit to read specific sections or Grep to search the full content. Do NOT use \`Select-Object -First\`, \`Select-Object -Last\`, or other truncation commands to limit output; the full output will already be captured to a file for more precise searching.
+ 
+   - Avoid using Shell with PowerShell file/content cmdlets unless explicitly instructed or when these cmdlets are truly necessary for the task. Instead, always prefer using the dedicated tools for these commands:
+@@ -169,7 +210,7 @@ Usage notes:
+     </bad-example>`
+ }
+ 
+-function cmdCommandSection(chain: string, limits: Limits, defaultTimeoutMs: number) {
++function cmdCommandSection(chain: string, limits: Limits, defaultTimeoutMs: number | undefined, bounds: Bounds) {
+   return `# cmd.exe shell notes
+ - Use double quotes for paths with spaces.
+ - Use %VAR% for environment variables.
+@@ -194,7 +235,9 @@ Before executing the command, please follow these steps:
+ 
+ Usage notes:
+   - The command argument is required.
+-  - You can specify an optional timeout in milliseconds. If not specified, commands will time out after ${defaultTimeoutMs}ms.
++  ${timeoutLine(defaultTimeoutMs)}
++
++${longLivedSection(bounds)}
+   - If the output exceeds ${limits.maxLines} lines or ${limits.maxBytes} bytes, it will be truncated and the full output will be written to a file. You can use Read with offset/limit to read specific sections or Grep to search the full content. Do NOT use \`more\` or other pagination commands to limit output; the full output will already be captured to a file for more precise searching.
+ 
+   - Avoid using Shell with cmd.exe file/content commands unless explicitly instructed or when these commands are truly necessary for the task. Instead, always prefer using the dedicated tools for these commands:
+@@ -218,7 +261,13 @@ Usage notes:
+     </bad-example>`
+ }
+ 
+-function profile(name: string, platform: NodeJS.Platform, limits: Limits, defaultTimeoutMs: number) {
++function profile(
++  name: string,
++  platform: NodeJS.Platform,
++  limits: Limits,
++  defaultTimeoutMs: number | undefined,
++  bounds: Bounds,
++) {
+   const isPowerShell = PS.has(name)
+   const chain = chainGuidance(name)
+   if (CMD.has(name)) {
+@@ -226,7 +275,7 @@ function profile(name: string, platform: NodeJS.Platform, limits: Limits, defaul
+       intro: `Executes a given ${shellDisplayName(name)} command with optional timeout, ensuring proper handling and security measures.`,
+       workdirSection:
+         "All commands run in the current working directory by default. Use the `workdir` parameter if you need to run a command in a different directory. AVOID changing directories inside the command - use `workdir` instead.",
+-      commandSection: cmdCommandSection(chain, limits, defaultTimeoutMs),
++      commandSection: cmdCommandSection(chain, limits, defaultTimeoutMs, bounds),
+       gitCommands: "git commands",
+       gitCommandRestriction: "git commands",
+       createPrInstruction: "Create PR using a temporary body file so cmd.exe quoting stays simple.",
+@@ -244,6 +293,7 @@ function profile(name: string, platform: NodeJS.Platform, limits: Limits, defaul
+         platform === "win32" ? "\\" : "/",
+         limits,
+         defaultTimeoutMs,
++        bounds,
+       ),
+       gitCommands: "git commands",
+       gitCommandRestriction: "git commands",
+@@ -259,7 +309,7 @@ function profile(name: string, platform: NodeJS.Platform, limits: Limits, defaul
+       "Executes a given bash command in a persistent shell session with optional timeout, ensuring proper handling and security measures.",
+     workdirSection:
+       "All commands run in the current working directory by default. Use the `workdir` parameter if you need to run a command in a different directory. AVOID using `cd <directory> && <command>` patterns - use `workdir` instead.",
+-    commandSection: bashCommandSection(chain, limits, defaultTimeoutMs),
++    commandSection: bashCommandSection(chain, limits, defaultTimeoutMs, bounds),
+     gitCommands: "bash commands",
+     gitCommandRestriction: "git bash commands",
+     createPrInstruction:
+@@ -270,8 +320,14 @@ function profile(name: string, platform: NodeJS.Platform, limits: Limits, defaul
+   }
+ }
+ 
+-export function render(name: string, platform: NodeJS.Platform, limits: Limits, defaultTimeoutMs: number) {
+-  const selected = profile(name, platform, limits, defaultTimeoutMs)
++export function render(
++  name: string,
++  platform: NodeJS.Platform,
++  limits: Limits,
++  defaultTimeoutMs: number | undefined,
++  bounds: Bounds,
++) {
++  const selected = profile(name, platform, limits, defaultTimeoutMs, bounds)
+   return {
+     description: renderPrompt(DESCRIPTION, {
+       intro: selected.intro,
+diff --git a/packages/opencode/test/tool/shell.test.ts b/packages/opencode/test/tool/shell.test.ts
+index a970f85..21026e2 100644
+--- a/packages/opencode/test/tool/shell.test.ts
++++ b/packages/opencode/test/tool/shell.test.ts
+@@ -1131,6 +1131,207 @@ describe("tool.shell abort", () => {
+   )
+ })
+ 
++describe("tool.shell idle backgrounding", () => {
++  const idle = RuntimeFlags.layer({ bashIdleTimeoutMs: 1500 })
++
++  const alive = (pid: number) =>
++    Effect.sync(() => {
++      if (process.platform === "win32") {
++        const out = Bun.spawnSync(["tasklist", "/FI", `PID eq ${pid}`, "/NH"]).stdout.toString()
++        return out.includes(String(pid))
++      }
++      try {
++        process.kill(pid, 0)
++        return true
++      } catch {
++        return false
++      }
++    })
++
++  const reap = (pid: number) =>
++    Effect.sync(() => {
++      if (process.platform === "win32") Bun.spawnSync(["taskkill", "/PID", String(pid), "/T", "/F"])
++      else {
++        try {
++          process.kill(-pid, "SIGKILL")
++        } catch {
++          try {
++            process.kill(pid, "SIGKILL")
++          } catch {}
++        }
++      }
++    })
++
++  it.live(
++    "moves a silent long-running command to the background instead of waiting for it",
++    () =>
++      runIn(
++        projectRoot,
++        Effect.gen(function* () {
++          const started = Date.now()
++          const result = yield* run({ command: `sleep 60` })
++          const elapsed = Date.now() - started
++
++          // The whole point: the turn is not held open for the command.
++          expect(elapsed).toBeLessThan(30_000)
++          expect(result.output).toContain("moved to the BACKGROUND")
++          expect(result.output).toContain("wait about 10 seconds")
++          expect(result.metadata.exit).toBeNull()
++          expect((result.metadata as { backgrounded?: boolean }).backgrounded).toBe(true)
++
++          const pid = (result.metadata as { backgroundPid?: number }).backgroundPid
++          expect(typeof pid).toBe("number")
++
++          // Scope teardown runs as soon as the tool call returns. If it killed the
++          // process the "background" promise would be a lie.
++          expect(yield* alive(pid!)).toBe(true)
++          yield* reap(pid!)
++        }),
++      ).pipe(Effect.provide(idle)),
++    60_000,
++  )
++
++  it.live(
++    "reports the background pid and its log file in the tool result",
++    () =>
++      runIn(
++        projectRoot,
++        Effect.gen(function* () {
++          const result = yield* run({ command: `sleep 60` })
++          const pid = (result.metadata as { backgroundPid?: number }).backgroundPid
++          expect(result.output).toContain(`PID ${pid}`)
++          expect(result.output).toContain("Stop-Process -Id")
++          yield* reap(pid!)
++        }),
++      ).pipe(Effect.provide(idle)),
++    60_000,
++  )
++
++  it.live(
++    "never suspends a command that keeps producing output",
++    () =>
++      runIn(
++        projectRoot,
++        Effect.gen(function* () {
++          const code = `for (let i = 0; i < 10; i++) { console.log("tick" + i); await new Promise((r) => setTimeout(r, 400)) }`
++          const text = `${bin} -e ${evalarg(code)}`
++          const result = yield* run({ command: PS.has(sh()) ? `& ${text}` : text })
++
++          expect(result.metadata.exit).toBe(0)
++          expect(result.output).toContain("tick0")
++          expect(result.output).toContain("tick9")
++          expect(result.output).not.toContain("moved to the BACKGROUND")
++          expect((result.metadata as { backgrounded?: boolean }).backgrounded).toBeUndefined()
++        }),
++      ).pipe(Effect.provide(idle)),
++    30_000,
++  )
++
++  it.live(
++    "backgrounds a silent command instead of killing it when no timeout is requested",
++    () =>
++      runIn(
++        projectRoot,
++        Effect.gen(function* () {
++          // Regression: the tool used to impose a 2 minute wall-clock default. That
++          // default fired *before* the idle window, so a silent command was killed and
++          // never reached the background path at all - the feature was inert.
++          const flags = RuntimeFlags.layer({ bashDefaultTimeoutMs: undefined, bashIdleTimeoutMs: 1_500 })
++          const result = yield* run({ command: `sleep 60` }).pipe(Effect.provide(flags))
++          const md = result.metadata as { backgrounded?: boolean; backgroundPid?: number }
++          const pid = md.backgroundPid
++          try {
++            expect(result.output).toContain("moved to the BACKGROUND")
++            expect(result.output).not.toContain("exceeding timeout")
++            expect(md.backgrounded).toBe(true)
++            expect(typeof pid).toBe("number")
++            expect(yield* alive(pid!)).toBe(true)
++          } finally {
++            if (pid) yield* reap(pid)
++          }
++        }),
++      ).pipe(Effect.provide(idle)),
++    60_000,
++  )
++
++  it.live(
++    "backgrounds a server even when a huge timeout was requested",
++    () =>
++      runIn(
++        projectRoot,
++        Effect.gen(function* () {
++          // This is the real-world path: the model starts a dev server and asks for a
++          // multi-hour timeout, so the shell used to sit there indefinitely. A huge
++          // timeout must not buy the turn back - the idle window still ends the wait.
++          const twoHours = 2 * 60 * 60 * 1000
++          const result = yield* run({ command: `sleep 60`, timeout: twoHours })
++          const md = result.metadata as { backgrounded?: boolean; backgroundPid?: number }
++          const pid = md.backgroundPid
++          try {
++            expect(result.output).toContain("moved to the BACKGROUND")
++            expect(result.output).not.toContain("exceeding timeout")
++            expect(md.backgrounded).toBe(true)
++            expect(typeof pid).toBe("number")
++            expect(yield* alive(pid!)).toBe(true)
++          } finally {
++            if (pid) yield* reap(pid)
++          }
++        }),
++      ).pipe(Effect.provide(idle)),
++    60_000,
++  )
++
++  it.live(
++    "still enforces a timeout when one is explicitly requested",
++    () =>
++      runIn(
++        projectRoot,
++        Effect.gen(function* () {
++          // An explicit timeout is a real contract and must still be honoured. The idle
++          // window is pushed out of the way so the timeout is unambiguously the winner.
++          const flags = RuntimeFlags.layer({
++            bashDefaultTimeoutMs: undefined,
++            bashIdleTimeoutMs: 30_000,
++          })
++          const result = yield* run({ command: `sleep 60`, timeout: 1_500 }).pipe(Effect.provide(flags))
++          expect(result.output).toContain("exceeding timeout 1500 ms")
++        }),
++      ).pipe(Effect.provide(idle)),
++    60_000,
++  )
++
++  it.live("tells the model to background servers and leaves long timeouts alone", () =>
++    runIn(
++      projectRoot,
++      Effect.gen(function* () {
++        const tool = yield* initShell()
++        expect(tool.description).toContain("Long-lived processes")
++        expect(tool.description).toContain("NEVER wait for them to exit")
++        expect(tool.description).toContain("wait about 10 seconds")
++        expect(tool.description).toContain("no upper limit on")
++        expect(tool.description).toContain("no time limit at all")
++        expect(tool.description).not.toContain("capped at")
++        expect(tool.description).not.toContain("time out after 120000ms")
++      }),
++    ),
++  )
++
++  it.live("honours a requested timeout far beyond any former ceiling", () =>
++    runIn(
++      projectRoot,
++      Effect.gen(function* () {
++        // A build may legitimately be asked for hours. Nothing may clamp it, or the
++        // command is killed early instead of being allowed to finish.
++        const long = 6 * 60 * 60 * 1000
++        const text = `${bin} -e ${evalarg("console.log(1)")}`
++        const result = yield* run({ command: PS.has(sh()) ? `& ${text}` : text, timeout: long })
++        expect(result.metadata.exit).toBe(0)
++        expect(result.output).toContain("1")
++      }),
++    ),
++  )
++})
++
+ describe("tool.shell truncation", () => {
+   it.live("truncates output exceeding line limit", () =>
+     runIn(

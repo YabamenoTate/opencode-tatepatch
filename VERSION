@@ -16,7 +16,7 @@
 # To cut a release: change these two lines, and nothing else.
 
 # The opencode release this patch set is written against.
-TATEPATCH_BASE_VERSION=1.18.31
+TATEPATCH_BASE_VERSION=1.19.4
 
 # The tatepatch revision. Bump on every release.
-TATEPATCH_PATCH_LEVEL=4
+TATEPATCH_PATCH_LEVEL=5

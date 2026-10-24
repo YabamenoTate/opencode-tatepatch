@@ -1,0 +1,865 @@
+diff --git packages/opencode/src/cli/cmd/agent.ts packages/opencode/src/cli/cmd/agent.ts
+index c9c1d2c..3ae05c5 100644
+--- packages/opencode/src/cli/cmd/agent.ts
++++ packages/opencode/src/cli/cmd/agent.ts
+@@ -18,6 +18,7 @@ type AgentMode = "all" | "primary" | "subagent"
+ // agents at the permission level to match how the runtime actually enforces it.
+ const AVAILABLE_PERMISSIONS = [
+   "bash",
++  "wait",
+   "read",
+   "edit",
+   "glob",
+diff --git packages/opencode/src/tool/registry.ts packages/opencode/src/tool/registry.ts
+index 9167cb3..5e6329d 100644
+--- packages/opencode/src/tool/registry.ts
++++ packages/opencode/src/tool/registry.ts
+@@ -12,6 +12,7 @@ import { ReadTool } from "./read"
+ import { TaskTool } from "./task"
+ import { Database } from "@opencode-ai/core/database/database"
+ import { TodoWriteTool } from "./todo"
++import { WaitTool } from "./wait"
+ import { WebFetchTool } from "./webfetch"
+ import { WriteTool } from "./write"
+ import { InvalidTool } from "./invalid"
+@@ -114,6 +115,7 @@ const layer = Layer.effect(
+     const greptool = yield* GrepTool
+     const patchtool = yield* ApplyPatchTool
+     const skilltool = yield* SkillTool
++const waittool = yield* WaitTool
+     const agent = yield* Agent.Service
+     const codeMode = flags.experimentalCodeMode ? yield* Effect.promise(() => import("./code-mode")) : undefined
+     const codeModeTool = codeMode ? yield* codeMode.CodeModeTool : undefined
+@@ -217,6 +219,7 @@ const layer = Layer.effect(
+           task: Tool.init(task),
+           fetch: Tool.init(webfetch),
+           todo: Tool.init(todo),
++  wait: Tool.init(waittool),
+           search: Tool.init(websearch),
+           skill: Tool.init(skilltool),
+           patch: Tool.init(patchtool),
+@@ -240,6 +243,7 @@ const layer = Layer.effect(
+             tool.task,
+             tool.fetch,
+             tool.todo,
++            tool.wait,
+             tool.search,
+             tool.skill,
+             tool.patch,
+diff --git packages/opencode/src/tool/shell.ts packages/opencode/src/tool/shell.ts
+index 1e4423e..af0e6f0 100644
+--- packages/opencode/src/tool/shell.ts
++++ packages/opencode/src/tool/shell.ts
+@@ -14,6 +14,7 @@ import { Config } from "@/config/config"
+ import { RuntimeFlags } from "@/effect/runtime-flags"
+ import { Shell } from "@opencode-ai/core/shell"
+ import { ShellID } from "./shell/id"
++import { background as backgroundProcess } from "@opencode-ai/core/cross-spawn-spawner"
+ 
+ import * as Truncate from "./truncate"
+ import { Plugin } from "@/plugin"
+@@ -25,6 +26,17 @@ import { BashArity } from "@/permission/arity"
+ export { Parameters } from "./shell/prompt"
+ 
+ const MAX_METADATA_LENGTH = 30_000
++/**
++ * Longest a command may go without writing anything before we stop waiting on it.
++ *
++ * The wall-clock `timeout` bounds total runtime; this bounds *silence*. A command
++ * that keeps printing for hours is a build, a test run or a download and is left
++ * alone however long it takes. A command that goes quiet for this long is a
++ * server, a watcher or a process waiting on stdin, and waiting on it blocks the
++ * whole turn — the model never gets to answer and the session appears hung.
++ */
++const IDLE_SUSPEND_MS = 5 * 60 * 1000
++const IDLE_POLL_MS = 1_000
+ const CWD = new Set(["cd", "chdir", "popd", "pushd", "push-location", "set-location"])
+ const FILES = new Set([
+   ...CWD,
+@@ -344,7 +356,13 @@ export const ShellTool = Tool.define(
+     const trunc = yield* Truncate.Service
+     const plugin = yield* Plugin.Service
+     const flags = yield* RuntimeFlags.Service
+-    const defaultTimeoutMs = flags.bashDefaultTimeoutMs ?? 2 * 60 * 1000
++    // No default wall-clock timeout. A command that is still producing output is
++    // doing real work - a build, a test run, a download - and may legitimately take
++    // hours, so nothing here is allowed to stop it just for having run a long time.
++    // Liveness is judged by output (see IDLE_SUSPEND_MS), and the only way a command
++    // gets cut short is an explicitly requested timeout or an abort.
++    const defaultTimeoutMs = flags.bashDefaultTimeoutMs
++    const idleTimeoutMs = flags.bashIdleTimeoutMs ?? IDLE_SUSPEND_MS
+ 
+     const cygpath = Effect.fn("ShellTool.cygpath")(function* (shell: string, text: string) {
+       const lines = yield* spawner
+@@ -431,7 +449,7 @@ export const ShellTool = Tool.define(
+         command: string
+         cwd: string
+         env: NodeJS.ProcessEnv
+-        timeout: number
++        timeout: number | undefined
+       },
+       ctx: Tool.Context,
+     ) {
+@@ -446,6 +464,11 @@ export const ShellTool = Tool.define(
+       let cut = false
+       let expired = false
+       let aborted = false
++      let suspended = false
++      let backgroundPid: number | undefined
++      let backgroundFile = ""
++      let backgroundSink: ReturnType<typeof createWriteStream> | undefined
++      let lastOutputAt = Date.now()
+ 
+       const closeSink = Effect.fnUntraced(function* () {
+         const stream = sink
+@@ -483,8 +506,33 @@ export const ShellTool = Tool.define(
+           yield* Effect.addFinalizer(closeSink)
+           const handle = yield* spawner.spawn(cmd(input.shell, input.command, input.cwd, input.env))
+ 
+-          yield* Effect.forkScoped(
++          // Detached rather than scoped: once the command is moved to the
++          // background the scope that spawned it has to close, and a scoped fork
++          // would be interrupted at that point. Stopping reading means the child
++          // gets EPIPE the next time it logs and dies, which defeats the purpose.
++          // The fiber ends on its own when the process finally exits.
++          yield* Effect.forkDetach(
+             Stream.runForEach(Stream.decodeText(handle.all), (chunk) => {
++              lastOutputAt = Date.now()
++
++              // After suspension this tool call is already finished. Keep draining
++              // so the child lives, but stop feeding a completed call.
++              if (suspended) {
++                if (!backgroundFile) {
++                  return trunc.write("").pipe(
++                    Effect.andThen((next) =>
++                      Effect.sync(() => {
++                        backgroundFile = next
++                        backgroundSink = createWriteStream(next, { flags: "a" })
++                        backgroundSink.write(chunk)
++                      }),
++                    ),
++                  )
++                }
++                backgroundSink?.write(chunk)
++                return Effect.void
++              }
++
+               const size = Buffer.byteLength(chunk, "utf-8")
+               list.push({ text: chunk, size })
+               used += size
+@@ -537,13 +585,36 @@ export const ShellTool = Tool.define(
+             return Effect.sync(() => ctx.abort.removeEventListener("abort", handler))
+           })
+ 
+-          const timeout = Effect.sleep(`${input.timeout + 100} millis`)
++          // Fires only after a full idleTimeoutMs with no output at all. A
++          // command that keeps writing never reaches this branch no matter how
++          // long it runs, which is what keeps long builds and test runs intact.
++          const idle = Effect.gen(function* () {
++            while (Date.now() - lastOutputAt < idleTimeoutMs) {
++              yield* Effect.sleep(`${IDLE_POLL_MS} millis`)
++            }
++            return { kind: "idle" as const, code: null }
++          })
+ 
+-          const exit = yield* Effect.raceAll([
++          type Raced = { kind: "exit" | "abort" | "timeout" | "idle"; code: number | null }
++          const raced: Effect.Effect<Raced, unknown>[] = [
+             handle.exitCode.pipe(Effect.map((code) => ({ kind: "exit" as const, code }))),
+             abort.pipe(Effect.map(() => ({ kind: "abort" as const, code: null }))),
+-            timeout.pipe(Effect.map(() => ({ kind: "timeout" as const, code: null }))),
+-          ])
++          ]
++
++          // Only an explicitly requested timeout bounds the wait. When nobody asked
++          // for one there is no clock at all, so a command that keeps working is left
++          // to finish and the idle watchdog above is the only thing that ever stops
++          // us waiting.
++          if (input.timeout !== undefined) {
++            raced.push(
++              Effect.sleep(`${input.timeout + 100} millis`).pipe(
++                Effect.map(() => ({ kind: "timeout" as const, code: null })),
++              ),
++            )
++          }
++          raced.push(idle)
++
++          const exit = yield* Effect.raceAll(raced)
+ 
+           if (exit.kind === "abort") {
+             aborted = true
+@@ -553,12 +624,44 @@ export const ShellTool = Tool.define(
+             expired = true
+             yield* handle.kill({ forceKillAfter: "3 seconds" }).pipe(Effect.orDie)
+           }
++          if (exit.kind === "idle") {
++            // Ctrl+Z rather than kill: the caller stops waiting, the command does
++            // not stop running. Releasing the handle from this scope is what makes
++            // that possible, and unref keeps it from holding the process open.
++            suspended = true
++            const pid = Number(handle.pid)
++            backgroundProcess(pid)
++            backgroundPid = Number.isFinite(pid) && pid > 0 ? pid : undefined
++            yield* handle.unref
++            yield* Effect.logInfo("shell tool backgrounded idle command", {
++              command: input.command,
++              pid: backgroundPid,
++            })
++          }
+ 
+           return exit.kind === "exit" ? exit.code : null
+         }),
+       ).pipe(Effect.orDie)
+ 
+       const meta: string[] = []
++      if (suspended) {
++        const seconds = Math.round(idleTimeoutMs / 1000)
++        const pid = backgroundPid ?? "unknown"
++        const stop =
++          process.platform === "win32"
++            ? `Stop-Process -Id ${pid}`
++            : `kill ${pid}`
++        meta.push(
++          `This command produced no output for ${seconds}s, so it was moved to the BACKGROUND instead of being waited on. ` +
++            `It is still running (PID ${pid}); this tool call has returned so the turn can continue. ` +
++            `Further output from it is being written to: ${backgroundFile || "(no output yet)"}\n` +
++            `If you meant to run a server or any long-lived process, do NOT wait for it to exit. Start it, ` +
++            `wait about 10 seconds to see whether it came up, then end your turn and carry on with the rest of ` +
++            `the task. Check on it later by reading that log file, and stop it with: ${stop}\n` +
++            `If you need to block until this process itself finishes, call the wait tool with ` +
++            `{ "kind": "process", "pid": ${pid} } rather than starting it again.`,
++        )
++      }
+       if (expired) {
+         meta.push(
+           `shell tool terminated command after exceeding timeout ${input.timeout} ms. If this command is expected to take longer and is not waiting for interactive input, retry with a larger timeout value in milliseconds.`,
+@@ -589,6 +692,9 @@ export const ShellTool = Tool.define(
+           exit: code,
+           truncated: cut,
+           ...(cut && file ? { outputPath: file } : {}),
++          ...(suspended
++            ? { backgrounded: true, backgroundPid, backgroundLog: backgroundFile || undefined }
++            : {}),
+         },
+         output,
+       }
+@@ -600,7 +706,9 @@ export const ShellTool = Tool.define(
+         const shell = Shell.acceptable(cfg.shell)
+         const name = Shell.name(shell)
+         const limits = yield* trunc.limits()
+-        const prompt = ShellPrompt.render(name, process.platform, limits, defaultTimeoutMs)
++        const prompt = ShellPrompt.render(name, process.platform, limits, defaultTimeoutMs, {
++          idleTimeoutMs,
++        })
+         yield* Effect.logInfo("shell tool using shell", { shell })
+ 
+         return {
+@@ -615,6 +723,8 @@ export const ShellTool = Tool.define(
+               if (params.timeout !== undefined && params.timeout < 0) {
+                 throw new Error(`Invalid timeout value: ${params.timeout}. Timeout must be a positive number.`)
+               }
++              // No ceiling on the requested timeout. A build that takes hours is a
++              // legitimate command; the model is expected to size this itself.
+               const timeout = params.timeout ?? defaultTimeoutMs
+               const ps = Shell.ps(shell)
+               yield* Effect.scoped(
+diff --git packages/opencode/src/tool/wait.ts packages/opencode/src/tool/wait.ts
+new file mode 100644
+index 0000000..eb2534b
+--- /dev/null
++++ packages/opencode/src/tool/wait.ts
+@@ -0,0 +1,240 @@
++import { Effect, Schema } from "effect"
++import net from "node:net"
++import fs from "node:fs/promises"
++import * as Tool from "./tool"
++import DESCRIPTION from "./wait.txt"
++
++const PROBE_TIMEOUT_MS = 5_000
++const DEFAULT_INTERVAL_MS = 5_000
++const DEFAULT_TIMEOUT_MS = 60 * 60 * 1000
++
++const Condition = Schema.Union([
++  Schema.Struct({
++    kind: Schema.Literal("port"),
++    port: Schema.Number.annotate({ description: "TCP port that must start accepting connections" }),
++    host: Schema.optional(Schema.String).annotate({ description: "Host to connect to. Defaults to 127.0.0.1" }),
++  }),
++  Schema.Struct({
++    kind: Schema.Literal("http"),
++    url: Schema.String.annotate({ description: "URL that must respond" }),
++    status: Schema.optional(Schema.Number).annotate({ description: "Status that must come back. Defaults to 200" }),
++  }),
++  Schema.Struct({
++    kind: Schema.Literal("file"),
++    path: Schema.String.annotate({ description: "Path that must exist" }),
++    contains: Schema.optional(Schema.String).annotate({ description: "Text the file must contain" }),
++  }),
++  Schema.Struct({
++    kind: Schema.Literal("process"),
++    pid: Schema.Number.annotate({ description: "PID that must have exited" }),
++  }),
++])
++
++export const Parameters = Schema.Struct({
++  until: Condition.annotate({ description: "The condition to wait for" }),
++  timeoutMs: Schema.optional(
++    Schema.Number.annotate({
++      description: `Give up after this long. Defaults to ${DEFAULT_TIMEOUT_MS}ms. Nothing is killed on timeout`,
++    }),
++  ),
++  intervalMs: Schema.optional(
++    Schema.Number.annotate({ description: `How often to re-check. Defaults to ${DEFAULT_INTERVAL_MS}ms` }),
++  ),
++})
++
++type Metadata = {
++  until: string
++  satisfied: boolean
++  elapsedMs: number
++  timedOut: boolean
++  aborted: boolean
++  polls: number
++}
++
++/**
++ * Every probe answers one question — "is it ready yet?" — so a failure to even
++ * ask is a "no", never a defect. Each one swallows its own errors and returns
++ * `false`, which keeps a closed port, a 500 or a missing file from killing the
++ * turn and keeps the error channel of `check` empty.
++ */
++const probePort = (host: string, port: number) =>
++  Effect.promise(
++    () =>
++      new Promise<boolean>((resolve) => {
++        const socket = net.connect({ host, port })
++        const settle = (value: boolean) => {
++          socket.removeAllListeners()
++          socket.destroy()
++          resolve(value)
++        }
++        socket.setTimeout(PROBE_TIMEOUT_MS, () => settle(false))
++        socket.once("connect", () => settle(true))
++        socket.once("error", () => settle(false))
++      }),
++  )
++
++const probeHttp = (url: string, status: number) =>
++  Effect.promise(async () => {
++    try {
++      const response = await fetch(url, { signal: AbortSignal.timeout(PROBE_TIMEOUT_MS) })
++      return response.status === status
++    } catch {
++      return false
++    }
++  })
++
++const probeFile = (path: string, contains: string | undefined) =>
++  Effect.promise(async () => {
++    try {
++      if (contains === undefined) {
++        await fs.stat(path)
++        return true
++      }
++      const text = await fs.readFile(path, "utf8")
++      return text.includes(contains)
++    } catch {
++      return false
++    }
++  })
++
++/**
++ * Inverted on purpose: a backgrounded job is "done" when it is gone. Signal 0
++ * performs the existence check without touching the process, and anything other
++ * than ESRCH (EPERM, say) means it is still there, so we keep waiting.
++ */
++const probeProcess = (pid: number) =>
++  Effect.sync(() => {
++    try {
++      process.kill(pid, 0)
++      return false
++    } catch (error) {
++      return (error as NodeJS.ErrnoException)?.code === "ESRCH"
++    }
++  })
++
++const describe = (until: Schema.Schema.Type<typeof Condition>) => {
++  switch (until.kind) {
++    case "port":
++      return `${until.host ?? "127.0.0.1"}:${until.port} accepting connections`
++    case "http":
++      return `${until.url} returning ${until.status ?? 200}`
++    case "file":
++      return `${until.path} existing${until.contains ? ` and containing ${JSON.stringify(until.contains)}` : ""}`
++    case "process":
++      return `process ${until.pid} having exited`
++  }
++}
++
++const check = (until: Schema.Schema.Type<typeof Condition>): Effect.Effect<boolean> => {
++  switch (until.kind) {
++    case "port":
++      return probePort(until.host ?? "127.0.0.1", until.port)
++    case "http":
++      return probeHttp(until.url, until.status ?? 200)
++    case "file":
++      return probeFile(until.path, until.contains)
++    case "process":
++      return probeProcess(until.pid)
++  }
++}
++
++export const WaitTool = Tool.define<typeof Parameters, Metadata, never>(
++  "wait",
++  Effect.succeed({
++    description: DESCRIPTION,
++    parameters: Parameters,
++    execute: (
++      params: Schema.Schema.Type<typeof Parameters>,
++      ctx: Tool.Context<Metadata>,
++    ): Effect.Effect<Tool.ExecuteResult<Metadata>> =>
++      Effect.gen(function* () {
++        yield* ctx.ask({
++          permission: "wait",
++          patterns: ["*"],
++          always: ["*"],
++          metadata: {},
++        })
++
++        const until = params.until
++        const subject = describe(until)
++        const intervalMs = params.intervalMs ?? DEFAULT_INTERVAL_MS
++        const timeoutMs = params.timeoutMs ?? DEFAULT_TIMEOUT_MS
++        const start = Date.now()
++
++        // Publish progress every poll. A wait that looks identical to a hang is
++        // the failure mode this whole feature exists to avoid, so the running
++        // clock is part of the tool's output rather than something the user has
++        // to guess at.
++        const report = (satisfied: boolean, polls: number) =>
++          ctx.metadata({
++            metadata: {
++              until: subject,
++              satisfied,
++              elapsedMs: Date.now() - start,
++              timedOut: false,
++              aborted: false,
++              polls,
++            },
++          })
++
++        const poll = Effect.gen(function* () {
++          let polls = 0
++          while (true) {
++            polls++
++            if (yield* check(until)) return { kind: "satisfied" as const, polls }
++            const remaining = timeoutMs - (Date.now() - start)
++            if (remaining <= 0) return { kind: "timedout" as const, polls }
++            yield* report(false, polls)
++            yield* Effect.sleep(`${Math.min(intervalMs, remaining)} millis`)
++          }
++        })
++
++        const abort = Effect.callback<void>((resume) => {
++          if (ctx.abort.aborted) return resume(Effect.void)
++          const handler = () => resume(Effect.void)
++          ctx.abort.addEventListener("abort", handler, { once: true })
++          return Effect.sync(() => ctx.abort.removeEventListener("abort", handler))
++        })
++
++        // Abort only ends the waiting. There is no child process here to spare,
++        // so unlike `bash` there is nothing to leave running and nothing to
++        // clean up.
++        const outcome = yield* Effect.raceAll([
++          poll.pipe(Effect.map((result) => ({ ...result, aborted: false as const }))),
++          abort.pipe(Effect.map(() => ({ kind: "abort" as const, polls: 0, aborted: true as const }))),
++        ])
++
++        const elapsedMs = Date.now() - start
++        const satisfied = outcome.kind === "satisfied"
++        const metadata: Metadata = {
++          until: subject,
++          satisfied,
++          elapsedMs,
++          timedOut: outcome.kind === "timedout",
++          aborted: outcome.aborted,
++          polls: outcome.polls,
++        }
++
++        let title: string
++        let output: string
++        if (satisfied) {
++          title = `waited ${(elapsedMs / 1000).toFixed(1)}s`
++          output = `Condition satisfied after ${(elapsedMs / 1000).toFixed(1)}s (${outcome.polls} checks): ${subject}`
++        } else if (metadata.aborted) {
++          title = "wait aborted"
++          output = `Wait was aborted by the user after ${(elapsedMs / 1000).toFixed(1)}s, before the condition held: ${subject}`
++        } else {
++          title = "wait timed out"
++          // Nothing was killed — there is nothing of ours to kill — so say so
++          // plainly. The condition simply never became true within the budget.
++          output = [
++            `Condition did not become true within ${(elapsedMs / 1000).toFixed(1)}s (${outcome.polls} checks): ${subject}`,
++            ``,
++            `Nothing was started or killed by this wait. If the condition is still expected to hold, call wait again with a larger timeoutMs.`,
++          ].join("\n")
++        }
++
++        return { title, output, metadata }
++      }),
++  }),
++)
+\ No newline at end of file
+diff --git packages/opencode/src/tool/wait.txt packages/opencode/src/tool/wait.txt
+new file mode 100644
+index 0000000..32b56ed
+--- /dev/null
++++ packages/opencode/src/tool/wait.txt
+@@ -0,0 +1,29 @@
++Block until a condition becomes true, then report the result. Use this when you
++genuinely cannot make progress until something external happens — a service on
++another machine finishes booting, a port opens, a deployment goes green, a
++remote job you already started comes back.
++
++This tool never starts anything. It cannot launch a server, a watcher or a
++build, so it cannot leave a process running with nobody watching it. To start
++something, use `bash`. If that command then goes silent, `bash` already moves it
++to the background and hands you its PID — pass that PID here as
++`{ "kind": "process", "pid": N }` to wait for it to finish.
++
++Conditions:
++
++- `{ "kind": "port", "port": 5432, "host": "db.internal" }` — a TCP port accepts
++  a connection. Defaults to 127.0.0.1.
++- `{ "kind": "http", "url": "https://x/health", "status": 200 }` — an HTTP
++  request returns that status. Defaults to 200.
++- `{ "kind": "file", "path": "/tmp/ready", "contains": "listening" }` — a file
++  exists, optionally containing that text.
++- `{ "kind": "process", "pid": 12345 }` — that process has exited. Use this for
++  a job `bash` already backgrounded.
++
++`timeoutMs` bounds the whole wait and defaults to 1 hour. On timeout nothing is
++killed — there is nothing of yours running — and you are told the condition never
++became true, so you can raise the limit or give up deliberately. Set `intervalMs`
++(default 5s) to trade responsiveness against request volume.
++
++Do not use this to wait for your own backgrounded command's output by polling a
++log when the PID is available: `kind: "process"` is exact and cheaper.
+\ No newline at end of file
+diff --git packages/opencode/test/tool/wait.test.ts packages/opencode/test/tool/wait.test.ts
+new file mode 100644
+index 0000000..4ef6c99
+--- /dev/null
++++ packages/opencode/test/tool/wait.test.ts
+@@ -0,0 +1,310 @@
++import { describe, expect, test } from "bun:test"
++import { Effect, Exit, Layer, Schema } from "effect"
++import { LayerNode } from "@opencode-ai/core/effect/layer-node"
++import { Agent } from "@/agent/agent"
++import { Config } from "@/config/config"
++import { Truncate } from "@/tool/truncate"
++import { WaitTool, Parameters } from "../../src/tool/wait"
++import { Tool } from "@/tool/tool"
++import { SessionID, MessageID } from "@/session/schema"
++import { testInstanceStoreLayer } from "../fixture/fixture"
++import { testEffect } from "../lib/effect"
++import { CrossSpawnSpawner } from "@opencode-ai/core/cross-spawn-spawner"
++import { FSUtil } from "@opencode-ai/core/fs-util"
++import { Plugin } from "@/plugin"
++import { RuntimeFlags } from "@/effect/runtime-flags"
++
++const waitLayer = Layer.mergeAll(
++  LayerNode.compile(
++    LayerNode.group([
++      CrossSpawnSpawner.node,
++      FSUtil.node,
++      Plugin.node,
++      Truncate.node,
++      Config.node,
++      Agent.node,
++      RuntimeFlags.node,
++    ]),
++  ),
++  testInstanceStoreLayer,
++)
++const it = testEffect(waitLayer)
++
++const ctx = {
++  sessionID: SessionID.make("ses_test"),
++  messageID: MessageID.make("msg_test"),
++  callID: "",
++  agent: "build",
++  abort: AbortSignal.any([]),
++  messages: [],
++  metadata: () => Effect.void,
++  ask: () => Effect.void,
++}
++
++const initWait = Effect.fn("WaitToolTest.init")(function* () {
++  const info = yield* WaitTool
++  return yield* info.init()
++})
++
++const run = Effect.fn("WaitToolTest.run")(function* (
++  args: Tool.InferParameters<typeof WaitTool>,
++  next: Tool.Context = ctx,
++) {
++  const wait = yield* initWait()
++  return yield* wait.execute(args, next)
++})
++
++const tmp = (name: string) => `${Bun.env.TEMP ?? "C:/Temp"}/${name}-${crypto.randomUUID()}`
++
++// `it.effect` runs on a TestClock, which would freeze the very sleeps this tool
++// is built on, and tool init needs a real project instance for Truncate/Agent.
++// `it.instance` gives us both: a live clock and a throwaway tmpdir instance.
++type Body = Effect.Effect<any, any, any> | (() => Effect.Effect<any, any, any>)
++const itWait = (name: string, value: Body) => it.instance(name, value as Effect.Effect<any, any, any>, undefined, 30_000)
++
++/** Grab a port that is definitely not listening, for the timeout paths. */
++const closedPort = () =>
++  Effect.promise(async () => {
++    const probe = Bun.serve({ port: 0, fetch: () => new Response("") })
++    const port = probe.port!
++    probe.stop(true)
++    return port
++  })
++
++describe("tool.wait", () => {
++  itWait("resolves as soon as a port starts accepting connections", () =>
++    Effect.gen(function* () {
++      const server = Bun.serve({ port: 0, fetch: () => new Response("up") })
++      const port = server.port!
++      try {
++        const result = yield* run({
++          until: { kind: "port", port },
++          intervalMs: 20,
++          timeoutMs: 10_000,
++        })
++        expect(result.metadata.satisfied).toBe(true)
++        expect(result.metadata.timedOut).toBe(false)
++        expect(result.metadata.elapsedMs).toBeLessThan(10_000)
++        expect(result.output).toContain(String(port))
++      } finally {
++        server.stop(true)
++      }
++    }),
++  )
++
++  itWait("times out on a port that never opens, and says nothing was killed", () =>
++    Effect.gen(function* () {
++      const port = yield* closedPort()
++      const result = yield* run({
++        until: { kind: "port", port },
++        intervalMs: 20,
++        timeoutMs: 200,
++      })
++      expect(result.metadata.satisfied).toBe(false)
++      expect(result.metadata.timedOut).toBe(true)
++      // The wording matters: a timeout here is not a kill, so the model must not
++      // go and restart anything.
++      expect(result.output).toContain("Nothing was started or killed")
++    }),
++  )
++
++  itWait("waits for an http endpoint and matches the requested status", () =>
++    Effect.gen(function* () {
++      const server = Bun.serve({ port: 0, fetch: () => new Response("up") })
++      try {
++        const result = yield* run({
++          until: { kind: "http", url: `http://127.0.0.1:${server.port}/health`, status: 200 },
++          intervalMs: 20,
++          timeoutMs: 10_000,
++        })
++        expect(result.metadata.satisfied).toBe(true)
++      } finally {
++        server.stop(true)
++      }
++    }),
++  )
++
++  itWait("keeps waiting when http answers with a different status", () =>
++    Effect.gen(function* () {
++      const server = Bun.serve({ port: 0, fetch: () => new Response("nope", { status: 503 }) })
++      try {
++        const result = yield* run({
++          until: { kind: "http", url: `http://127.0.0.1:${server.port}/health`, status: 200 },
++          intervalMs: 20,
++          timeoutMs: 300,
++        })
++        expect(result.metadata.satisfied).toBe(false)
++        expect(result.metadata.timedOut).toBe(true)
++      } finally {
++        server.stop(true)
++      }
++    }),
++  )
++
++  itWait("waits for a file to appear with the expected contents", () =>
++    Effect.gen(function* () {
++      const path = tmp("wait-probe") + ".txt"
++      const writer = Bun.spawn({
++        cmd: [
++          process.execPath,
++          "-e",
++          `setTimeout(() => require("fs").writeFileSync(${JSON.stringify(path)}, "listening on 3000"), 400)`,
++        ],
++        stdout: "ignore",
++        stderr: "ignore",
++      })
++      try {
++        const result = yield* run({
++          until: { kind: "file", path, contains: "listening" },
++          intervalMs: 30,
++          timeoutMs: 20_000,
++        })
++        expect(result.metadata.satisfied).toBe(true)
++      } finally {
++        writer.kill()
++        yield* Effect.promise(() => Bun.file(path).delete().catch(() => {}))
++      }
++    }),
++  )
++
++  itWait("times out when a file never shows up", () =>
++    Effect.gen(function* () {
++      const result = yield* run({
++        until: { kind: "file", path: tmp("wait-never") },
++        intervalMs: 20,
++        timeoutMs: 200,
++      })
++      expect(result.metadata.satisfied).toBe(false)
++      expect(result.metadata.timedOut).toBe(true)
++    }),
++  )
++
++  itWait("resolves once a process it did not start has exited", () =>
++    Effect.gen(function* () {
++      const child = Bun.spawn({
++        cmd: [process.execPath, "-e", "setTimeout(() => {}, 500)"],
++        stdout: "ignore",
++        stderr: "ignore",
++      })
++      const result = yield* run({
++        until: { kind: "process", pid: child.pid },
++        intervalMs: 30,
++        timeoutMs: 20_000,
++      })
++      expect(result.metadata.satisfied).toBe(true)
++    }),
++  )
++
++  itWait("keeps waiting while the process is still alive", () =>
++    Effect.gen(function* () {
++      const child = Bun.spawn({
++        cmd: [process.execPath, "-e", "setTimeout(() => {}, 10000)"],
++        stdout: "ignore",
++        stderr: "ignore",
++      })
++      try {
++        const result = yield* run({
++          until: { kind: "process", pid: child.pid },
++          intervalMs: 20,
++          timeoutMs: 250,
++        })
++        expect(result.metadata.satisfied).toBe(false)
++        expect(result.metadata.timedOut).toBe(true)
++      } finally {
++        child.kill()
++      }
++    }),
++  )
++
++  itWait("reports abort without pretending the condition held", () =>
++    Effect.gen(function* () {
++      const controller = new AbortController()
++      const port = yield* closedPort()
++      const pending = run(
++        { until: { kind: "port", port }, intervalMs: 50, timeoutMs: 60_000 },
++        { ...ctx, abort: controller.signal },
++      )
++      yield* Effect.sleep("150 millis")
++      controller.abort()
++      const result = yield* pending
++      expect(result.metadata.aborted).toBe(true)
++      expect(result.metadata.satisfied).toBe(false)
++      expect(result.metadata.timedOut).toBe(false)
++      expect(result.output).toContain("aborted")
++    }),
++  )
++
++  itWait("publishes progress while it waits so it never looks like a hang", () =>
++    Effect.gen(function* () {
++      const seen: number[] = []
++      const port = yield* closedPort()
++      yield* run(
++        { until: { kind: "port", port }, intervalMs: 20, timeoutMs: 400 },
++        {
++          ...ctx,
++          metadata: (input: any) =>
++            Effect.sync(() => {
++              seen.push(input?.metadata?.elapsedMs ?? -1)
++            }),
++        },
++      )
++      expect(seen.length).toBeGreaterThan(1)
++      expect(Math.max(...seen)).toBeGreaterThan(0)
++    }),
++  )
++
++  itWait("tells the model to launch with bash and to wait on a pid", () =>
++    Effect.gen(function* () {
++      const tool = yield* initWait()
++      expect(tool.description).toContain("never starts anything")
++      expect(tool.description).toContain("bash")
++      expect(tool.description).toContain("pid")
++    }),
++  )
++
++  itWait("asks permission under its own name rather than borrowing bash's", () =>
++    Effect.gen(function* () {
++      const asked: string[] = []
++      yield* run(
++        { until: { kind: "file", path: tmp("wait-perm") }, intervalMs: 20, timeoutMs: 50 },
++        {
++          ...ctx,
++          ask: (input: any) =>
++            Effect.sync(() => {
++              asked.push(input.permission)
++            }),
++        },
++      )
++      expect(asked).toEqual(["wait"])
++    }),
++  )
++})
++
++describe("tool.wait parameters", () => {
++  // Schema-only, so it needs no layer or instance — just run the decoder.
++  const decode = (input: unknown) => Effect.runPromise(Schema.decodeUnknownEffect(Parameters)(input))
++
++  test("accepts every condition kind", async () => {
++    expect((await decode({ until: { kind: "process", pid: 1 } })).until).toEqual({ kind: "process", pid: 1 })
++    expect((await decode({ until: { kind: "port", port: 5432 } })).until).toEqual({ kind: "port", port: 5432 })
++  })
++
++  test("refuses a condition kind it does not know", async () => {
++    // `kind` is a closed set, so there is no way to smuggle a command in here.
++    await expect(decode({ until: { kind: "shell", command: "sleep 999" } })).rejects.toBeDefined()
++  })
++
++  test("drops a command field rather than honouring it", async () => {
++    // Effect schemas discard undeclared keys instead of failing, so a model that
++    // tries to sneak a command in gets it silently ignored. The guarantee that
++    // matters is structural: there is no field the tool could read one from.
++    const decoded = await decode({ until: { kind: "port", port: 1 }, command: "npm run dev" })
++    expect(decoded).toEqual({ until: { kind: "port", port: 1 } })
++    expect(Object.keys(decoded).sort()).toEqual(["until"])
++  })
++
++  test("drops a timeout field so the only clock is timeoutMs", async () => {
++    const decoded = await decode({ until: { kind: "port", port: 1 }, timeout: 10 })
++    expect(decoded).toEqual({ until: { kind: "port", port: 1 } })
++  })
++})
+\ No newline at end of file

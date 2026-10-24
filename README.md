@@ -126,7 +126,7 @@ If you want to revert back to the original unmodified binary:
 }
 ```
 
-### Patch Inventory (9 patches)
+### Patch Inventory (10 patches)
 
 | # | Patch | Target | Description |
 |---|-------|--------|-------------|
@@ -139,6 +139,44 @@ If you want to revert back to the original unmodified binary:
 | 7 | `remove-upsell.patch` | Billing ads | Strips away Go subscription billing promotion banners and error messages |
 | 8 | `trash.patch` | Trash (archive) | Adds the Home trash tray (archive/restore/delete), makes the `archived` timestamp nullable for `archived: null` restore, and adds a trash icon plus all translations |
 | 9 | `anti-key-stick.patch` | Key switch integrity | Makes a switched API key take effect on the **next request, with no restart**, and gives every session its own key that rotates only when that key is actually rate limited (see below) |
+| 10 | `shell-background.patch` | Non-blocking shell | Ends the wait on a silent long-running command without ever cutting short a command that is still making progress (see below) |
+
+#### Why `shell-background.patch` exists
+
+Any command the model starts that does not exit — `npm run dev`, a local server, a
+watcher — stalls the turn until the tool timeout. Stock OpenCode kills the process
+and reports *"timed out"*, which throws away whatever the command was doing, and a
+hand-written large `timeout` value only postpones the stall: `timeout` was an
+unbounded `PositiveInt`, so a value like `3600000` blocked the turn for an hour.
+
+This patch:
+
+- treats **output as liveness**. While the command keeps writing to stdout or
+  stderr, the turn keeps waiting normally, for as long as it takes. A build that
+  runs all day is left alone. Only after **300 seconds of complete silence** is
+  the command moved to the background;
+- moves the *already running* process — no restart, no lost work — so scope
+  teardown no longer kills it, and keeps draining its output to a truncation log
+  so it cannot die of a broken pipe while unattended;
+- returns immediately with a `shell_metadata` block carrying the **PID**, the log
+  path, and how to read or stop it, so the model knows the process is still alive
+  and can move on;
+- teaches the model to start servers this way: launch, **wait about 10 seconds**,
+  then read the log and end the turn instead of waiting for the process to exit;
+- **does not clamp `timeout`**. A model that asks for two hours still gets two
+  hours, and asking for a huge timeout does not buy the turn back — the idle
+  window ends the wait either way. This matters because models routinely pass a
+  multi-hour timeout for a dev server, which is exactly the case that used to
+  leave the shell sitting there until a human noticed and killed it;
+- **drops the built-in default timeout** so there is no clock at all unless one is
+  asked for. A command is never stopped running here — it is only ever stopped
+  being waited on.
+
+The 300s idle window is tunable via `OPENCODE_EXPERIMENTAL_BASH_IDLE_TIMEOUT_MS`.
+An operator who does want a default wall-clock limit can set
+`OPENCODE_EXPERIMENTAL_BASH_DEFAULT_TIMEOUT_MS`.
+
+Covered by `packages/opencode/test/tool/shell.test.ts`.
 
 #### Why `anti-key-stick.patch` exists
 
@@ -404,7 +442,7 @@ Tate Patchは、中央集権的な依存関係を排し、プライバシーを�
 
 | # | パッチ名 | 対象 | 説明 |
 |---|---------|------|------|
-| 1 | `version.patch` | バージョン表記 | `VERSION` から读了 tatepatch ラベルを UIでは表示しつつ、対外的なUser-Agentは `InstallationClientVersion` によりクリーンなセマンティクスとして識別（表示と送信の分離） |
+| 1 | `version.patch` | バージョン表記 | `VERSION` から取得した tatepatch ラベルを UIでは表示しつつ、対外的なUser-Agentは `InstallationClientVersion` によりクリーンなセマンティクスとして識別（表示と送信の分離） |
 | 2 | `webapp-storage-proxy.patch` | 設定のローカル永続化 | localStorageの操作をサーバーへ転送し、レイアウト設定をPC上に保存 |
 | 3 | `auth-pool.patch` | 複数アカウントプール | APIキーのローカルプール管理機能（バックエンドAPI、CLI/WebUI管理画面、Connectedバッジ）と、クォータ・長時間待機時の自動ローテーション、および意図せぬ停止を防ぐリトライポリシー、関連言語ラベルを実装 |
 | 4 | `ctrl-enter-send.patch` | キーボード入力 | Enterを改行、Ctrl+Enterを送信にマッピング変更し、入力欄のヒント（多言語対応）を追加 |

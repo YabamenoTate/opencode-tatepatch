@@ -58,7 +58,6 @@ OPENCODE_TAG="v$TATEPATCH_BASE_VERSION"
 
 BACKUP_FILE="$TATEPATCH_DIR/opencode-official-backup"
 PATCH_ORDER=(
-  "version.patch"
   "webapp-storage-proxy.patch"
   "auth-pool.patch"
   "ctrl-enter-send.patch"
@@ -67,6 +66,8 @@ PATCH_ORDER=(
   "remove-upsell.patch"
   "trash.patch"
   "anti-key-stick.patch"
+  "shell-background.patch"
+  "wait-commit.patch"
 )
 
 # インストール先 (opencode のパスを自動検出)
