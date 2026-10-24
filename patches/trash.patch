@@ -2124,7 +2124,7 @@ index a2bcd42..60eac83 100644
      },
      options?: Options<never, ThrowOnError>,
 diff --git a/packages/sdk/js/src/v2/gen/types.gen.ts b/packages/sdk/js/src/v2/gen/types.gen.ts
-index b3ca8ef..b1ef0e5 100644
+index 9db86c7..3634510 100644
 --- a/packages/sdk/js/src/v2/gen/types.gen.ts
 +++ b/packages/sdk/js/src/v2/gen/types.gen.ts
 @@ -209,7 +209,7 @@ export type Session = {
@@ -2136,7 +2136,7 @@ index b3ca8ef..b1ef0e5 100644
    }
    permission?: PermissionRuleset
    revert?: {
-@@ -2242,7 +2242,7 @@ export type GlobalSession = {
+@@ -2259,7 +2259,7 @@ export type GlobalSession = {
      created: number
      updated: number
      compacting?: number
@@ -2145,7 +2145,7 @@ index b3ca8ef..b1ef0e5 100644
    }
    permission?: PermissionRuleset
    revert?: {
-@@ -3929,7 +3929,7 @@ export type SessionV2Info = {
+@@ -3946,7 +3946,7 @@ export type SessionV2Info = {
    time: {
      created: number
      updated: number
@@ -2154,7 +2154,7 @@ index b3ca8ef..b1ef0e5 100644
    }
    title: string
    location: LocationRef
-@@ -9456,6 +9456,7 @@ export type SessionListData = {
+@@ -9473,6 +9473,7 @@ export type SessionListData = {
      start?: number
      search?: string
      limit?: number
@@ -2162,7 +2162,7 @@ index b3ca8ef..b1ef0e5 100644
    }
    url: "/session"
  }
-@@ -9626,7 +9627,7 @@ export type SessionUpdateData = {
+@@ -9643,7 +9644,7 @@ export type SessionUpdateData = {
      }
      permission?: PermissionRuleset
      time?: {

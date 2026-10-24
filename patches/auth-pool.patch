@@ -2067,7 +2067,7 @@ index 3775123..0747d67 100644
      yield* Prompt.outro("Done")
    }),
 diff --git a/packages/opencode/src/effect/app-runtime.ts b/packages/opencode/src/effect/app-runtime.ts
-index d173269..39b5254 100644
+index d010eb8..33a7973 100644
 --- a/packages/opencode/src/effect/app-runtime.ts
 +++ b/packages/opencode/src/effect/app-runtime.ts
 @@ -5,6 +5,7 @@ import * as Observability from "@opencode-ai/core/observability"
@@ -2078,7 +2078,7 @@ index d173269..39b5254 100644
  import { Account } from "@/account/account"
  import { Config } from "@/config/config"
  import { Git } from "@/git"
-@@ -61,6 +62,7 @@ export const AppLayer = AppNodeBuilderV1.build(
+@@ -60,6 +61,7 @@ export const AppLayer = AppNodeBuilderV1.build(
      FSUtil.node,
      Database.node,
      Auth.node,
@@ -2439,7 +2439,7 @@ index 0000000..07d5402
 +  }),
 +)
 diff --git a/packages/opencode/src/server/routes/instance/httpapi/server.ts b/packages/opencode/src/server/routes/instance/httpapi/server.ts
-index 2347d7f..4153905 100644
+index 04c1847..9824d7f 100644
 --- a/packages/opencode/src/server/routes/instance/httpapi/server.ts
 +++ b/packages/opencode/src/server/routes/instance/httpapi/server.ts
 @@ -8,6 +8,7 @@ import { Account } from "@/account/account"
@@ -2450,7 +2450,7 @@ index 2347d7f..4153905 100644
  import { Command } from "@/command"
  import { Config } from "@/config/config"
  import { Workspace } from "@/control-plane/workspace"
-@@ -216,6 +217,7 @@ const app = LayerNode.group([
+@@ -215,6 +216,7 @@ const app = LayerNode.group([
    FSUtil.node,
    Database.node,
    Auth.node,
@@ -2482,10 +2482,10 @@ index a99f8ac..dfcf659 100644
          { concurrency: "unbounded" },
        )
 diff --git a/packages/opencode/src/session/message-v2.ts b/packages/opencode/src/session/message-v2.ts
-index 9b3f2c4..c745143 100644
+index 75f2d89..ecb93e9 100644
 --- a/packages/opencode/src/session/message-v2.ts
 +++ b/packages/opencode/src/session/message-v2.ts
-@@ -203,7 +203,7 @@ export const toModelMessagesEffect = Effect.fnUntraced(function* (
+@@ -213,7 +213,7 @@ export const toModelMessagesEffect = Effect.fnUntraced(function* (
        }
        for (const part of msg.parts) {
          // User message parts should never be empty
@@ -3628,7 +3628,7 @@ index 75e9282..b2b712d 100644
      Schema.Struct({
        start: NonNegativeInt,
 diff --git a/packages/sdk/js/src/v2/gen/types.gen.ts b/packages/sdk/js/src/v2/gen/types.gen.ts
-index f06c20c..b3ca8ef 100644
+index 5ac9bd7..9db86c7 100644
 --- a/packages/sdk/js/src/v2/gen/types.gen.ts
 +++ b/packages/sdk/js/src/v2/gen/types.gen.ts
 @@ -686,6 +686,11 @@ export type SessionStatus =

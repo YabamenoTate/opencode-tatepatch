@@ -75,7 +75,7 @@ index 65e02f0..377fb10 100644
    experimentalWebSockets: bool("OPENCODE_EXPERIMENTAL_WEBSOCKETS"),
    client: Config.string("OPENCODE_CLIENT").pipe(Config.withDefault("cli")),
 diff --git a/packages/opencode/src/tool/shell.ts b/packages/opencode/src/tool/shell.ts
-index 1e4423e..8929495 100644
+index 1e4423e..af0e6f0 100644
 --- a/packages/opencode/src/tool/shell.ts
 +++ b/packages/opencode/src/tool/shell.ts
 @@ -14,6 +14,7 @@ import { Config } from "@/config/config"
@@ -261,7 +261,7 @@ index 1e4423e..8929495 100644
        if (expired) {
          meta.push(
            `shell tool terminated command after exceeding timeout ${input.timeout} ms. If this command is expected to take longer and is not waiting for interactive input, retry with a larger timeout value in milliseconds.`,
-@@ -589,6 +690,9 @@ export const ShellTool = Tool.define(
+@@ -589,6 +692,9 @@ export const ShellTool = Tool.define(
            exit: code,
            truncated: cut,
            ...(cut && file ? { outputPath: file } : {}),
@@ -271,7 +271,7 @@ index 1e4423e..8929495 100644
          },
          output,
        }
-@@ -600,7 +704,9 @@ export const ShellTool = Tool.define(
+@@ -600,7 +706,9 @@ export const ShellTool = Tool.define(
          const shell = Shell.acceptable(cfg.shell)
          const name = Shell.name(shell)
          const limits = yield* trunc.limits()
@@ -282,7 +282,7 @@ index 1e4423e..8929495 100644
          yield* Effect.logInfo("shell tool using shell", { shell })
  
          return {
-@@ -615,6 +721,8 @@ export const ShellTool = Tool.define(
+@@ -615,6 +723,8 @@ export const ShellTool = Tool.define(
                if (params.timeout !== undefined && params.timeout < 0) {
                  throw new Error(`Invalid timeout value: ${params.timeout}. Timeout must be a positive number.`)
                }

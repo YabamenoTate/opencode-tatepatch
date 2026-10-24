@@ -233,7 +233,7 @@ index 56ae91d..3b471f5 100644
    "session.share.action.publishing": "正在發佈...",
    "session.share.action.unpublish": "取消發佈",
 diff --git a/packages/app/src/pages/session/timeline/message-timeline.tsx b/packages/app/src/pages/session/timeline/message-timeline.tsx
-index e083882..5888151 100644
+index e68e9a3..5888151 100644
 --- a/packages/app/src/pages/session/timeline/message-timeline.tsx
 +++ b/packages/app/src/pages/session/timeline/message-timeline.tsx
 @@ -42,7 +42,6 @@ import { ButtonV2 } from "@opencode-ai/ui/v2/button-v2"
@@ -268,16 +268,17 @@ index e083882..5888151 100644
    const sdk = useSDK()
    const sync = useSync()
    const settings = useSettings()
-@@ -298,8 +294,6 @@ export function MessageTimeline(props: {
+@@ -298,9 +294,6 @@ export function MessageTimeline(props: {
    })
    const titleValue = createMemo(() => info()?.title)
    const titleLabel = createMemo(() => sessionTitle(titleValue()))
 -  const shareUrl = createMemo(() => info()?.share?.url)
--  const shareEnabled = createMemo(() => sync().data.config.share !== "disabled")
+-  // Session sharing was discontinued; keep the share menu and popover hidden.
+-  const shareEnabled = () => false
    const parentID = createMemo(() => info()?.parentID)
    const parent = createMemo(() => {
      const id = parentID()
-@@ -556,16 +550,9 @@ export function MessageTimeline(props: {
+@@ -557,16 +550,9 @@ export function MessageTimeline(props: {
      editing: false,
      menuOpen: false,
      pendingRename: false,
@@ -294,7 +295,7 @@ index e083882..5888151 100644
    const bindListRoot = (root: HTMLDivElement) => {
      if (root === listRoot()) return
      setListRoot(root)
-@@ -643,12 +630,6 @@ export function MessageTimeline(props: {
+@@ -644,12 +630,6 @@ export function MessageTimeline(props: {
      props.setScrollRef(undefined)
    })
  
@@ -307,7 +308,7 @@ index e083882..5888151 100644
    const errorMessage = (err: unknown) => {
      if (err && typeof err === "object" && "data" in err) {
        const data = (err as { data?: { message?: string } }).data
-@@ -658,20 +639,6 @@ export function MessageTimeline(props: {
+@@ -659,20 +639,6 @@ export function MessageTimeline(props: {
      return language.t("common.requestFailed")
    }
  
@@ -328,7 +329,7 @@ index e083882..5888151 100644
    const titleMutation = useMutation(() => ({
      mutationFn: (input: { id: string; title: string }) =>
        sdk().api.session.rename({ sessionID: input.id, title: input.title }),
-@@ -692,48 +659,6 @@ export function MessageTimeline(props: {
+@@ -693,48 +659,6 @@ export function MessageTimeline(props: {
      },
    }))
  
@@ -377,7 +378,7 @@ index e083882..5888151 100644
    createEffect(
      on(
        sessionKey,
-@@ -743,7 +668,6 @@ export function MessageTimeline(props: {
+@@ -744,7 +668,6 @@ export function MessageTimeline(props: {
            editing: false,
            menuOpen: false,
            pendingRename: false,
@@ -385,7 +386,7 @@ index e083882..5888151 100644
          }),
        { defer: true },
      ),
-@@ -1496,15 +1420,9 @@ export function MessageTimeline(props: {
+@@ -1497,15 +1420,9 @@ export function MessageTimeline(props: {
                                icon="dot-grid"
                                variant="ghost"
                                class="size-6 rounded-md data-[expanded]:bg-surface-base-active"
@@ -403,7 +404,7 @@ index e083882..5888151 100644
                              <DropdownMenu.Portal>
                                <DropdownMenu.Content
                                  style={{ "min-width": "104px" }}
-@@ -1513,14 +1431,6 @@ export function MessageTimeline(props: {
+@@ -1514,14 +1431,6 @@ export function MessageTimeline(props: {
                                      event.preventDefault()
                                      setTitle("pendingRename", false)
                                      openTitleEditor()
@@ -418,7 +419,7 @@ index e083882..5888151 100644
                                    }
                                  }}
                                >
-@@ -1532,17 +1442,6 @@ export function MessageTimeline(props: {
+@@ -1533,17 +1442,6 @@ export function MessageTimeline(props: {
                                  >
                                    <DropdownMenu.ItemLabel>{language.t("common.rename")}</DropdownMenu.ItemLabel>
                                  </DropdownMenu.Item>
@@ -436,7 +437,7 @@ index e083882..5888151 100644
                                  <DropdownMenu.Item onSelect={() => exportSession(id)}>
                                    <DropdownMenu.ItemLabel>{language.t("common.export")}</DropdownMenu.ItemLabel>
                                  </DropdownMenu.Item>
-@@ -1574,13 +1473,9 @@ export function MessageTimeline(props: {
+@@ -1575,13 +1473,9 @@ export function MessageTimeline(props: {
                              icon={<IconV2 name="outline-dots" />}
                              variant="ghost-muted"
                              size="large"
@@ -452,7 +453,7 @@ index e083882..5888151 100644
                            <MenuV2.Portal>
                              <MenuV2.Content
                                style={{ width: "120px", "min-width": "120px" }}
-@@ -1589,14 +1484,6 @@ export function MessageTimeline(props: {
+@@ -1590,14 +1484,6 @@ export function MessageTimeline(props: {
                                    event.preventDefault()
                                    setTitle("pendingRename", false)
                                    openTitleEditor()
@@ -467,7 +468,7 @@ index e083882..5888151 100644
                                  }
                                }}
                              >
-@@ -1608,15 +1495,6 @@ export function MessageTimeline(props: {
+@@ -1609,15 +1495,6 @@ export function MessageTimeline(props: {
                                >
                                  {language.t("common.rename")}
                                </MenuV2.Item>
@@ -483,7 +484,7 @@ index e083882..5888151 100644
                                <MenuV2.Item onSelect={() => exportSession(id)}>
                                  {language.t("common.export")}...
                                </MenuV2.Item>
-@@ -1632,186 +1510,6 @@ export function MessageTimeline(props: {
+@@ -1633,186 +1510,6 @@ export function MessageTimeline(props: {
                          </MenuV2>
                        </Show>
  
@@ -671,10 +672,10 @@ index e083882..5888151 100644
                    </div>
                  )}
 diff --git a/packages/app/src/pages/session/use-session-commands.tsx b/packages/app/src/pages/session/use-session-commands.tsx
-index 18d5b17..d5f7f77 100644
+index 8186896..d5f7f77 100644
 --- a/packages/app/src/pages/session/use-session-commands.tsx
 +++ b/packages/app/src/pages/session/use-session-commands.tsx
-@@ -142,99 +142,11 @@ export const useSessionCommands = (actions: SessionCommandContext) => {
+@@ -142,12 +142,11 @@ export const useSessionCommands = (actions: SessionCommandContext) => {
    const mcpCommand = withCategory(language.t("command.category.mcp"))
    const permissionsCommand = withCategory(language.t("command.category.permissions"))
  
@@ -684,133 +685,7 @@ index 18d5b17..d5f7f77 100644
      if (sessionID) return permission.isAutoAccepting(sessionID, sdk().directory)
      return permission.isAutoAcceptingDirectory(sdk().directory)
    }
--  const write = async (value: string) => {
--    const body = typeof document === "undefined" ? undefined : document.body
--    if (body) {
--      const textarea = document.createElement("textarea")
--      textarea.value = value
--      textarea.setAttribute("readonly", "")
--      textarea.style.position = "fixed"
--      textarea.style.opacity = "0"
--      textarea.style.pointerEvents = "none"
--      body.appendChild(textarea)
--      textarea.select()
--      const copied = document.execCommand("copy")
--      body.removeChild(textarea)
--      if (copied) return true
--    }
--
--    const clipboard = typeof navigator === "undefined" ? undefined : navigator.clipboard
--    if (!clipboard?.writeText) return false
--    return clipboard.writeText(value).then(
--      () => true,
--      () => false,
--    )
--  }
--
--  const copyShare = async (url: string, existing: boolean) => {
--    if (!(await write(url))) {
--      showToast({
--        title: language.t("toast.session.share.copyFailed.title"),
--        variant: "error",
--      })
--      return
--    }
--
--    showToast({
--      title: existing ? language.t("session.share.copy.copied") : language.t("toast.session.share.success.title"),
--      description: language.t("toast.session.share.success.description"),
--      variant: "success",
--    })
--  }
--
--  const share = async () => {
--    const sessionID = params.id
--    if (!sessionID) return
--
--    const existing = info()?.share?.url
--    if (existing) {
--      await copyShare(existing, true)
--      return
--    }
--
--    const url = await sdk()
--      .client.session.share({ sessionID })
--      .then((res) => res.data?.share?.url)
--      .catch(() => undefined)
--    if (!url) {
--      showToast({
--        title: language.t("toast.session.share.failed.title"),
--        description: language.t("toast.session.share.failed.description"),
--        variant: "error",
--      })
--      return
--    }
--
--    await copyShare(url, false)
--  }
--
--  const unshare = async () => {
--    const sessionID = params.id
--    if (!sessionID) return
--
--    await sdk()
--      .client.session.unshare({ sessionID })
--      .then(() =>
--        showToast({
--          title: language.t("toast.session.unshare.success.title"),
--          description: language.t("toast.session.unshare.success.description"),
--          variant: "success",
--        }),
--      )
--      .catch(() =>
--        showToast({
--          title: language.t("toast.session.unshare.failed.title"),
--          description: language.t("toast.session.unshare.failed.description"),
--          variant: "error",
--        }),
--      )
--  }
 -
    const exportSession = async () => {
      const sessionID = params.id
      if (!sessionID) return
-@@ -421,30 +333,6 @@ export const useSessionCommands = (actions: SessionCommandContext) => {
-     )
-   }
- 
--  const shareCmds = () => {
--    if (sync().data.config.share === "disabled") return []
--    return [
--      sessionCommand({
--        id: "session.share",
--        title: info()?.share?.url ? language.t("session.share.copy.copyLink") : language.t("command.session.share"),
--        description: info()?.share?.url
--          ? language.t("toast.session.share.success.description")
--          : language.t("command.session.share.description"),
--        slash: "share",
--        disabled: !params.id,
--        onSelect: share,
--      }),
--      sessionCommand({
--        id: "session.unshare",
--        title: language.t("command.session.unshare"),
--        description: language.t("command.session.unshare.description"),
--        slash: "unshare",
--        disabled: !params.id || !info()?.share?.url,
--        onSelect: unshare,
--      }),
--    ]
--  }
--
-   const sessionCmds = () => [
-     sessionCommand({
-       id: "session.new",
-@@ -645,7 +533,6 @@ export const useSessionCommands = (actions: SessionCommandContext) => {
- 
-   command.register("session", () => [
-     ...sessionCmds(),
--    ...shareCmds(),
-     ...fileCmds(),
-     ...contextCmds(),
-     ...viewCmds(),
