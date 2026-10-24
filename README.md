@@ -140,6 +140,7 @@ If you want to revert back to the original unmodified binary:
 | 8 | `trash.patch` | Trash (archive) | Adds the Home trash tray (archive/restore/delete), makes the `archived` timestamp nullable for `archived: null` restore, and adds a trash icon plus all translations |
 | 9 | `anti-key-stick.patch` | Key switch integrity | Makes a switched API key take effect on the **next request, with no restart**, and gives every session its own key that rotates only when that key is actually rate limited (see below) |
 | 10 | `shell-background.patch` | Non-blocking shell | Ends the wait on a silent long-running command without ever cutting short a command that is still making progress (see below) |
+| 11 | `wait-commit.patch` | Wait tool / commit permissions | Adds the `wait` tool (registered in the tool registry), grants the `"wait"` permission to agents, and adjusts shell/commit-related flow so long-running work can be coordinated safely |
 
 #### Why `shell-background.patch` exists
 
