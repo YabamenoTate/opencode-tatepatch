@@ -126,7 +126,7 @@ If you want to revert back to the original unmodified binary:
 }
 ```
 
-### Patch Inventory (10 patches)
+### Patch Inventory (11 patches)
 
 | # | Patch | Target | Description |
 |---|-------|--------|-------------|
