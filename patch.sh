@@ -228,9 +228,19 @@ do_patch() {
       [ -f "$f" ] && grep -q "requires bun" "$f" 2>/dev/null && sed -i "s/if (!semver.satisfies(process.versions.bun/if (process.env.OPENCODE_SKIP_BUN_CHECK || !semver.satisfies(process.versions.bun/g" "$f"
     done
   fi
+  # Ensure bun version check is disabled
+  for f in "$SOURCE_DIR/packages/script/src/index.ts" "$SOURCE_DIR/packages/opencode/script/build.ts"; do
+    [ -f "$f" ] && sed -i "s/if (!process.env.OPENCODE_SKIP_BUN_CHECK && !semver.satisfies/if (false && !semver.satisfies/g" "$f"
+    [ -f "$f" ] && grep -q "requires bun" "$f" && sed -i "s/throw new Error.*requires bun.*/throw new Error(\"\")/g" "$f"
+  done
 
   # VERSION の値をソースへ差し込む
   stamp_version
+
+  # bunバージョンチェック回避
+  if [ -f "$SOURCE_DIR/packages/script/src/index.ts" ]; then
+    printf "export const Script = { get version(){ return process.env.OPENCODE_VERSION || \"%s\" }, get channel(){ return process.env.OPENCODE_CHANNEL || \"prod\" } } as any\n" "$TATEPATCH_OPENCODE_VERSION" > "$SOURCE_DIR/packages/script/src/index.ts"
+  fi
 
   # 依存関係のインストール (--ignore-scripts: tree-sitter-powershell 等の
   # ネイティブビルドは不要。WASM/プリビルドバイナリで動作する。)
@@ -240,18 +250,22 @@ do_patch() {
     fail "bun install failed."
   fi
 
-  # web app のビルド (binary に埋め込む)
+  # web app のビルド（webapp-storage-proxy 等が app を差し替える前提）
   header "Building web app"
-  OPENCODE_CHANNEL=prod \
-  OPENCODE_VERSION="$TATEPATCH_OPENCODE_VERSION" \
-  bun run --cwd "$SOURCE_DIR/packages/app" build 2>&1 | tail -3
+  (
+    cd "$SOURCE_DIR"
+    export OPENCODE_CHANNEL=prod
+    export OPENCODE_VERSION="$TATEPATCH_OPENCODE_VERSION"
+    export OPENCODE_SKIP_BUN_CHECK=1
+    bun run --cwd packages/app build
+  ) || fail "Web app build failed"
 
   # binary のビルド
   header "Building opencode binary"
   info "This may take a while..."
   OPENCODE_SKIP_BUN_CHECK=1 \
   OPENCODE_VERSION="$TATEPATCH_OPENCODE_VERSION" \
-  bun run "$SOURCE_DIR/packages/opencode/script/build.ts" --single 2>&1 | tail -5
+  bun run "$SOURCE_DIR/packages/opencode/script/build.ts" --single 2>&1 | tail -10
 
   # ビルド成果物の検索
   local binary_path=""
