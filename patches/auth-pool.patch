@@ -195,7 +195,7 @@ index 1081310..5733c10 100644
 +    }
 +
 +    return (
-+      <div class="flex flex-col gap-4">
++      <div class="flex flex-col gap-4 px-3">
 +        <Switch>
 +          <Match when={poolLoading()}>
 +            <div class="flex items-center gap-x-2 text-14-regular text-text-base">
