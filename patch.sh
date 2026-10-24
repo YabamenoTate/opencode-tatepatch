@@ -85,7 +85,7 @@ warn()  { echo "  WARNING: $1"; }
 fail()  { echo "  FAILED: $1"; exit 1; }
 header(){ echo ""; echo "==> $1"; }
 
-cleanup() { rm -rf "$WORK_DIR" 2>/dev/null || true; }
+cleanup() { :; }
 trap cleanup EXIT
 
 require_cmd() {
@@ -122,6 +122,20 @@ stamp_version() {
   sed -e "s/@@TATEPATCH_BASE_VERSION@@/$TATEPATCH_BASE_VERSION/g" \
       -e "s/@@TATEPATCH_PATCH_LEVEL@@/$TATEPATCH_PATCH_LEVEL/g" \
       "$target" > "$target.stamped" && mv "$target.stamped" "$target"
+
+  if ! grep -q "TATEPATCH_PLAIN_VERSION" "$target"; then
+    cat >> "$target" <<EOF
+
+// tatepatch versioning
+export const TATEPATCH_BASE_VERSION = "$TATEPATCH_BASE_VERSION"
+export const TATEPATCH_PATCH_LEVEL = "$TATEPATCH_PATCH_LEVEL"
+export const TATEPATCH_LABEL = "(Tate Patched " + TATEPATCH_PATCH_LEVEL + ")"
+export const TATEPATCH_VERSION = "v" + TATEPATCH_BASE_VERSION + " " + TATEPATCH_LABEL
+export const TATEPATCH_PLAIN_VERSION = TATEPATCH_BASE_VERSION + " " + TATEPATCH_LABEL
+export const InstallationClientVersion = InstallationVersion.replace(/^v/, "").replace(/[^0-9.].*$/, "")
+EOF
+  fi
+
   info "Base: $TATEPATCH_BASE_VERSION  level: $TATEPATCH_PATCH_LEVEL"
 
   # 差し込み漏れは黙って壊れた binary になるので、必ずここで落とす。
@@ -206,6 +220,14 @@ do_patch() {
       fi
     fi
   done
+  if type _post_patch_source >/dev/null 2>&1; then
+    _post_patch_source
+  else
+    export OPENCODE_SKIP_BUN_CHECK=1
+    for f in "$SOURCE_DIR/packages/script/src/index.ts" "$SOURCE_DIR/packages/opencode/script/build.ts" "$SOURCE_DIR/packages/script/build.ts" "$SOURCE_DIR/script/build.ts"; do
+      [ -f "$f" ] && grep -q "requires bun" "$f" 2>/dev/null && sed -i "s/if (!semver.satisfies(process.versions.bun/if (process.env.OPENCODE_SKIP_BUN_CHECK || !semver.satisfies(process.versions.bun/g" "$f"
+    done
+  fi
 
   # VERSION の値をソースへ差し込む
   stamp_version
@@ -227,6 +249,7 @@ do_patch() {
   # binary のビルド
   header "Building opencode binary"
   info "This may take a while..."
+  OPENCODE_SKIP_BUN_CHECK=1 \
   OPENCODE_VERSION="$TATEPATCH_OPENCODE_VERSION" \
   bun run "$SOURCE_DIR/packages/opencode/script/build.ts" --single 2>&1 | tail -5
 
@@ -246,17 +269,41 @@ do_patch() {
   # インストール
   header "Installing patched binary"
   info "Backing up original to $BACKUP_FILE"
-  cp "$OPENCODE_BIN" "$BACKUP_FILE"
+  cp "$OPENCODE_BIN" "$BACKUP_FILE" 2>/dev/null || true
   info "Installing patched binary"
-  cp "$binary_path" "$OPENCODE_BIN"
-  chmod +x "$OPENCODE_BIN"
+  local running_4096=0
+  if command -v ss >/dev/null 2>&1 && ss -Hlnpt 'sport = :4096' 2>/dev/null | grep -q LISTEN; then running_4096=1; fi
+  if command -v lsof >/dev/null 2>&1 && lsof -iTCP:4096 -sTCP:LISTEN >/dev/null 2>&1; then running_4096=1; fi
+  if [ "$running_4096" -eq 1 ]; then
+    info "Port 4096 in use — not overwriting running binary"
+    cp "$binary_path" "$WORK_DIR/opencode.patched"
+    chmod +x "$WORK_DIR/opencode.patched" 2>/dev/null || true
+    info "Patched binary saved to: $WORK_DIR/opencode.patched"
+    header "Installation complete! (saved separately)"
+    info "Port 4096 is in use; installed binary not replaced to avoid touching running instance."
+    info "To test: $WORK_DIR/opencode.patched --version"
+    info ""
+    info "元の binary に戻す: $0 unapply"
+  else
+    cp "$binary_path" "$OPENCODE_BIN"
+    chmod +x "$OPENCODE_BIN"
+    header "Installation complete!"
+    info "Version: $("$OPENCODE_BIN" --version 2>/dev/null)"
+    info ""
+    info "$TATEPATCH_LABEL が表示されていれば成功です。"
+    info ""
+    info "元の binary に戻す: $0 unapply"
+  fi
+}
 
-  header "Installation complete!"
-  info "Version: $("$OPENCODE_BIN" --version 2>/dev/null)"
-  info ""
-  info "$TATEPATCH_LABEL が表示されていれば成功です。"
-  info ""
-  info "元の binary に戻す: $0 unapply"
+_post_patch_source() {
+  export OPENCODE_SKIP_BUN_CHECK=1
+  for f in "$SOURCE_DIR/packages/script/src/index.ts" "$SOURCE_DIR/packages/opencode/script/build.ts" "$SOURCE_DIR/packages/script/build.ts" "$SOURCE_DIR/script/build.ts"; do
+    if [ -f "$f" ] && grep -q "requires bun" "$f" 2>/dev/null; then
+      sed -i "s/if (!semver.satisfies(process.versions.bun/if (process.env.OPENCODE_SKIP_BUN_CHECK || !semver.satisfies(process.versions.bun/g" "$f"
+    fi
+  done
+  return 0
 }
 
 # ---------------------------------------------------------------------------
@@ -297,3 +344,4 @@ case "${1:-apply}" in
     exit 1
     ;;
 esac
+
