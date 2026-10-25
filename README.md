@@ -142,7 +142,6 @@ If you want to revert back to the original unmodified binary:
 | 10 | `wait-commit.patch` | Wait tool / commit permissions | Adds the `wait` tool (registered in the tool registry), grants the `"wait"` permission to agents, and adjusts shell/commit-related flow so long-running work can be coordinated safely |
 | 11 | `version.patch` | Version split | Adds the tatepatch label (CLI `--version`, health, TUI) from `VERSION`, while outbound User-Agents stay clean semver via `InstallationClientVersion` |
 | 12 | `key-suffix.patch` | Key visibility | Shows the last 4 characters of the API key currently serving a session next to status labels ("Thinking", "Edit", "Write") in the WebUI, and fixes a frozen `options.apiKey` shadowing the rotated key in `resolveSDK` |
-| 13 | `wire-identity.patch` | Deterministic wire identity | Derives request session/message/parent/project IDs from (local session ID, API key) so the wire identity is stable across restarts and different keys cannot be correlated; rotation produces distinct identities per key |
 
 #### Why `shell-background.patch` exists
 
@@ -456,7 +455,6 @@ Tate Patchは、中央集権的な依存関係を排し、ローカルとして�
 | 10 | `wait-commit.patch` | waitツール / コミット権限 | `wait`ツールを追加（ツールレジストリに登録）、エージェントに `"wait"` 権限を付与し、`shell-background.patch`の影響で長時間コマンドが出来なくなる代わりに、長時間待機は明示的`wait`ツールを使わせる。 |
 | 11 | `version.patch` | バージョン表記 | `VERSION` から取得した tatepatch ラベルを UIに表示しつつ、対外的なUser-Agentは `InstallationClientVersion` によりクリーンなセマンティクスとして識別（表示と送信は分離） |
 | 12 | `key-suffix.patch` | 使用中キーの可視化 | WebUIのステータス表示（"Thinking" / "Edit" / "Write"）の隣に、そのセッションでリクエストに使われているAPIキーの末尾4桁を表示。さらに `resolveSDK` において設定凍結済みの `options.apiKey` がローテーション後のキーを覆い隠す問題を修正 |
-| 13 | `wire-identity.patch` | 決定的なwire identity | リクエストのsession/message/parent/project IDを（ローカルセッションID、APIキー）から決定的に導出し、再起動後も同一キーで同一identityを用いるように。キーごとに異なるidentityを用いることで相関を避ける |
 
 #### `anti-key-stick.patch` について
 

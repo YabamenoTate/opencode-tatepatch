@@ -3710,3 +3710,96 @@ index 1b32e05..f93a801 100644
    "ui.sessionTurn.error.freeUsageExceeded": "無料使用制限に達しました",
    "ui.sessionTurn.error.addCredits": "クレジットを追加",
  
+diff --git a/packages/opencode/test/session/llm.test.ts b/packages/opencode/test/session/llm.test.ts
+index ed0ad20..55b4d39 100644
+--- a/packages/opencode/test/session/llm.test.ts
++++ b/packages/opencode/test/session/llm.test.ts
+@@ -840,6 +840,88 @@ describe("session.llm.stream", () => {
+     )
+   })
+ 
++  it.instance(
++    "a switched key reaches the wire and rotates the session identity",
++    () =>
++      Effect.gen(function* () {
++        const fixture = loadFixture(vivgridFixture.providerID, vivgridFixture.modelID)
++        const chat = () =>
++          new Response(createChatStream("Hello"), {
++            status: 200,
++            headers: { "Content-Type": "text/event-stream" },
++          })
++        const resolved = yield* Provider.use.getModel(
++          ProviderV2.ID.make(vivgridFixture.providerID),
++          ModelV2.ID.make(fixture.model.id),
++        )
++        const sessionID = SessionID.make("session-rotate-1")
++        const agent = {
++          name: "test",
++          mode: "primary",
++          options: {},
++          permission: [{ permission: "*", pattern: "*", action: "allow" }],
++        } satisfies Agent.Info
++        const input = (key: string, messageID: string) => ({
++          user: {
++            id: MessageID.make(messageID),
++            sessionID,
++            role: "user" as const,
++            time: { created: Date.now() },
++            agent: agent.name,
++            model: { providerID: ProviderV2.ID.make(vivgridFixture.providerID), modelID: resolved.id },
++          } satisfies SessionV1.User,
++          sessionID,
++          model: resolved,
++          agent,
++          system: ["You are a helpful assistant."],
++          messages: [{ role: "user" as const, content: "Hello" }] as ModelMessage[],
++          tools: {},
++          authOverride: { type: "api" as const, key },
++        })
++
++        // First key of the session: the credential reaches the wire and the
++        // identity is derived deterministically from (session, key).
++        const first = waitRequest("/chat/completions", chat())
++        yield* drain(input("key-aaa", "msg_rotate-1"))
++        const firstCapture = yield* Effect.promise(() => first)
++        expect(firstCapture.headers.get("Authorization")).toBe("Bearer key-aaa")
++        expect(firstCapture.headers.get("x-opencode-session-id")).not.toBe(sessionID)
++        expect(firstCapture.headers.get("x-session-affinity")).not.toBe(sessionID)
++        expect(firstCapture.headers.get("x-opencode-session-id")).toMatch(/^ses_[0-9a-f]{12}[0-9A-Za-z]{14}$/)
++
++        // Rotated key: the new credential is used and every identity it sends is
++        // derived for that key, so nothing the first key saw goes out again.
++        const second = waitRequest("/chat/completions", chat())
++        yield* drain(input("key-bbb", "msg_rotate-2"))
++        const secondCapture = yield* Effect.promise(() => second)
++        expect(secondCapture.headers.get("Authorization")).toBe("Bearer key-bbb")
++        expect(secondCapture.headers.get("x-opencode-session-id")).not.toBe(
++          firstCapture.headers.get("x-opencode-session-id"),
++        )
++        expect(secondCapture.headers.get("x-session-affinity")).not.toBe(
++          firstCapture.headers.get("x-session-affinity"),
++        )
++      }),
++    {
++      config: () => {
++        const fixture = loadFixture(vivgridFixture.providerID, vivgridFixture.modelID)
++        return {
++          enabled_providers: [vivgridFixture.providerID],
++          provider: {
++            [vivgridFixture.providerID]: {
++              name: "OpenCode Test",
++              npm: "@ai-sdk/openai-compatible",
++              models: { [fixture.model.id]: configModel(fixture.model) as ConfigModel },
++              // The frozen options key is the point of this test: a key handed to
++              // the request must win over whatever options froze at load time.
++              options: { apiKey: "frozen-key", baseURL: `${state.server!.url.origin}/v1` },
++            },
++          },
++        }
++      },
++    },
++  )
++
+   it.instance(
+     "sends temperature, tokens, and reasoning options for openai-compatible models",
+     () =>
