@@ -1,0 +1,3805 @@
+diff --git a/packages/app/src/components/dialog-connect-provider.tsx b/packages/app/src/components/dialog-connect-provider.tsx
+index 1081310..27fec51 100644
+--- a/packages/app/src/components/dialog-connect-provider.tsx
++++ b/packages/app/src/components/dialog-connect-provider.tsx
+@@ -19,6 +19,7 @@ import {
+   createEffect,
+   createMemo,
+   createResource,
++  createSignal,
+   createUniqueId,
+   For,
+   Match,
+@@ -38,6 +39,14 @@ import { useSettings } from "@/context/settings"
+ import { popularProviders, useProviders } from "@/hooks/use-providers"
+ import { CustomProviderForm } from "./dialog-custom-provider"
+ import { decode64 } from "@/utils/base64"
++import { useServer } from "@/context/server"
++import { authTokenFromCredentials } from "@/utils/server"
++
++interface PoolEntry {
++  key_hash: string
++  key_masked: string
++  label?: string
++}
+ 
+ const CUSTOM_ID = "_custom"
+ type ConnectMethod = Extract<IntegrationMethod, { type: "key" | "oauth" }>
+@@ -437,7 +446,7 @@ function ProviderConnection(props: {
+     methodIndex: undefined as undefined | number,
+     authorization: undefined as undefined | IntegrationOauthConnectOutput["data"],
+     promptInputs: undefined as undefined | Record<string, string>,
+-    state: "pending" as undefined | "pending" | "complete" | "error" | "prompt",
++    state: "pending" as undefined | "pending" | "complete" | "error" | "prompt" | "manage",
+     error: undefined as string | undefined,
+   })
+ 
+@@ -449,6 +458,7 @@ function ProviderConnection(props: {
+     | { type: "auth.pending" }
+     | { type: "auth.complete"; authorization: IntegrationOauthConnectOutput["data"] }
+     | { type: "auth.error"; error: string }
++    | { type: "manage.show" }
+ 
+   function dispatch(action: Action) {
+     setStore(
+@@ -491,6 +501,11 @@ function ProviderConnection(props: {
+           draft.error = undefined
+           return
+         }
++        if (action.type === "manage.show") {
++          draft.state = "manage"
++          draft.error = undefined
++          return
++        }
+         draft.state = "error"
+         draft.error = action.error
+       }),
+@@ -715,6 +730,74 @@ function ProviderConnection(props: {
+     }
+   })
+ 
++  const [poolEntries, setPoolEntries] = createSignal<PoolEntry[]>([])
++  const [poolLoading, setPoolLoading] = createSignal(false)
++  const [manageView, setManageView] = createSignal<"idle" | "loading" | "list" | "add">("idle")
++
++  const server = useServer()
++  const poolAuthHeaders = createMemo((): Record<string, string> => {
++    const srv = server.current
++    if (!srv?.http?.password) return {}
++    return {
++      Authorization: `Basic ${authTokenFromCredentials({ username: srv.http.username, password: srv.http.password })}`,
++    }
++  })
++
++  function poolFetch(url: string, init?: RequestInit) {
++    const base = typeof window !== "undefined" ? window.location.origin : ""
++    return fetch(`${base}${url}`, { ...init, headers: { ...poolAuthHeaders(), ...init?.headers } })
++  }
++
++
++
++  async function addPoolKey(key: string, label?: string) {
++    const res = await poolFetch(`/auth/${encodeURIComponent(props.provider)}/pool`, {
++      method: "POST",
++      headers: { "Content-Type": "application/json" },
++      body: JSON.stringify({ key, label }),
++    })
++    if (!res.ok) {
++      showToast({ variant: "error", title: language.t("common.requestFailed") })
++      return
++    }
++    setManageView("loading")
++  }
++
++  async function removePoolKey(keyHash: string) {
++    const res = await poolFetch(`/auth/${encodeURIComponent(props.provider)}/pool/remove`, {
++      method: "POST",
++      headers: { "Content-Type": "application/json" },
++      body: JSON.stringify({ key_hash: keyHash }),
++    })
++    if (!res.ok) {
++      showToast({ variant: "error", title: language.t("common.requestFailed") })
++      return
++    }
++    setManageView("loading")
++  }
++
++  async function switchPoolKey(keyHash: string) {
++    const res = await poolFetch(`/auth/${encodeURIComponent(props.provider)}/pool/switch`, {
++      method: "POST",
++      headers: { "Content-Type": "application/json" },
++      body: JSON.stringify({ key_hash: keyHash }),
++    })
++    if (!res.ok) {
++      showToast({ variant: "error", title: language.t("common.requestFailed") })
++      return
++    }
++    setManageView("loading")
++  }
++
++  async function removeMainAccount() {
++    const res = await poolFetch(`/auth/${encodeURIComponent(props.provider)}`, { method: "DELETE" })
++    if (!res.ok) {
++      showToast({ variant: "error", title: language.t("common.requestFailed") })
++      return
++    }
++    setManageView("loading")
++  }
++
+   async function complete() {
+     await serverSync()
+       .refreshProviders()
+@@ -738,6 +821,201 @@ function ProviderConnection(props: {
+ 
+   props.setBack(goBack)
+ 
++  function ManageAccountsView() {
++    createEffect(() => {
++      if (manageView() === "idle") {
++        setManageView("loading")
++      }
++    })
++
++    const [mainEntry, setMainEntry] = createSignal<PoolEntry | null>(null)
++
++    createEffect(() => {
++      if (manageView() !== "loading") return
++      setPoolLoading(true)
++      poolFetch(`/auth/${encodeURIComponent(props.provider)}/pool`)
++        .then(async (r) => {
++          if (!r.ok) throw new Error(`HTTP ${r.status}`)
++          return r.json()
++        })
++        .then((data) => {
++          if (alive.value) {
++            const d = data as { entries: PoolEntry[]; main: PoolEntry | null }
++            setPoolEntries(d.entries ?? [])
++            setMainEntry(d.main ?? null)
++            setManageView("list")
++          }
++        })
++        .catch((e: Error) => {
++          if (alive.value) {
++            setPoolEntries([])
++            setMainEntry(null)
++            setManageView("list")
++            console.error("Pool fetch failed:", e.message)
++            showToast({ variant: "error", title: language.t("common.requestFailed") })
++          }
++        })
++        .finally(() => {
++          if (alive.value) setPoolLoading(false)
++        })
++    })
++
++    const [addStore, setAddStore] = createStore({
++      value: "",
++      error: undefined as string | undefined,
++    })
++
++    async function handleAddSubmit(e: SubmitEvent) {
++      e.preventDefault()
++      const form = e.currentTarget as HTMLFormElement
++      const formData = new FormData(form)
++      const apiKey = formData.get("apiKey") as string
++
++      if (!apiKey?.trim()) {
++        setAddStore("error", language.t("provider.connect.apiKey.required"))
++        return
++      }
++
++      setAddStore("error", undefined)
++      await addPoolKey(apiKey)
++      setAddStore("value", "")
++      setManageView("loading")
++    }
++
++    return (
++      <div class="flex flex-col gap-4 px-3">
++        <Switch>
++          <Match when={poolLoading()}>
++            <div class="flex items-center gap-x-2 text-14-regular text-text-base">
++              <Spinner />
++              <span>{language.t("provider.connect.status.inProgress")}</span>
++            </div>
++          </Match>
++          <Match when={manageView() === "add"}>
++            <div class="text-14-regular text-text-base">
++              {language.t("provider.connect.apiKey.description", { provider: provider().name })}
++            </div>
++            <form onSubmit={handleAddSubmit} class="flex flex-col items-start gap-4">
++              <TextField
++                autofocus
++                type="text"
++                label={language.t("provider.connect.apiKey.label", { provider: provider().name })}
++                placeholder={language.t("provider.connect.apiKey.placeholder")}
++                name="apiKey"
++                value={addStore.value}
++                onChange={(v) => setAddStore("value", v)}
++                validationState={addStore.error ? "invalid" : undefined}
++                error={addStore.error}
++              />
++              <div class="flex gap-2">
++                <Button class="w-auto" type="submit" size="large" variant="primary">
++                  {language.t("common.continue")}
++                </Button>
++                <Button
++                  class="w-auto"
++                  size="large"
++                  variant="secondary"
++                  onClick={() => setManageView("list")}
++                >
++                  {language.t("common.cancel")}
++                </Button>
++              </div>
++            </form>
++          </Match>
++          <Match when={manageView() === "list"}>
++            <div class="flex flex-col gap-3">
++              <div class="flex items-center justify-between">
++                <div class="text-14-regular text-text-base">
++                  {language.t("provider.connect.accounts", { provider: provider().name })}
++                </div>
++                <Button
++                  size="small"
++                  variant="secondary"
++                  icon="plus-small"
++                  onClick={() => setManageView("add")}
++                >
++                  {language.t("common.add")}
++                </Button>
++              </div>
++
++              <div class="flex flex-col gap-2">
++                {mainEntry() ? (
++                  <div class="flex items-center justify-between gap-2 p-2 rounded-md bg-surface-stronger-base border border-border-weak-base">
++                    <div class="flex items-center gap-2 min-w-0">
++                      <Icon name="circle-check" class="text-icon-success-base size-4 shrink-0" />
++                      <span class="text-14-regular text-text-strong truncate font-mono text-xs">
++                        {mainEntry()!.key_masked}
++                      </span>
++                      {mainEntry()!.label ? (
++                        <span class="text-12-regular text-text-weak">{mainEntry()!.label}</span>
++                      ) : null}
++                      <span class="text-12-regular text-text-weak">({language.t("provider.connect.mainAccount")})</span>
++                    </div>
++                    <div class="flex items-center gap-1 shrink-0">
++                      <Button
++                        size="small"
++                        variant="ghost"
++                        icon="trash"
++                        onClick={() => void removeMainAccount()}
++                        title={language.t("common.delete")}
++                      />
++                    </div>
++                  </div>
++                ) : null}
++
++                {poolEntries().length === 0 && !mainEntry() ? (
++                  <div class="text-14-regular text-text-weak py-2">
++                    {language.t("provider.connect.noAccounts")}
++                  </div>
++                ) : null}
++
++                {poolEntries().map((entry, i) => (
++                  <div
++                    class="flex items-center justify-between gap-2 p-2 rounded-md bg-surface-stronger-base border border-border-weak-base cursor-pointer hover:bg-surface-stronger-hover"
++                    onClick={() => void switchPoolKey(entry.key_hash)}
++                    role="button"
++                    tabIndex={0}
++                    onKeyDown={(e) => { if (e.key === "Enter") void switchPoolKey(entry.key_hash) }}
++                  >
++                    <div class="flex items-center gap-2 min-w-0">
++                      <Icon name="arrow-right" class="text-icon-base size-4 shrink-0" />
++                      <span class="text-14-regular text-text-strong truncate font-mono text-xs">
++                        {entry.key_masked}
++                      </span>
++                      {entry.label ? (
++                        <span class="text-12-regular text-text-weak">{entry.label}</span>
++                      ) : null}
++                    </div>
++                    <div class="flex items-center gap-1 shrink-0">
++                      <Button
++                        size="small"
++                        variant="ghost"
++                        icon="trash"
++                        onClick={(e: MouseEvent) => { e.stopPropagation(); void removePoolKey(entry.key_hash) }}
++                        title={language.t("common.delete")}
++                      />
++                    </div>
++                  </div>
++                ))}
++              </div>
++
++              <div class="flex gap-2 pt-2">
++                <Button
++                  class="w-auto"
++                  size="large"
++                  variant="primary"
++                  onClick={() => void complete()}
++                >
++                  {language.t("common.done")}
++                </Button>
++              </div>
++            </div>
++          </Match>
++        </Switch>
++      </div>
++    )
++  }
++
+   function MethodSelection() {
+     if (newLayout())
+       return (
+@@ -833,7 +1111,7 @@ function ProviderConnection(props: {
+         location: location(),
+         key: apiKey,
+       })
+-      await complete()
++      dispatch({ type: "manage.show" })
+     }
+ 
+     if (newLayout())
+@@ -1111,6 +1389,11 @@ function ProviderConnection(props: {
+     )
+   }
+ 
++  const showManage = createMemo(() => {
++    const hasAuth = providers.connected().some((p) => p.id === props.provider)
++    return hasAuth || store.state === "manage"
++  })
++
+   return (
+     <div class={newLayout() ? "flex min-h-0 flex-1 flex-col" : "flex flex-col gap-6 px-2.5 pb-3"}>
+       <div class={newLayout() ? "flex h-10 shrink-0 items-start gap-2 px-3" : "flex items-center gap-4 px-2.5"}>
+@@ -1148,6 +1431,9 @@ function ProviderConnection(props: {
+                 </div>
+               </div>
+             </Match>
++            <Match when={showManage()}>
++              <ManageAccountsView />
++            </Match>
+             <Match when={store.methodIndex === undefined}>
+               <MethodSelection />
+             </Match>
+diff --git a/packages/app/src/components/prompt-input/submit.ts b/packages/app/src/components/prompt-input/submit.ts
+index c82c3a4..220cf80 100644
+--- a/packages/app/src/components/prompt-input/submit.ts
++++ b/packages/app/src/components/prompt-input/submit.ts
+@@ -4,8 +4,10 @@ import { base64Encode } from "@opencode-ai/core/util/encode"
+ import { Binary } from "@opencode-ai/core/util/binary"
+ import { useNavigate, useParams, useSearchParams } from "@solidjs/router"
+ import { batch, startTransition, type Accessor } from "solid-js"
+-import { useTabs } from "@/context/tabs"
++import type { FileSelection } from "@/context/file"
++import { useServer } from "@/context/server"
+ import { useServerSync, type ServerSync } from "@/context/server-sync"
++import { useTabs } from "@/context/tabs"
+ import { useLanguage } from "@/context/language"
+ import { useLayout } from "@/context/layout"
+ import { useLocal, type ModelSelection } from "@/context/local"
+@@ -23,6 +25,7 @@ import { createPromptSubmissionState } from "./submission-state"
+ import { normalizeSessionInfo } from "@/utils/session"
+ import { Event } from "@opencode-ai/schema/event"
+ import { blobDataUrl } from "@/utils/draft-store"
++import { authTokenFromCredentials } from "@/utils/server"
+ 
+ type PendingPrompt = {
+   abort: AbortController
+@@ -241,6 +244,7 @@ export function createPromptSubmit(input: PromptSubmitInput) {
+   const prompt = input.prompt
+   const layout = useLayout()
+   const language = useLanguage()
++  const server = useServer()
+   const params = useParams()
+   const [search] = useSearchParams<{ draftId?: string }>()
+   const tabs = useTabs()
+@@ -398,6 +402,23 @@ export function createPromptSubmit(input: PromptSubmitInput) {
+       input.onNewSessionWorktreeReset?.()
+     }
+ 
++    if (isNewSession && currentModel) {
++      const base = typeof window !== "undefined" && window.location ? window.location.origin : "http://localhost:4096"
++      const srv = server.current
++      const headers: Record<string, string> = {}
++      if (srv?.http?.password) {
++        headers["Authorization"] = `Basic ${authTokenFromCredentials({ username: srv.http.username, password: srv.http.password })}`
++      }
++      try {
++        await fetch(`${base}/auth/${encodeURIComponent(currentModel.provider.id)}/pool/reset`, {
++          method: "POST",
++          headers,
++        })
++      } catch {
++        // pool reset is optional
++      }
++    }
++
+     let session = input.info()
+     if (!session && isNewSession) {
+       const created = await sdk()
+diff --git a/packages/app/src/i18n/am.ts b/packages/app/src/i18n/am.ts
+index bda4835..07fa4dd 100644
+--- a/packages/app/src/i18n/am.ts
++++ b/packages/app/src/i18n/am.ts
+@@ -1127,4 +1127,10 @@ export const dict = {
+   "workspace.reset.archived.many": "{{count}} ክፍለ-ጊዜዎች በማህደር ይቀመጣሉ።",
+   "workspace.reset.note": "ይህ workspaceን ከነባሪው ቅርንጫፍ ጋር እንዲመሳሰል ዳግም ያስጀምረዋል።",
+   "dialog.usageExceeded.dontShowAgain": "እንደገና አታሳይ",
++  "provider.connect.accounts": "{{provider}} Accounts",
++  "provider.connect.mainAccount": "Main Account",
++  "provider.connect.noAccounts": "No accounts yet",
++  "provider.connect.setMainAccount": "Set as main account",
++  "common.add": "Add",
++  "common.done": "Done",
+ }
+diff --git a/packages/app/src/i18n/ar.ts b/packages/app/src/i18n/ar.ts
+index 3f55b30..f247369 100644
+--- a/packages/app/src/i18n/ar.ts
++++ b/packages/app/src/i18n/ar.ts
+@@ -253,6 +253,10 @@ export const dict = {
+   "provider.connect.oauth.auto.confirmationCode": "رمز التأكيد",
+   "provider.connect.toast.connected.title": "تم توصيل {{provider}}",
+   "provider.connect.toast.connected.description": "نماذج {{provider}} متاحة الآن للاستخدام.",
++  "provider.connect.accounts": "حسابات {{provider}}",
++  "provider.connect.mainAccount": "الحساب الرئيسي",
++  "provider.connect.noAccounts": "لا توجد حسابات بعد",
++  "provider.connect.setMainAccount": "تعيين كحساب رئيسي",
+   "provider.custom.title": "موفر مخصص",
+   "provider.custom.unavailable": "الموفرون المخصصون غير متاحين على هذا الخادم",
+   "provider.custom.description.prefix": "تكوين موفر متوافق مع OpenAI. راجع ",
+@@ -809,6 +813,8 @@ export const dict = {
+   "common.reset": "إعادة تعيين",
+   "common.archive": "أرشفة",
+   "common.delete": "حذف",
++  "common.add": "إضافة",
++  "common.done": "تم",
+   "common.close": "إغلاق",
+   "common.edit": "تحرير",
+   "common.loadMore": "تحميل المزيد",
+diff --git a/packages/app/src/i18n/az.ts b/packages/app/src/i18n/az.ts
+index d818ae5..b185c32 100644
+--- a/packages/app/src/i18n/az.ts
++++ b/packages/app/src/i18n/az.ts
+@@ -1165,4 +1165,10 @@ export const dict = {
+   "workspace.reset.archived.one": "1 sessiya arxivlənəcək.",
+   "workspace.reset.archived.many": "{{count}} sessiya arxivlənəcək.",
+   "workspace.reset.note": "Bu iş sahəsini standart branch ilə uyğunlaşdırmaq üçün sıfırlayacaq.",
++  "provider.connect.accounts": "{{provider}} Accounts",
++  "provider.connect.mainAccount": "Main Account",
++  "provider.connect.noAccounts": "No accounts yet",
++  "provider.connect.setMainAccount": "Set as main account",
++  "common.add": "Add",
++  "common.done": "Done",
+ }
+diff --git a/packages/app/src/i18n/bg.ts b/packages/app/src/i18n/bg.ts
+index 7f63d1f..21f4051 100644
+--- a/packages/app/src/i18n/bg.ts
++++ b/packages/app/src/i18n/bg.ts
+@@ -1167,4 +1167,10 @@ export const dict = {
+   "workspace.reset.archived.many": "{{count}} сесии ще бъдат архивирани.",
+   "workspace.reset.note": "Това ще нулира работното пространство, за да съответства на клона по подразбиране.",
+   "dialog.usageExceeded.dontShowAgain": "Не показвай отново",
++  "provider.connect.accounts": "{{provider}} Accounts",
++  "provider.connect.mainAccount": "Main Account",
++  "provider.connect.noAccounts": "No accounts yet",
++  "provider.connect.setMainAccount": "Set as main account",
++  "common.add": "Add",
++  "common.done": "Done",
+ }
+diff --git a/packages/app/src/i18n/bn.ts b/packages/app/src/i18n/bn.ts
+index 5f0698a..7f819d3 100644
+--- a/packages/app/src/i18n/bn.ts
++++ b/packages/app/src/i18n/bn.ts
+@@ -1149,4 +1149,10 @@ export const dict: Record<string, string> = {
+   "workspace.reset.archived.many": "{{count}} সেশন আর্কাইভ করা হবে।",
+   "workspace.reset.note": "এটি ডিফল্ট শাখার সাথে মেলে ওয়ার্কস্পেস রিসেট করবে।",
+   "dialog.usageExceeded.dontShowAgain": "আবার দেখাবেন না",
++  "provider.connect.accounts": "{{provider}} Accounts",
++  "provider.connect.mainAccount": "Main Account",
++  "provider.connect.noAccounts": "No accounts yet",
++  "provider.connect.setMainAccount": "Set as main account",
++  "common.add": "Add",
++  "common.done": "Done",
+ }
+diff --git a/packages/app/src/i18n/br.ts b/packages/app/src/i18n/br.ts
+index 09da845..3d9aa28 100644
+--- a/packages/app/src/i18n/br.ts
++++ b/packages/app/src/i18n/br.ts
+@@ -255,6 +255,10 @@ export const dict = {
+   "provider.connect.oauth.auto.confirmationCode": "Código de confirmação",
+   "provider.connect.toast.connected.title": "{{provider}} conectado",
+   "provider.connect.toast.connected.description": "Modelos do {{provider}} agora estão disponíveis para uso.",
++  "provider.connect.accounts": "Contas {{provider}}",
++  "provider.connect.mainAccount": "Conta principal",
++  "provider.connect.noAccounts": "Nenhuma conta ainda",
++  "provider.connect.setMainAccount": "Definir como conta principal",
+   "provider.custom.title": "Provedor personalizado",
+   "provider.custom.unavailable": "Provedores personalizados não estão disponíveis neste servidor",
+   "provider.custom.description.prefix": "Configure um provedor compatível com OpenAI. Veja a ",
+@@ -812,6 +816,8 @@ export const dict = {
+   "common.reset": "Redefinir",
+   "common.archive": "Arquivar",
+   "common.delete": "Excluir",
++  "common.add": "Adicionar",
++  "common.done": "Concluído",
+   "common.close": "Fechar",
+   "common.edit": "Editar",
+   "common.loadMore": "Carregar mais",
+diff --git a/packages/app/src/i18n/bs.ts b/packages/app/src/i18n/bs.ts
+index feb41c6..a09e299 100644
+--- a/packages/app/src/i18n/bs.ts
++++ b/packages/app/src/i18n/bs.ts
+@@ -267,6 +267,10 @@ export const dict = {
+   "provider.connect.oauth.auto.confirmationCode": "Kod za potvrdu",
+   "provider.connect.toast.connected.title": "{{provider}} povezan",
+   "provider.connect.toast.connected.description": "{{provider}} modeli su sada dostupni za korištenje.",
++  "provider.connect.accounts": "{{provider}} računi",
++  "provider.connect.mainAccount": "Glavni račun",
++  "provider.connect.noAccounts": "Još nema računa",
++  "provider.connect.setMainAccount": "Postavi kao glavni račun",
+ 
+   "provider.custom.title": "Prilagođeni provajder",
+   "provider.custom.unavailable": "Prilagođeni provajderi nisu dostupni na ovom serveru",
+@@ -872,6 +876,8 @@ export const dict = {
+   "common.reset": "Vrati na početno stanje",
+   "common.archive": "Arhiviraj",
+   "common.delete": "Izbriši",
++  "common.add": "Dodaj",
++  "common.done": "Gotovo",
+   "common.close": "Zatvori",
+   "common.edit": "Uredi",
+   "common.loadMore": "Učitaj još",
+diff --git a/packages/app/src/i18n/ca.ts b/packages/app/src/i18n/ca.ts
+index 21ad325..de6a067 100644
+--- a/packages/app/src/i18n/ca.ts
++++ b/packages/app/src/i18n/ca.ts
+@@ -1170,4 +1170,10 @@ export const dict = {
+   "workspace.reset.archived.many": "{{count}} sessions s'arxivaran.",
+   "workspace.reset.note": "Això restablirà l'espai de treball perquè coincideixi amb la branca predeterminada.",
+   "dialog.usageExceeded.dontShowAgain": "No ho tornis a mostrar",
++  "provider.connect.accounts": "{{provider}} Accounts",
++  "provider.connect.mainAccount": "Main Account",
++  "provider.connect.noAccounts": "No accounts yet",
++  "provider.connect.setMainAccount": "Set as main account",
++  "common.add": "Add",
++  "common.done": "Done",
+ }
+diff --git a/packages/app/src/i18n/cs.ts b/packages/app/src/i18n/cs.ts
+index d79d4eb..5caf029 100644
+--- a/packages/app/src/i18n/cs.ts
++++ b/packages/app/src/i18n/cs.ts
+@@ -1160,4 +1160,10 @@ export const dict = {
+   "workspace.reset.archived.many": "{{count}} relací bude archivováno.",
+   "workspace.reset.note": "Tím se pracovní prostor resetuje tak, aby odpovídal výchozí větvi.",
+   "dialog.usageExceeded.dontShowAgain": "Znovu nezobrazovat",
++  "provider.connect.accounts": "{{provider}} Accounts",
++  "provider.connect.mainAccount": "Main Account",
++  "provider.connect.noAccounts": "No accounts yet",
++  "provider.connect.setMainAccount": "Set as main account",
++  "common.add": "Add",
++  "common.done": "Done",
+ }
+diff --git a/packages/app/src/i18n/da.ts b/packages/app/src/i18n/da.ts
+index 87737b0..9615641 100644
+--- a/packages/app/src/i18n/da.ts
++++ b/packages/app/src/i18n/da.ts
+@@ -166,6 +166,10 @@ export const dict = {
+   "provider.connect.oauth.auto.confirmationCode": "Bekræftelseskode",
+   "provider.connect.toast.connected.title": "{{provider}} forbundet",
+   "provider.connect.toast.connected.description": "Modeller fra {{provider}} er nu tilgængelige.",
++  "provider.connect.accounts": "{{provider}}-konti",
++  "provider.connect.mainAccount": "Primær konto",
++  "provider.connect.noAccounts": "Ingen konti endnu",
++  "provider.connect.setMainAccount": "Angiv som primær konto",
+ 
+   "provider.custom.title": "Brugerdefineret udbyder",
+   "provider.custom.unavailable": "Brugerdefinerede udbydere er ikke tilgængelige på denne server",
+@@ -749,6 +753,8 @@ export const dict = {
+   "common.reset": "Nulstil",
+   "common.archive": "Arkivér",
+   "common.delete": "Slet",
++  "common.add": "Tilføj",
++  "common.done": "Færdig",
+   "common.close": "Luk",
+   "common.edit": "Rediger",
+   "common.loadMore": "Indlæs flere",
+diff --git a/packages/app/src/i18n/de.ts b/packages/app/src/i18n/de.ts
+index 0084959..30732c8 100644
+--- a/packages/app/src/i18n/de.ts
++++ b/packages/app/src/i18n/de.ts
+@@ -158,6 +158,10 @@ export const dict = {
+   "provider.connect.oauth.auto.confirmationCode": "Bestätigungscode",
+   "provider.connect.toast.connected.title": "{{provider}} verbunden",
+   "provider.connect.toast.connected.description": "{{provider}}-Modelle sind jetzt verfügbar.",
++  "provider.connect.accounts": "{{provider}}-Konten",
++  "provider.connect.mainAccount": "Hauptkonto",
++  "provider.connect.noAccounts": "Noch keine Konten",
++  "provider.connect.setMainAccount": "Als Hauptkonto festlegen",
+   "provider.custom.title": "Benutzerdefinierter Anbieter",
+   "provider.custom.unavailable": "Benutzerdefinierte Anbieter sind auf diesem Server nicht verfügbar",
+   "provider.custom.description.prefix": "Konfigurieren Sie einen OpenAI-kompatiblen Anbieter. Siehe die ",
+@@ -702,6 +706,8 @@ export const dict = {
+   "common.reset": "Zurücksetzen",
+   "common.archive": "Archivieren",
+   "common.delete": "Löschen",
++  "common.add": "Hinzufügen",
++  "common.done": "Fertig",
+   "common.close": "Schließen",
+   "common.edit": "Bearbeiten",
+   "common.loadMore": "Mehr laden",
+diff --git a/packages/app/src/i18n/dv.ts b/packages/app/src/i18n/dv.ts
+index 27b5fea..582650d 100644
+--- a/packages/app/src/i18n/dv.ts
++++ b/packages/app/src/i18n/dv.ts
+@@ -1174,4 +1174,10 @@ export const dict = {
+   "workspace.reset.archived.many": "{{count}} ސެޝަންތައް އަރުޝީފް ކުރެވޭނެއެވެ.",
+   "workspace.reset.note": "މިއީ ޑިފޯލްޓް ބްރާންޗާ އެއްގޮތްވާ ގޮތަށް ވޯކްސްޕޭސް ރީސެޓް ކުރާނެ ކަމެކެވެ.",
+   "dialog.usageExceeded.dontShowAgain": "އަލުން ނުދައްކާ",
++  "provider.connect.accounts": "{{provider}} Accounts",
++  "provider.connect.mainAccount": "Main Account",
++  "provider.connect.noAccounts": "No accounts yet",
++  "provider.connect.setMainAccount": "Set as main account",
++  "common.add": "Add",
++  "common.done": "Done",
+ }
+diff --git a/packages/app/src/i18n/dz.ts b/packages/app/src/i18n/dz.ts
+index 3b2ad46..b3ffa6f 100644
+--- a/packages/app/src/i18n/dz.ts
++++ b/packages/app/src/i18n/dz.ts
+@@ -1178,4 +1178,10 @@ export const dict: Record<string, string> = {
+   "workspace.reset.archived.many": "{{count}} ལཱ་ཡུན་ཚུ་ཡིག་མཛོད་ནང་བཞག་འོང་།",
+   "workspace.reset.note": "འདི་གིས་ སྔོན་སྒྲིག་ཡན་ལག་མཐུན་སྒྲིག་འབད་ནི་ལུ་ ལཱ་གི་ས་སྒོ་འདི་སླར་སྒྲིག་འབད་འོང་།",
+   "dialog.usageExceeded.dontShowAgain": "ལོག་སྟེ་མ་སྟོན།",
++  "provider.connect.accounts": "{{provider}} Accounts",
++  "provider.connect.mainAccount": "Main Account",
++  "provider.connect.noAccounts": "No accounts yet",
++  "provider.connect.setMainAccount": "Set as main account",
++  "common.add": "Add",
++  "common.done": "Done",
+ }
+diff --git a/packages/app/src/i18n/el.ts b/packages/app/src/i18n/el.ts
+index 8f91b46..1d5d86d 100644
+--- a/packages/app/src/i18n/el.ts
++++ b/packages/app/src/i18n/el.ts
+@@ -1170,4 +1170,10 @@ export const dict = {
+   "workspace.reset.archived.many": "{{count}} θα αρχειοθετηθούν οι περίοδοι σύνδεσης.",
+   "workspace.reset.note": "Αυτό θα επαναφέρει τον χώρο εργασίας ώστε να ταιριάζει με τον προεπιλεγμένο κλάδο.",
+   "dialog.usageExceeded.dontShowAgain": "Να μην εμφανιστεί ξανά",
++  "provider.connect.accounts": "{{provider}} Accounts",
++  "provider.connect.mainAccount": "Main Account",
++  "provider.connect.noAccounts": "No accounts yet",
++  "provider.connect.setMainAccount": "Set as main account",
++  "common.add": "Add",
++  "common.done": "Done",
+ }
+diff --git a/packages/app/src/i18n/en.ts b/packages/app/src/i18n/en.ts
+index 62d4dc1..b5e692a 100644
+--- a/packages/app/src/i18n/en.ts
++++ b/packages/app/src/i18n/en.ts
+@@ -169,6 +169,10 @@ export const dict = {
+   "provider.connect.oauth.auto.confirmationCode": "Confirmation code",
+   "provider.connect.toast.connected.title": "{{provider}} connected",
+   "provider.connect.toast.connected.description": "{{provider}} models are now available to use.",
++  "provider.connect.accounts": "{{provider}} Accounts",
++  "provider.connect.mainAccount": "Main Account",
++  "provider.connect.noAccounts": "No accounts yet",
++  "provider.connect.setMainAccount": "Set as main account",
+ 
+   "provider.custom.title": "Custom provider",
+   "provider.custom.unavailable": "Custom providers are unavailable on this server",
+@@ -815,6 +819,8 @@ export const dict = {
+   "common.reset": "Reset",
+   "common.archive": "Archive",
+   "common.delete": "Delete",
++  "common.add": "Add",
++  "common.done": "Done",
+   "common.close": "Close",
+   "common.edit": "Edit",
+   "common.loadMore": "Load more",
+diff --git a/packages/app/src/i18n/es.ts b/packages/app/src/i18n/es.ts
+index 9e9ff2c..c82fe31 100644
+--- a/packages/app/src/i18n/es.ts
++++ b/packages/app/src/i18n/es.ts
+@@ -267,6 +267,10 @@ export const dict = {
+   "provider.connect.oauth.auto.confirmationCode": "Código de confirmación",
+   "provider.connect.toast.connected.title": "{{provider}} conectado",
+   "provider.connect.toast.connected.description": "Los modelos de {{provider}} ahora están disponibles para usar.",
++  "provider.connect.accounts": "Cuentas de {{provider}}",
++  "provider.connect.mainAccount": "Cuenta principal",
++  "provider.connect.noAccounts": "Aún no hay cuentas",
++  "provider.connect.setMainAccount": "Establecer como cuenta principal",
+ 
+   "provider.custom.title": "Proveedor personalizado",
+   "provider.custom.unavailable": "Los proveedores personalizados no están disponibles en este servidor",
+@@ -877,6 +881,8 @@ export const dict = {
+   "common.reset": "Restablecer",
+   "common.archive": "Archivar",
+   "common.delete": "Eliminar",
++  "common.add": "Añadir",
++  "common.done": "Hecho",
+   "common.close": "Cerrar",
+   "common.edit": "Editar",
+   "common.loadMore": "Cargar más",
+diff --git a/packages/app/src/i18n/et.ts b/packages/app/src/i18n/et.ts
+index d782966..91217e5 100644
+--- a/packages/app/src/i18n/et.ts
++++ b/packages/app/src/i18n/et.ts
+@@ -1148,4 +1148,10 @@ export const dict = {
+   "workspace.reset.archived.many": "{{count}} seanssi arhiivitakse.",
+   "workspace.reset.note": "See lähtestab tööruumi, et see vastaks vaikeharule.",
+   "dialog.usageExceeded.dontShowAgain": "Ära kuva enam",
++  "provider.connect.accounts": "{{provider}} Accounts",
++  "provider.connect.mainAccount": "Main Account",
++  "provider.connect.noAccounts": "No accounts yet",
++  "provider.connect.setMainAccount": "Set as main account",
++  "common.add": "Add",
++  "common.done": "Done",
+ }
+diff --git a/packages/app/src/i18n/fa.ts b/packages/app/src/i18n/fa.ts
+index 0d3d721..a5d49b2 100644
+--- a/packages/app/src/i18n/fa.ts
++++ b/packages/app/src/i18n/fa.ts
+@@ -1152,4 +1152,10 @@ export const dict = {
+   "workspace.reset.archived.many": "جلسات {{count}} بایگانی خواهد شد.",
+   "workspace.reset.note": "این کار فضای کاری را برای مطابقت با شاخه پیش فرض بازنشانی می کند.",
+   "dialog.usageExceeded.dontShowAgain": "دیگر نشان نده",
++  "provider.connect.accounts": "{{provider}} Accounts",
++  "provider.connect.mainAccount": "Main Account",
++  "provider.connect.noAccounts": "No accounts yet",
++  "provider.connect.setMainAccount": "Set as main account",
++  "common.add": "Add",
++  "common.done": "Done",
+ }
+diff --git a/packages/app/src/i18n/fi.ts b/packages/app/src/i18n/fi.ts
+index aa9c925..83a17fc 100644
+--- a/packages/app/src/i18n/fi.ts
++++ b/packages/app/src/i18n/fi.ts
+@@ -1165,4 +1165,10 @@ export const dict = {
+   "help.tabs.persistence": "Kun avaat sovelluksen uudelleen, välilehtesi ovat yhä avoinna.",
+   "help.tabs.worktrees":
+     "Uusi ulkoasu ei vielä tue Git-työpuita, mutta tuki on tulossa pian. Jos haluat jatkaa aiemman ulkoasun käyttöä, voit vaihtaa ulkoasua asetuksissa. Huomaa kuitenkin, että uudesta ulkoasusta tulee pysyvä muutaman viikon kuluttua.",
++  "provider.connect.accounts": "{{provider}} Accounts",
++  "provider.connect.mainAccount": "Main Account",
++  "provider.connect.noAccounts": "No accounts yet",
++  "provider.connect.setMainAccount": "Set as main account",
++  "common.add": "Add",
++  "common.done": "Done",
+ }
+diff --git a/packages/app/src/i18n/fo.ts b/packages/app/src/i18n/fo.ts
+index 4329a35..26e18af 100644
+--- a/packages/app/src/i18n/fo.ts
++++ b/packages/app/src/i18n/fo.ts
+@@ -1151,4 +1151,10 @@ export const dict = {
+   "workspace.reset.archived.many": "{{count}} setur verða arkiveraðar.",
+   "workspace.reset.note": "Hetta nullstillar workspace til at passa til forsettu greinina.",
+   "dialog.usageExceeded.dontShowAgain": "Vís ikki aftur",
++  "provider.connect.accounts": "{{provider}} Accounts",
++  "provider.connect.mainAccount": "Main Account",
++  "provider.connect.noAccounts": "No accounts yet",
++  "provider.connect.setMainAccount": "Set as main account",
++  "common.add": "Add",
++  "common.done": "Done",
+ }
+diff --git a/packages/app/src/i18n/fr.ts b/packages/app/src/i18n/fr.ts
+index 3c89860..fea33f0 100644
+--- a/packages/app/src/i18n/fr.ts
++++ b/packages/app/src/i18n/fr.ts
+@@ -255,6 +255,10 @@ export const dict = {
+   "provider.connect.oauth.auto.confirmationCode": "Code de confirmation",
+   "provider.connect.toast.connected.title": "{{provider}} connecté",
+   "provider.connect.toast.connected.description": "Les modèles {{provider}} sont maintenant disponibles.",
++  "provider.connect.accounts": "Comptes {{provider}}",
++  "provider.connect.mainAccount": "Compte principal",
++  "provider.connect.noAccounts": "Aucun compte pour l'instant",
++  "provider.connect.setMainAccount": "Définir comme compte principal",
+   "provider.custom.title": "Fournisseur personnalisé",
+   "provider.custom.unavailable": "Les fournisseurs personnalisés ne sont pas disponibles sur ce serveur",
+   "provider.custom.description.prefix": "Configurez un fournisseur compatible avec OpenAI. Consultez la ",
+@@ -815,6 +819,8 @@ export const dict = {
+   "common.reset": "Réinitialiser",
+   "common.archive": "Archiver",
+   "common.delete": "Supprimer",
++  "common.add": "Ajouter",
++  "common.done": "Terminé",
+   "common.close": "Fermer",
+   "common.edit": "Modifier",
+   "common.loadMore": "Charger plus",
+diff --git a/packages/app/src/i18n/hi.ts b/packages/app/src/i18n/hi.ts
+index 0aaf8e1..34a8a7a 100644
+--- a/packages/app/src/i18n/hi.ts
++++ b/packages/app/src/i18n/hi.ts
+@@ -1160,4 +1160,10 @@ export const dict = {
+   "workspace.reset.archived.one": "1 सेशन संग्रहित किया जाएगा।",
+   "workspace.reset.archived.many": "{{count}} सेशन संग्रहित किए जाएँगे।",
+   "workspace.reset.note": "यह डिफ़ॉल्ट शाखा से मिलान करने के लिए वर्कस्पेस को रीसेट कर देगा।",
++  "provider.connect.accounts": "{{provider}} Accounts",
++  "provider.connect.mainAccount": "Main Account",
++  "provider.connect.noAccounts": "No accounts yet",
++  "provider.connect.setMainAccount": "Set as main account",
++  "common.add": "Add",
++  "common.done": "Done",
+ }
+diff --git a/packages/app/src/i18n/hr.ts b/packages/app/src/i18n/hr.ts
+index 2130c88..3ca31a4 100644
+--- a/packages/app/src/i18n/hr.ts
++++ b/packages/app/src/i18n/hr.ts
+@@ -1165,4 +1165,10 @@ export const dict = {
+   "workspace.reset.archived.many": "{{count}} sesije će biti arhivirane.",
+   "workspace.reset.note": "Ovo će resetirati radni prostor kako bi odgovarao zadanoj grani.",
+   "dialog.usageExceeded.dontShowAgain": "Ne prikazuj ponovno",
++  "provider.connect.accounts": "{{provider}} Accounts",
++  "provider.connect.mainAccount": "Main Account",
++  "provider.connect.noAccounts": "No accounts yet",
++  "provider.connect.setMainAccount": "Set as main account",
++  "common.add": "Add",
++  "common.done": "Done",
+ }
+diff --git a/packages/app/src/i18n/hu.ts b/packages/app/src/i18n/hu.ts
+index 664abf8..1dcfe35 100644
+--- a/packages/app/src/i18n/hu.ts
++++ b/packages/app/src/i18n/hu.ts
+@@ -1167,4 +1167,10 @@ export const dict = {
+   "workspace.reset.archived.many": "A {{count}} munkamenetek archiválva lesznek.",
+   "workspace.reset.note": "Ezzel visszaállítja a munkaterületet, hogy megfeleljen az alapértelmezett ágnak.",
+   "dialog.usageExceeded.dontShowAgain": "Ne jelenjen meg újra",
++  "provider.connect.accounts": "{{provider}} Accounts",
++  "provider.connect.mainAccount": "Main Account",
++  "provider.connect.noAccounts": "No accounts yet",
++  "provider.connect.setMainAccount": "Set as main account",
++  "common.add": "Add",
++  "common.done": "Done",
+ }
+diff --git a/packages/app/src/i18n/hy.ts b/packages/app/src/i18n/hy.ts
+index 6eac43b..725c272 100644
+--- a/packages/app/src/i18n/hy.ts
++++ b/packages/app/src/i18n/hy.ts
+@@ -1162,4 +1162,10 @@ export const dict = {
+   "workspace.reset.archived.many": "{{count}} նիստերը կարխիվացվեն։",
+   "workspace.reset.note": "Սա կվերակայի աշխատանքային տարածքը, որպեսզի համապատասխանի լռելյայն ճյուղին:",
+   "dialog.usageExceeded.dontShowAgain": "Այլևս չցուցադրել",
++  "provider.connect.accounts": "{{provider}} Accounts",
++  "provider.connect.mainAccount": "Main Account",
++  "provider.connect.noAccounts": "No accounts yet",
++  "provider.connect.setMainAccount": "Set as main account",
++  "common.add": "Add",
++  "common.done": "Done",
+ }
+diff --git a/packages/app/src/i18n/id.ts b/packages/app/src/i18n/id.ts
+index 96dc3c7..2babcad 100644
+--- a/packages/app/src/i18n/id.ts
++++ b/packages/app/src/i18n/id.ts
+@@ -1247,4 +1247,10 @@ export const dict = {
+   "workspace.reset.archived.one": "1 sesi akan diarsipkan.",
+   "workspace.reset.archived.many": "{{count}} sesi akan diarsipkan.",
+   "workspace.reset.note": "Ini akan mengatur ulang ruang kerja agar cocok dengan cabang bawaan.",
++  "provider.connect.accounts": "{{provider}} Accounts",
++  "provider.connect.mainAccount": "Main Account",
++  "provider.connect.noAccounts": "No accounts yet",
++  "provider.connect.setMainAccount": "Set as main account",
++  "common.add": "Add",
++  "common.done": "Done",
+ }
+diff --git a/packages/app/src/i18n/is.ts b/packages/app/src/i18n/is.ts
+index a45ed9a..bb9ada7 100644
+--- a/packages/app/src/i18n/is.ts
++++ b/packages/app/src/i18n/is.ts
+@@ -1154,4 +1154,10 @@ export const dict = {
+   "workspace.reset.archived.many": "{{count}} setur verða settar í geymslu.",
+   "workspace.reset.note": "Þetta mun endurstilla vinnusvæðið til að passa við sjálfgefna útibúið.",
+   "dialog.usageExceeded.dontShowAgain": "Ekki sýna aftur",
++  "provider.connect.accounts": "{{provider}} Accounts",
++  "provider.connect.mainAccount": "Main Account",
++  "provider.connect.noAccounts": "No accounts yet",
++  "provider.connect.setMainAccount": "Set as main account",
++  "common.add": "Add",
++  "common.done": "Done",
+ }
+diff --git a/packages/app/src/i18n/it.ts b/packages/app/src/i18n/it.ts
+index a093e11..bc4a455 100644
+--- a/packages/app/src/i18n/it.ts
++++ b/packages/app/src/i18n/it.ts
+@@ -1173,4 +1173,10 @@ export const dict = {
+   "desktop.wsl.error.failedPort": "Impossibile ottenere la porta",
+   "desktop.picker.error.notSelected": "Il file non è stato selezionato nella finestra di selezione",
+   "desktop.picker.error.sizeLimit": "Gli allegati selezionati superano il limite di {{limit}} MB",
++  "provider.connect.accounts": "{{provider}} Accounts",
++  "provider.connect.mainAccount": "Main Account",
++  "provider.connect.noAccounts": "No accounts yet",
++  "provider.connect.setMainAccount": "Set as main account",
++  "common.add": "Add",
++  "common.done": "Done",
+ }
+diff --git a/packages/app/src/i18n/ja.ts b/packages/app/src/i18n/ja.ts
+index b96e8b5..dc7c957 100644
+--- a/packages/app/src/i18n/ja.ts
++++ b/packages/app/src/i18n/ja.ts
+@@ -252,6 +252,10 @@ export const dict = {
+   "provider.connect.oauth.auto.confirmationCode": "確認コード",
+   "provider.connect.toast.connected.title": "{{provider}}が接続されました",
+   "provider.connect.toast.connected.description": "{{provider}}モデルが使用可能になりました。",
++  "provider.connect.accounts": "{{provider}}のアカウント",
++  "provider.connect.mainAccount": "メインアカウント",
++  "provider.connect.noAccounts": "アカウントがまだありません",
++  "provider.connect.setMainAccount": "メインアカウントに設定",
+   "provider.custom.title": "カスタムプロバイダー",
+   "provider.custom.unavailable": "このサーバーではカスタムプロバイダーを利用できません",
+   "provider.custom.description.prefix": "OpenAI互換のプロバイダーを設定します。詳細は",
+@@ -797,6 +801,8 @@ export const dict = {
+   "common.reset": "リセット",
+   "common.archive": "アーカイブ",
+   "common.delete": "削除",
++  "common.add": "追加",
++  "common.done": "完了",
+   "common.close": "閉じる",
+   "common.edit": "編集",
+   "common.loadMore": "さらに読み込む",
+diff --git a/packages/app/src/i18n/ka.ts b/packages/app/src/i18n/ka.ts
+index be05293..6bced1a 100644
+--- a/packages/app/src/i18n/ka.ts
++++ b/packages/app/src/i18n/ka.ts
+@@ -1153,4 +1153,10 @@ export const dict = {
+   "workspace.reset.archived.many": "{{count}} სესია დაარქივდება.",
+   "workspace.reset.note": "ეს აღადგენს სამუშაო სივრცეს ნაგულისხმევი ფილიალის შესატყვისად.",
+   "dialog.usageExceeded.dontShowAgain": "აღარ მაჩვენო",
++  "provider.connect.accounts": "{{provider}} Accounts",
++  "provider.connect.mainAccount": "Main Account",
++  "provider.connect.noAccounts": "No accounts yet",
++  "provider.connect.setMainAccount": "Set as main account",
++  "common.add": "Add",
++  "common.done": "Done",
+ }
+diff --git a/packages/app/src/i18n/km.ts b/packages/app/src/i18n/km.ts
+index 7f1b61f..15038b3 100644
+--- a/packages/app/src/i18n/km.ts
++++ b/packages/app/src/i18n/km.ts
+@@ -1148,4 +1148,10 @@ export const dict = {
+   "workspace.reset.archived.many": "សម័យ {{count}} នឹងត្រូវបានទុកក្នុងប័ណ្ណសារ។",
+   "workspace.reset.note": "វានឹងកំណត់កន្លែងធ្វើការឡើងវិញដើម្បីផ្គូផ្គងសាខាលំនាំដើម។",
+   "dialog.usageExceeded.dontShowAgain": "កុំបង្ហាញម្តងទៀត",
++  "provider.connect.accounts": "{{provider}} Accounts",
++  "provider.connect.mainAccount": "Main Account",
++  "provider.connect.noAccounts": "No accounts yet",
++  "provider.connect.setMainAccount": "Set as main account",
++  "common.add": "Add",
++  "common.done": "Done",
+ }
+diff --git a/packages/app/src/i18n/ko.ts b/packages/app/src/i18n/ko.ts
+index b96fb4c..73c145e 100644
+--- a/packages/app/src/i18n/ko.ts
++++ b/packages/app/src/i18n/ko.ts
+@@ -149,6 +149,10 @@ export const dict = {
+   "provider.connect.oauth.auto.confirmationCode": "확인 코드",
+   "provider.connect.toast.connected.title": "{{provider}} 연결됨",
+   "provider.connect.toast.connected.description": "이제 {{provider}} 모델을 사용할 수 있습니다.",
++  "provider.connect.accounts": "{{provider}} 계정",
++  "provider.connect.mainAccount": "기본 계정",
++  "provider.connect.noAccounts": "아직 계정 없음",
++  "provider.connect.setMainAccount": "기본 계정으로 설정",
+   "provider.custom.title": "사용자 지정 공급자",
+   "provider.custom.unavailable": "이 서버에서는 사용자 지정 공급자를 사용할 수 없습니다",
+   "provider.custom.description.prefix": "OpenAI 호환 공급자를 구성합니다. ",
+@@ -560,6 +564,8 @@ export const dict = {
+   "common.reset": "초기화",
+   "common.archive": "보관",
+   "common.delete": "삭제",
++  "common.add": "추가",
++  "common.done": "완료",
+   "common.close": "닫기",
+   "common.edit": "편집",
+   "common.loadMore": "더 불러오기",
+diff --git a/packages/app/src/i18n/lo.ts b/packages/app/src/i18n/lo.ts
+index acdc26d..cb0e383 100644
+--- a/packages/app/src/i18n/lo.ts
++++ b/packages/app/src/i18n/lo.ts
+@@ -1145,4 +1145,10 @@ export const dict = {
+   "workspace.reset.archived.many": "ເຊດຊັນ {{count}} ຈະຖືກເກັບໄວ້.",
+   "workspace.reset.note": "ນີ້ຈະຣີເຊັດພື້ນທີ່ເຮັດວຽກໃຫ້ກົງກັບສາຂາເລີ່ມຕົ້ນ.",
+   "dialog.usageExceeded.dontShowAgain": "ຢ່າສະແດງອີກ",
++  "provider.connect.accounts": "{{provider}} Accounts",
++  "provider.connect.mainAccount": "Main Account",
++  "provider.connect.noAccounts": "No accounts yet",
++  "provider.connect.setMainAccount": "Set as main account",
++  "common.add": "Add",
++  "common.done": "Done",
+ }
+diff --git a/packages/app/src/i18n/lt.ts b/packages/app/src/i18n/lt.ts
+index ba161eb..1e5e1ef 100644
+--- a/packages/app/src/i18n/lt.ts
++++ b/packages/app/src/i18n/lt.ts
+@@ -1170,4 +1170,10 @@ export const dict = {
+   "workspace.reset.archived.many": "{{count}} sesijos bus archyvuojamos.",
+   "workspace.reset.note": "Tai iš naujo nustatys darbo sritį, kad ji atitiktų numatytąją šaką.",
+   "dialog.usageExceeded.dontShowAgain": "Daugiau nerodyti",
++  "provider.connect.accounts": "{{provider}} Accounts",
++  "provider.connect.mainAccount": "Main Account",
++  "provider.connect.noAccounts": "No accounts yet",
++  "provider.connect.setMainAccount": "Set as main account",
++  "common.add": "Add",
++  "common.done": "Done",
+ }
+diff --git a/packages/app/src/i18n/lv.ts b/packages/app/src/i18n/lv.ts
+index df4c5b2..982c1bf 100644
+--- a/packages/app/src/i18n/lv.ts
++++ b/packages/app/src/i18n/lv.ts
+@@ -1159,4 +1159,10 @@ export const dict = {
+   "workspace.reset.archived.many": "Tiks arhivētas {{count}} sesijas.",
+   "workspace.reset.note": "Darbvieta tiks atiestatīta uz noklusējuma zara stāvokli.",
+   "dialog.usageExceeded.dontShowAgain": "Vairs nerādīt",
++  "provider.connect.accounts": "{{provider}} Accounts",
++  "provider.connect.mainAccount": "Main Account",
++  "provider.connect.noAccounts": "No accounts yet",
++  "provider.connect.setMainAccount": "Set as main account",
++  "common.add": "Add",
++  "common.done": "Done",
+ }
+diff --git a/packages/app/src/i18n/mk.ts b/packages/app/src/i18n/mk.ts
+index 01e60ba..e8a46ee 100644
+--- a/packages/app/src/i18n/mk.ts
++++ b/packages/app/src/i18n/mk.ts
+@@ -1163,4 +1163,10 @@ export const dict = {
+   "workspace.reset.archived.many": "{{count}} сесиите ќе бидат архивирани.",
+   "workspace.reset.note": "Ова ќе го ресетира работниот простор за да одговара на стандардната гранка.",
+   "dialog.usageExceeded.dontShowAgain": "Не прикажувај повторно",
++  "provider.connect.accounts": "{{provider}} Accounts",
++  "provider.connect.mainAccount": "Main Account",
++  "provider.connect.noAccounts": "No accounts yet",
++  "provider.connect.setMainAccount": "Set as main account",
++  "common.add": "Add",
++  "common.done": "Done",
+ }
+diff --git a/packages/app/src/i18n/mn.ts b/packages/app/src/i18n/mn.ts
+index 41c4fa0..0b521f5 100644
+--- a/packages/app/src/i18n/mn.ts
++++ b/packages/app/src/i18n/mn.ts
+@@ -1165,4 +1165,10 @@ export const dict = {
+   "workspace.reset.archived.many": "{{count}} сессийг архивлах болно.",
+   "workspace.reset.note": "Энэ нь ажлын талбарыг анхдагч салбартай тааруулахын тулд дахин тохируулах болно.",
+   "dialog.usageExceeded.dontShowAgain": "Дахин бүү харуул",
++  "provider.connect.accounts": "{{provider}} Accounts",
++  "provider.connect.mainAccount": "Main Account",
++  "provider.connect.noAccounts": "No accounts yet",
++  "provider.connect.setMainAccount": "Set as main account",
++  "common.add": "Add",
++  "common.done": "Done",
+ }
+diff --git a/packages/app/src/i18n/ms.ts b/packages/app/src/i18n/ms.ts
+index 2c3783d..71f6955 100644
+--- a/packages/app/src/i18n/ms.ts
++++ b/packages/app/src/i18n/ms.ts
+@@ -1154,4 +1154,10 @@ export const dict = {
+   "workspace.reset.archived.many": "{{count}} sesi akan diarkibkan.",
+   "workspace.reset.note": "Ini akan menetap semula ruang kerja agar sepadan dengan cawangan lalai.",
+   "dialog.usageExceeded.dontShowAgain": "Jangan tunjukkan lagi",
++  "provider.connect.accounts": "{{provider}} Accounts",
++  "provider.connect.mainAccount": "Main Account",
++  "provider.connect.noAccounts": "No accounts yet",
++  "provider.connect.setMainAccount": "Set as main account",
++  "common.add": "Add",
++  "common.done": "Done",
+ }
+diff --git a/packages/app/src/i18n/my.ts b/packages/app/src/i18n/my.ts
+index 6046f33..da166d0 100644
+--- a/packages/app/src/i18n/my.ts
++++ b/packages/app/src/i18n/my.ts
+@@ -1173,4 +1173,10 @@ export const dict = {
+   "workspace.reset.archived.many": "{{count}} ဆက်ရှင်များကို သိမ်းဆည်းထားပါမည်။",
+   "workspace.reset.note": "၎င်းသည် မူရင်းဌာနခွဲနှင့် ကိုက်ညီစေရန် အလုပ်ခွင်ကို ပြန်လည်သတ်မှတ်ပါမည်။",
+   "dialog.usageExceeded.dontShowAgain": "ထပ်မပြပါနှင့်",
++  "provider.connect.accounts": "{{provider}} Accounts",
++  "provider.connect.mainAccount": "Main Account",
++  "provider.connect.noAccounts": "No accounts yet",
++  "provider.connect.setMainAccount": "Set as main account",
++  "common.add": "Add",
++  "common.done": "Done",
+ }
+diff --git a/packages/app/src/i18n/ne.ts b/packages/app/src/i18n/ne.ts
+index cc60bff..1f76484 100644
+--- a/packages/app/src/i18n/ne.ts
++++ b/packages/app/src/i18n/ne.ts
+@@ -1154,4 +1154,10 @@ export const dict: Record<string, string> = {
+   "workspace.reset.archived.many": "{{count}} सत्रहरू अभिलेख गरिनेछ।",
+   "workspace.reset.note": "यसले पूर्वनिर्धारित शाखासँग मिलाउन कार्यस्थान रिसेट गर्नेछ।",
+   "dialog.usageExceeded.dontShowAgain": "फेरि नदेखाउनुहोस्",
++  "provider.connect.accounts": "{{provider}} Accounts",
++  "provider.connect.mainAccount": "Main Account",
++  "provider.connect.noAccounts": "No accounts yet",
++  "provider.connect.setMainAccount": "Set as main account",
++  "common.add": "Add",
++  "common.done": "Done",
+ }
+diff --git a/packages/app/src/i18n/nl.ts b/packages/app/src/i18n/nl.ts
+index 6fb1dc0..f1d6ae4 100644
+--- a/packages/app/src/i18n/nl.ts
++++ b/packages/app/src/i18n/nl.ts
+@@ -1168,4 +1168,10 @@ export const dict = {
+   "workspace.reset.archived.many": "{{count}} sessies worden gearchiveerd.",
+   "workspace.reset.note":
+     "Hierdoor wordt de werkruimte opnieuw ingesteld zodat deze overeenkomt met de standaardbranch.",
++  "provider.connect.accounts": "{{provider}} Accounts",
++  "provider.connect.mainAccount": "Main Account",
++  "provider.connect.noAccounts": "No accounts yet",
++  "provider.connect.setMainAccount": "Set as main account",
++  "common.add": "Add",
++  "common.done": "Done",
+ }
+diff --git a/packages/app/src/i18n/no.ts b/packages/app/src/i18n/no.ts
+index 1195802..8c782f6 100644
+--- a/packages/app/src/i18n/no.ts
++++ b/packages/app/src/i18n/no.ts
+@@ -265,6 +265,10 @@ export const dict = {
+   "provider.connect.oauth.auto.confirmationCode": "Bekreftelseskode",
+   "provider.connect.toast.connected.title": "{{provider}} tilkoblet",
+   "provider.connect.toast.connected.description": "{{provider}}-modeller er nå tilgjengelige.",
++  "provider.connect.accounts": "{{provider}}-kontoer",
++  "provider.connect.mainAccount": "Hovedkonto",
++  "provider.connect.noAccounts": "Ingen kontoer ennå",
++  "provider.connect.setMainAccount": "Sett som hovedkonto",
+ 
+   "provider.custom.title": "Egendefinert leverandør",
+   "provider.custom.unavailable": "Egendefinerte leverandører er ikke tilgjengelige på denne serveren",
+@@ -737,6 +741,8 @@ export const dict = {
+   "common.reset": "Tilbakestill",
+   "common.archive": "Arkiver",
+   "common.delete": "Slett",
++  "common.add": "Legg til",
++  "common.done": "Ferdig",
+   "common.close": "Lukk",
+   "common.edit": "Rediger",
+   "common.loadMore": "Last inn flere",
+diff --git a/packages/app/src/i18n/pa.ts b/packages/app/src/i18n/pa.ts
+index 6298581..1b169d5 100644
+--- a/packages/app/src/i18n/pa.ts
++++ b/packages/app/src/i18n/pa.ts
+@@ -1158,4 +1158,10 @@ export const dict = {
+   "workspace.reset.archived.one": "1 سیشن آرکائیو کیتا جائے گا۔",
+   "workspace.reset.archived.many": "{{count}} سیشن آرکائیو کیتے جان گے۔",
+   "workspace.reset.note": "ایہ ورک اسپیس نو ڈیفالٹ برانچ نال ملاون لئی ری سیٹ کرے گا۔",
++  "provider.connect.accounts": "{{provider}} Accounts",
++  "provider.connect.mainAccount": "Main Account",
++  "provider.connect.noAccounts": "No accounts yet",
++  "provider.connect.setMainAccount": "Set as main account",
++  "common.add": "Add",
++  "common.done": "Done",
+ }
+diff --git a/packages/app/src/i18n/pl.ts b/packages/app/src/i18n/pl.ts
+index 9b3c927..bc5e5ef 100644
+--- a/packages/app/src/i18n/pl.ts
++++ b/packages/app/src/i18n/pl.ts
+@@ -254,6 +254,10 @@ export const dict = {
+   "provider.connect.oauth.auto.confirmationCode": "Kod potwierdzający",
+   "provider.connect.toast.connected.title": "Połączono {{provider}}",
+   "provider.connect.toast.connected.description": "Modele {{provider}} są teraz dostępne do użycia.",
++  "provider.connect.accounts": "Konta {{provider}}",
++  "provider.connect.mainAccount": "Konto główne",
++  "provider.connect.noAccounts": "Brak kont jeszcze",
++  "provider.connect.setMainAccount": "Ustaw jako konto główne",
+   "provider.custom.title": "Dostawca niestandardowy",
+   "provider.custom.unavailable": "Niestandardowi dostawcy są niedostępni na tym serwerze",
+   "provider.custom.description.prefix": "Skonfiguruj dostawcę zgodnego z OpenAI. Zobacz ",
+@@ -813,6 +817,8 @@ export const dict = {
+   "common.reset": "Resetuj",
+   "common.archive": "Archiwizuj",
+   "common.delete": "Usuń",
++  "common.add": "Dodaj",
++  "common.done": "Gotowe",
+   "common.close": "Zamknij",
+   "common.edit": "Edytuj",
+   "common.loadMore": "Załaduj więcej",
+diff --git a/packages/app/src/i18n/ro.ts b/packages/app/src/i18n/ro.ts
+index c84f9a4..9830e2e 100644
+--- a/packages/app/src/i18n/ro.ts
++++ b/packages/app/src/i18n/ro.ts
+@@ -1159,4 +1159,10 @@ export const dict = {
+   "workspace.reset.archived.many": "{{count}} sesiuni vor fi arhivate.",
+   "workspace.reset.note": "Aceasta va reseta spațiul de lucru la ramura implicită.",
+   "dialog.usageExceeded.dontShowAgain": "Nu mai afișa",
++  "provider.connect.accounts": "{{provider}} Accounts",
++  "provider.connect.mainAccount": "Main Account",
++  "provider.connect.noAccounts": "No accounts yet",
++  "provider.connect.setMainAccount": "Set as main account",
++  "common.add": "Add",
++  "common.done": "Done",
+ }
+diff --git a/packages/app/src/i18n/ru.ts b/packages/app/src/i18n/ru.ts
+index cf4fa8d..465a3e6 100644
+--- a/packages/app/src/i18n/ru.ts
++++ b/packages/app/src/i18n/ru.ts
+@@ -266,6 +266,10 @@ export const dict = {
+   "provider.connect.oauth.auto.confirmationCode": "Код подтверждения",
+   "provider.connect.toast.connected.title": "{{provider}} подключён",
+   "provider.connect.toast.connected.description": "Модели {{provider}} теперь доступны.",
++  "provider.connect.accounts": "Аккаунты {{provider}}",
++  "provider.connect.mainAccount": "Основной аккаунт",
++  "provider.connect.noAccounts": "Ещё нет аккаунтов",
++  "provider.connect.setMainAccount": "Сделать основным аккаунтом",
+ 
+   "provider.custom.title": "Пользовательский провайдер",
+   "provider.custom.unavailable": "Пользовательские провайдеры недоступны на этом сервере",
+@@ -874,6 +878,8 @@ export const dict = {
+   "common.reset": "Сбросить",
+   "common.archive": "Архивировать",
+   "common.delete": "Удалить",
++  "common.add": "Добавить",
++  "common.done": "Готово",
+   "common.close": "Закрыть",
+   "common.edit": "Редактировать",
+   "common.loadMore": "Загрузить ещё",
+diff --git a/packages/app/src/i18n/si.ts b/packages/app/src/i18n/si.ts
+index 00ca188..a961b26 100644
+--- a/packages/app/src/i18n/si.ts
++++ b/packages/app/src/i18n/si.ts
+@@ -1150,4 +1150,10 @@ export const dict: Record<string, string> = {
+   "workspace.reset.archived.many": "සැසි {{count}} සංරක්ෂිත වනු ඇත.",
+   "workspace.reset.note": "මෙය පෙරනිමි ශාඛාවට ගැලපෙන පරිදි වැඩබිම නැවත සකසනු ඇත.",
+   "dialog.usageExceeded.dontShowAgain": "නැවත නොපෙන්වන්න",
++  "provider.connect.accounts": "{{provider}} Accounts",
++  "provider.connect.mainAccount": "Main Account",
++  "provider.connect.noAccounts": "No accounts yet",
++  "provider.connect.setMainAccount": "Set as main account",
++  "common.add": "Add",
++  "common.done": "Done",
+ }
+diff --git a/packages/app/src/i18n/sk.ts b/packages/app/src/i18n/sk.ts
+index 9992e06..0d56695 100644
+--- a/packages/app/src/i18n/sk.ts
++++ b/packages/app/src/i18n/sk.ts
+@@ -1156,4 +1156,10 @@ export const dict = {
+   "workspace.reset.archived.many": "{{count}} relácií bude archivovaných.",
+   "workspace.reset.note": "Týmto sa pracovný priestor obnoví podľa predvolenej vetvy.",
+   "dialog.usageExceeded.dontShowAgain": "Znova nezobrazovať",
++  "provider.connect.accounts": "{{provider}} Accounts",
++  "provider.connect.mainAccount": "Main Account",
++  "provider.connect.noAccounts": "No accounts yet",
++  "provider.connect.setMainAccount": "Set as main account",
++  "common.add": "Add",
++  "common.done": "Done",
+ }
+diff --git a/packages/app/src/i18n/sl.ts b/packages/app/src/i18n/sl.ts
+index 3c23fcd..084715c 100644
+--- a/packages/app/src/i18n/sl.ts
++++ b/packages/app/src/i18n/sl.ts
+@@ -1160,4 +1160,10 @@ export const dict = {
+   "workspace.reset.archived.many": "{{count}} seje bodo arhivirane.",
+   "workspace.reset.note": "To bo ponastavilo delovni prostor, da bo ustrezal privzeti veji.",
+   "dialog.usageExceeded.dontShowAgain": "Ne prikaži več",
++  "provider.connect.accounts": "{{provider}} Accounts",
++  "provider.connect.mainAccount": "Main Account",
++  "provider.connect.noAccounts": "No accounts yet",
++  "provider.connect.setMainAccount": "Set as main account",
++  "common.add": "Add",
++  "common.done": "Done",
+ }
+diff --git a/packages/app/src/i18n/sq.ts b/packages/app/src/i18n/sq.ts
+index ca94793..15b2534 100644
+--- a/packages/app/src/i18n/sq.ts
++++ b/packages/app/src/i18n/sq.ts
+@@ -1160,4 +1160,10 @@ export const dict = {
+   "workspace.reset.archived.many": "Seancat {{count}} do të arkivohen.",
+   "workspace.reset.note": "Kjo do të rivendosë hapësirën e punës që të përputhet me degën e paracaktuar.",
+   "dialog.usageExceeded.dontShowAgain": "Mos e shfaq përsëri",
++  "provider.connect.accounts": "{{provider}} Accounts",
++  "provider.connect.mainAccount": "Main Account",
++  "provider.connect.noAccounts": "No accounts yet",
++  "provider.connect.setMainAccount": "Set as main account",
++  "common.add": "Add",
++  "common.done": "Done",
+ }
+diff --git a/packages/app/src/i18n/sr.ts b/packages/app/src/i18n/sr.ts
+index f059160..b0b28e1 100644
+--- a/packages/app/src/i18n/sr.ts
++++ b/packages/app/src/i18n/sr.ts
+@@ -1158,4 +1158,10 @@ export const dict = {
+   "workspace.reset.archived.many": "{{count}} сесије ће бити архивиране.",
+   "workspace.reset.note": "Ово ће ресетовати радни простор тако да одговара подразумеваној грани.",
+   "dialog.usageExceeded.dontShowAgain": "Не приказуј поново",
++  "provider.connect.accounts": "{{provider}} Accounts",
++  "provider.connect.mainAccount": "Main Account",
++  "provider.connect.noAccounts": "No accounts yet",
++  "provider.connect.setMainAccount": "Set as main account",
++  "common.add": "Add",
++  "common.done": "Done",
+ }
+diff --git a/packages/app/src/i18n/sv.ts b/packages/app/src/i18n/sv.ts
+index 39b363c..2561aa7 100644
+--- a/packages/app/src/i18n/sv.ts
++++ b/packages/app/src/i18n/sv.ts
+@@ -1157,4 +1157,10 @@ export const dict = {
+   "workspace.reset.archived.one": "1 session kommer att arkiveras.",
+   "workspace.reset.archived.many": "{{count}} sessioner kommer att arkiveras.",
+   "workspace.reset.note": "Detta kommer att återställa arbetsytan så att den matchar standardgrenen.",
++  "provider.connect.accounts": "{{provider}} Accounts",
++  "provider.connect.mainAccount": "Main Account",
++  "provider.connect.noAccounts": "No accounts yet",
++  "provider.connect.setMainAccount": "Set as main account",
++  "common.add": "Add",
++  "common.done": "Done",
+ }
+diff --git a/packages/app/src/i18n/tg.ts b/packages/app/src/i18n/tg.ts
+index ffa0840..a5b6d97 100644
+--- a/packages/app/src/i18n/tg.ts
++++ b/packages/app/src/i18n/tg.ts
+@@ -1161,4 +1161,10 @@ export const dict = {
+   "workspace.reset.archived.many": "{{count}} сессия архив карда мешаванд.",
+   "workspace.reset.note": "Ин фазои кориро барои мувофиқ кардани филиали пешфарз барқарор мекунад.",
+   "dialog.usageExceeded.dontShowAgain": "Дигар нишон надиҳед",
++  "provider.connect.accounts": "{{provider}} Accounts",
++  "provider.connect.mainAccount": "Main Account",
++  "provider.connect.noAccounts": "No accounts yet",
++  "provider.connect.setMainAccount": "Set as main account",
++  "common.add": "Add",
++  "common.done": "Done",
+ }
+diff --git a/packages/app/src/i18n/th.ts b/packages/app/src/i18n/th.ts
+index 1a0e9db..79431a0 100644
+--- a/packages/app/src/i18n/th.ts
++++ b/packages/app/src/i18n/th.ts
+@@ -265,6 +265,10 @@ export const dict = {
+   "provider.connect.oauth.auto.confirmationCode": "รหัสยืนยัน",
+   "provider.connect.toast.connected.title": "เชื่อมต่อ {{provider}} แล้ว",
+   "provider.connect.toast.connected.description": "โมเดล {{provider}} พร้อมใช้งานแล้ว",
++  "provider.connect.accounts": "บัญชี {{provider}}",
++  "provider.connect.mainAccount": "บัญชีหลัก",
++  "provider.connect.noAccounts": "ยังไม่มีบัญชี",
++  "provider.connect.setMainAccount": "ตั้งเป็นบัญชีหลัก",
+ 
+   "provider.custom.title": "ผู้ให้บริการที่กำหนดเอง",
+   "provider.custom.unavailable": "ผู้ให้บริการที่กำหนดเองไม่พร้อมใช้งานบนเซิร์ฟเวอร์นี้",
+@@ -859,6 +863,8 @@ export const dict = {
+   "common.reset": "รีเซ็ต",
+   "common.archive": "จัดเก็บ",
+   "common.delete": "ลบ",
++  "common.add": "เพิ่ม",
++  "common.done": "เสร็จสิ้น",
+   "common.close": "ปิด",
+   "common.edit": "แก้ไข",
+   "common.loadMore": "โหลดเพิ่มเติม",
+diff --git a/packages/app/src/i18n/tk.ts b/packages/app/src/i18n/tk.ts
+index 2b144c6..aeef18c 100644
+--- a/packages/app/src/i18n/tk.ts
++++ b/packages/app/src/i18n/tk.ts
+@@ -1156,4 +1156,10 @@ export const dict = {
+   "workspace.reset.archived.many": "{{count}} sessiýalary arhiwlener.",
+   "workspace.reset.note": "Bu workspace-i adaty şaha gabat getirmek üçin täzeden düzer.",
+   "dialog.usageExceeded.dontShowAgain": "Gaýtadan görkezme",
++  "provider.connect.accounts": "{{provider}} Accounts",
++  "provider.connect.mainAccount": "Main Account",
++  "provider.connect.noAccounts": "No accounts yet",
++  "provider.connect.setMainAccount": "Set as main account",
++  "common.add": "Add",
++  "common.done": "Done",
+ }
+diff --git a/packages/app/src/i18n/tr.ts b/packages/app/src/i18n/tr.ts
+index 8562303..b567f1f 100644
+--- a/packages/app/src/i18n/tr.ts
++++ b/packages/app/src/i18n/tr.ts
+@@ -271,6 +271,10 @@ export const dict = {
+   "provider.connect.oauth.auto.confirmationCode": "Onay kodu",
+   "provider.connect.toast.connected.title": "{{provider}} bağlandı",
+   "provider.connect.toast.connected.description": "{{provider}} modelleri artık kullanımda.",
++  "provider.connect.accounts": "{{provider}} Hesapları",
++  "provider.connect.mainAccount": "Ana Hesap",
++  "provider.connect.noAccounts": "Henüz hesap yok",
++  "provider.connect.setMainAccount": "Ana hesap olarak ayarla",
+ 
+   "provider.custom.title": "Özel sağlayıcı",
+   "provider.custom.unavailable": "Özel sağlayıcılar bu sunucuda kullanılamıyor",
+@@ -877,6 +881,8 @@ export const dict = {
+   "common.reset": "Sıfırla",
+   "common.archive": "Arşivle",
+   "common.delete": "Sil",
++  "common.add": "Ekle",
++  "common.done": "Tamam",
+   "common.close": "Kapat",
+   "common.edit": "Düzenle",
+   "common.loadMore": "Daha fazla yükle",
+diff --git a/packages/app/src/i18n/uk.ts b/packages/app/src/i18n/uk.ts
+index 54732a8..0b98253 100644
+--- a/packages/app/src/i18n/uk.ts
++++ b/packages/app/src/i18n/uk.ts
+@@ -267,6 +267,10 @@ export const dict = {
+   "provider.connect.oauth.auto.confirmationCode": "Код підтвердження",
+   "provider.connect.toast.connected.title": "{{provider}} підключено",
+   "provider.connect.toast.connected.description": "Моделі {{provider}} тепер доступні для використання.",
++  "provider.connect.accounts": "Акаунти {{provider}}",
++  "provider.connect.mainAccount": "Основний акаунт",
++  "provider.connect.noAccounts": "Ще немає акаунтів",
++  "provider.connect.setMainAccount": "Зробити основним акаунтом",
+ 
+   "provider.custom.title": "Користувацький провайдер",
+   "provider.custom.unavailable": "Користувацькі провайдери недоступні на цьому сервері",
+@@ -926,6 +930,8 @@ export const dict = {
+   "common.reset": "Скинути",
+   "common.archive": "Архівувати",
+   "common.delete": "Видалити",
++  "common.add": "Додати",
++  "common.done": "Готово",
+   "common.close": "Закрити",
+   "common.edit": "Редагувати",
+   "common.loadMore": "Завантажити більше",
+diff --git a/packages/app/src/i18n/ur.ts b/packages/app/src/i18n/ur.ts
+index 2ab69e7..57c84ff 100644
+--- a/packages/app/src/i18n/ur.ts
++++ b/packages/app/src/i18n/ur.ts
+@@ -1161,4 +1161,10 @@ export const dict = {
+   "workspace.reset.archived.one": "1 سیشن آرکائیو کیا جائے گا۔",
+   "workspace.reset.archived.many": "{{count}} سیشنز آرکائیو کیے جائیں گے۔",
+   "workspace.reset.note": "یہ ڈیفالٹ برانچ سے ملنے کے لیے ورک اسپیس کو دوبارہ ترتیب دے گا۔",
++  "provider.connect.accounts": "{{provider}} Accounts",
++  "provider.connect.mainAccount": "Main Account",
++  "provider.connect.noAccounts": "No accounts yet",
++  "provider.connect.setMainAccount": "Set as main account",
++  "common.add": "Add",
++  "common.done": "Done",
+ }
+diff --git a/packages/app/src/i18n/uz.ts b/packages/app/src/i18n/uz.ts
+index 8cb7097..ef2b31c 100644
+--- a/packages/app/src/i18n/uz.ts
++++ b/packages/app/src/i18n/uz.ts
+@@ -1168,4 +1168,10 @@ export const dict = {
+   "workspace.reset.archived.many": "{{count}} seanslari arxivlanadi.",
+   "workspace.reset.note": "Bu standart filialga mos keladigan ish maydonini tiklaydi.",
+   "dialog.usageExceeded.dontShowAgain": "Boshqa ko‘rsatma",
++  "provider.connect.accounts": "{{provider}} Accounts",
++  "provider.connect.mainAccount": "Main Account",
++  "provider.connect.noAccounts": "No accounts yet",
++  "provider.connect.setMainAccount": "Set as main account",
++  "common.add": "Add",
++  "common.done": "Done",
+ }
+diff --git a/packages/app/src/i18n/vi.ts b/packages/app/src/i18n/vi.ts
+index 06fda4c..6888729 100644
+--- a/packages/app/src/i18n/vi.ts
++++ b/packages/app/src/i18n/vi.ts
+@@ -1166,4 +1166,10 @@ export const dict = {
+   "workspace.reset.archived.one": "1 phiên sẽ được lưu trữ.",
+   "workspace.reset.archived.many": "{{count}} phiên sẽ được lưu trữ.",
+   "workspace.reset.note": "Điều này sẽ thiết lập lại không gian làm việc để phù hợp với nhánh mặc định.",
++  "provider.connect.accounts": "{{provider}} Accounts",
++  "provider.connect.mainAccount": "Main Account",
++  "provider.connect.noAccounts": "No accounts yet",
++  "provider.connect.setMainAccount": "Set as main account",
++  "common.add": "Add",
++  "common.done": "Done",
+ }
+diff --git a/packages/app/src/i18n/zh.ts b/packages/app/src/i18n/zh.ts
+index b0ba045..1801e66 100644
+--- a/packages/app/src/i18n/zh.ts
++++ b/packages/app/src/i18n/zh.ts
+@@ -287,6 +287,10 @@ export const dict = {
+   "provider.connect.oauth.auto.confirmationCode": "确认码",
+   "provider.connect.toast.connected.title": "{{provider}} 已连接",
+   "provider.connect.toast.connected.description": "现在可以使用 {{provider}} 模型了。",
++  "provider.connect.accounts": "{{provider}} 账号",
++  "provider.connect.mainAccount": "主账号",
++  "provider.connect.noAccounts": "暂无账号",
++  "provider.connect.setMainAccount": "设为主账号",
+ 
+   "provider.custom.title": "自定义提供商",
+   "provider.custom.unavailable": "此服务器上无法使用自定义提供商",
+@@ -855,6 +859,8 @@ export const dict = {
+   "common.reset": "重置",
+   "common.archive": "归档",
+   "common.delete": "删除",
++  "common.add": "添加",
++  "common.done": "完成",
+   "common.close": "关闭",
+   "common.edit": "编辑",
+   "common.loadMore": "加载更多",
+diff --git a/packages/app/src/i18n/zht.ts b/packages/app/src/i18n/zht.ts
+index 6cc3d55..946ef1e 100644
+--- a/packages/app/src/i18n/zht.ts
++++ b/packages/app/src/i18n/zht.ts
+@@ -266,6 +266,10 @@ export const dict = {
+   "provider.connect.oauth.auto.confirmationCode": "確認碼",
+   "provider.connect.toast.connected.title": "{{provider}} 已連線",
+   "provider.connect.toast.connected.description": "現在可以使用 {{provider}} 模型了。",
++  "provider.connect.accounts": "{{provider}} 帳戶",
++  "provider.connect.mainAccount": "主要帳戶",
++  "provider.connect.noAccounts": "尚無帳戶",
++  "provider.connect.setMainAccount": "設為主要帳戶",
+ 
+   "provider.custom.title": "自訂提供者",
+   "provider.custom.unavailable": "此伺服器無法使用自訂提供者",
+@@ -852,6 +856,8 @@ export const dict = {
+   "common.reset": "重設",
+   "common.archive": "封存",
+   "common.delete": "刪除",
++  "common.add": "新增",
++  "common.done": "完成",
+   "common.close": "關閉",
+   "common.edit": "編輯",
+   "common.loadMore": "載入更多",
+diff --git a/packages/app/src/pages/session/usage-exceeded-dialogs.tsx b/packages/app/src/pages/session/usage-exceeded-dialogs.tsx
+index d56fa3d..4f3c372 100644
+--- a/packages/app/src/pages/session/usage-exceeded-dialogs.tsx
++++ b/packages/app/src/pages/session/usage-exceeded-dialogs.tsx
+@@ -5,11 +5,10 @@ import { onCleanup } from "solid-js"
+ import { createStore } from "solid-js/store"
+ import { useSessionLayout } from "./session-layout"
+ import { useDialog } from "@opencode-ai/ui/context"
+-import { DialogUsageExceeded } from "@/components/dialog-usage-exceeded"
+ import { useI18n } from "@opencode-ai/ui/context"
+ 
+-const GO_UPSELL_FREE_TIER_LAST_SEEN_AT = "go_upsell_last_seen_at"
+-const GO_UPSELL_FREE_TIER_DONT_SHOW = "go_upsell_dont_show"
++const GO_UPSELL_FREE_TIER_LAST_SEEN_AT = "go_upsell_free_tier_last_seen_at"
++const GO_UPSELL_FREE_TIER_DONT_SHOW = "go_upsell_free_tier_dont_show"
+ const GO_UPSELL_ACCOUNT_RATE_LIMIT_LAST_SEEN_AT = "go_upsell_account_rate_limit_last_seen_at"
+ const GO_UPSELL_ACCOUNT_RATE_LIMIT_DONT_SHOW = "go_upsell_account_rate_limit_dont_show"
+ const GO_UPSELL_WINDOW = 86_400_000 // 24 hrs
+@@ -33,12 +32,13 @@ function goUpsellKeys(status: SessionStatus) {
+   }
+ }
+ 
+-export function useUsageExceededDialogs() {
++export function useUsageExceededDialogs(props?: {
++  onSwitch?: (provider: string, label?: string) => void
++}) {
+   const sdk = useSDK()
+   const dialog = useDialog()
+   const { params } = useSessionLayout()
+   const { t, locale } = useI18n()
+-  const isEnglish = () => locale() === "en"
+ 
+   const [goUpsellState, setGoUpsellState] = persisted(
+     Persist.global("go-upsell"),
+@@ -54,51 +54,41 @@ export function useUsageExceededDialogs() {
+     sdk().event.on("session.status", (evt) => {
+       if (evt.properties.sessionID !== params.id) return
+       if (evt.properties.status.type !== "retry") return
+-      const { action } = evt.properties.status
++      const status = evt.properties.status
++      const { action } = status
++
++      // Server-side auto-rotation already happened; handle the result.
++      if (status.poolSwitch) {
++        props?.onSwitch?.(status.poolSwitch.provider, status.poolSwitch.label)
++        return
++      }
++
++      if (status.poolExhausted && action?.reason === "account_rate_limit") {
++        void import("../../components/dialog-connect-provider").then((x) => {
++          const controller = x.useProviderConnectController()
++          controller.select(action.provider)
++          dialog.show(() => <x.DialogConnectProvider controller={controller} />)
++        })
++        return
++      }
++
+       if (!action) return
+       if (dialog.active) return
+ 
+-      const keys = goUpsellKeys(evt.properties.status)
++      const keys = goUpsellKeys(status)
+       if (!keys) return
+ 
+       const seen = goUpsellState[keys.lastSeenAt]
+       if (seen && Date.now() - seen < GO_UPSELL_WINDOW) return
+       if (goUpsellState[keys.dontShow]) return
+ 
+-      if (action.reason === "free_tier_limit") {
+-        dialog.show(() => (
+-          <DialogUsageExceeded
+-            title={isEnglish() ? action.title : t("dialog.usageExceeded.freeTier.title")}
+-            description={isEnglish() ? action.message : t("dialog.usageExceeded.freeTier.description")}
+-            actionLabel={isEnglish() ? action.label : t("dialog.usageExceeded.freeTier.actionLabel")}
+-            link={action.link}
+-            onClose={(dontShowAgain) => {
+-              setGoUpsellState(keys.lastSeenAt, Date.now())
+-              if (dontShowAgain) setGoUpsellState(keys.dontShow, Date.now())
+-              else {
+-                void import("../../components/dialog-connect-provider").then((x) => {
+-                  const controller = x.useProviderConnectController()
+-                  controller.select("opencode-go")
+-                  void dialog.show(() => <x.DialogConnectProvider controller={controller} />)
+-                })
+-              }
+-            }}
+-          />
+-        ))
+-      } else if (action.reason === "account_rate_limit") {
+-        dialog.show(() => (
+-          <DialogUsageExceeded
+-            title={isEnglish() ? action.title : t("dialog.usageExceeded.accountRateLimit.title")}
+-            description={isEnglish() ? action.message : t("dialog.usageExceeded.accountRateLimit.description")}
+-            actionLabel={isEnglish() ? action.label : t("dialog.usageExceeded.accountRateLimit.actionLabel")}
+-            link={action.link}
+-            onClose={(dontShowAgain) => {
+-              setGoUpsellState(keys.lastSeenAt, Date.now())
+-              if (dontShowAgain) setGoUpsellState(keys.dontShow, Date.now())
+-            }}
+-          />
+-        ))
+-      }
++      if (action.reason === "free_tier_limit" || action.reason === "account_rate_limit") {
++        void import("../../components/dialog-connect-provider").then((x) => {
++          const controller = x.useProviderConnectController()
++          controller.select(action.provider)
++          dialog.show(() => <x.DialogConnectProvider controller={controller} />)
++        })
++        setGoUpsellState(keys.lastSeenAt, Date.now())      }
+     }),
+   )
+ }
+diff --git a/packages/opencode/src/auth/pool.ts b/packages/opencode/src/auth/pool.ts
+new file mode 100644
+index 0000000..8a13927
+--- /dev/null
++++ b/packages/opencode/src/auth/pool.ts
+@@ -0,0 +1,282 @@
++import path from "path"
++import crypto from "crypto"
++import { Effect, Layer, Schema, Context, Option } from "effect"
++import { Global } from "@opencode-ai/core/global"
++import { FSUtil } from "@opencode-ai/core/fs-util"
++import { LayerNode } from "@opencode-ai/core/effect/layer-node"
++
++const POOL_FILE = path.join(Global.Path.data, "auth-pool.json")
++
++export class PoolSchema extends Schema.Class<PoolSchema>("AuthPoolEntry")({
++  key: Schema.String,
++  label: Schema.optional(Schema.String),
++}) {}
++
++export type PoolEntry = Schema.Schema.Type<typeof PoolSchema>
++
++type PoolData = Record<string, unknown>
++
++export interface RotateResult {
++  switched: boolean
++  label?: string
++  exhausted: boolean
++  key?: string
++  // When every pooled key is cooling down: ms until the earliest recovery.
++  waitMs?: number
++}
++
++export interface Interface {
++  readonly list: (providerID: string) => Effect.Effect<PublicPoolEntry[], never>
++  readonly add: (providerID: string, entry: PoolEntry) => Effect.Effect<void, never>
++  readonly removeByKey: (providerID: string, keyHash: string) => Effect.Effect<boolean, never>
++  readonly switchByKey: (providerID: string, keyHash: string, currentKey?: string) => Effect.Effect<{ found: boolean; key?: string }, never>
++  readonly count: (providerID: string) => Effect.Effect<number, never>
++  readonly resetToMain: (providerID: string) => Effect.Effect<string | undefined, never>
++  readonly rotate: (providerID: string, retryAfterMs?: number, currentKey?: string) => Effect.Effect<RotateResult, never>
++}
++
++export class Service extends Context.Service<Service, Interface>()("@opencode/AuthPool") {}
++
++export function sha256(key: string): string {
++  return crypto.createHash("sha256").update(key).digest("hex")
++}
++
++export interface PublicPoolEntry {
++  key_hash: string
++  key_masked: string
++  label?: string
++}
++
++function maskKey(key: string): string {
++  if (key.length <= 12) return key.slice(0, 4) + "..."
++  return key.slice(0, 8) + "..." + key.slice(-4)
++}
++
++function getEntries(data: PoolData, providerID: string): PoolEntry[] {
++  return Array.isArray(data[providerID]) ? (data[providerID] as PoolEntry[]) : []
++}
++
++function getMain(data: PoolData, providerID: string): string | undefined {
++  const main = data._main as Record<string, string> | undefined
++  return main?.[providerID]
++}
++
++const rawPool = (fsys: FSUtil.Interface) =>
++  fsys.readJson(POOL_FILE).pipe(
++    Effect.map((data) => data as PoolData),
++    Effect.orElseSucceed(() => ({}) as PoolData),
++  )
++
++const writePool = (fsys: FSUtil.Interface, data: PoolData) =>
++  fsys.writeJson(POOL_FILE, data, 0o600).pipe(Effect.orDie)
++
++export const layer = Layer.effect(
++  Service,
++  Effect.gen(function* () {
++    const fsys = yield* FSUtil.Service
++
++    const list = Effect.fn("AuthPool.list")(function* (providerID: string) {
++      const data = yield* rawPool(fsys)
++      return getEntries(data, providerID).map((e) => ({
++        key_hash: sha256(e.key),
++        key_masked: maskKey(e.key),
++        label: e.label,
++      }))
++    })
++
++    const add = Effect.fn("AuthPool.add")(function* (providerID: string, entry: PoolEntry) {
++      const data = yield* rawPool(fsys)
++      const arr = getEntries(data, providerID)
++      arr.push(entry)
++      data[providerID] = arr
++      if (data._tried) {
++        delete (data._tried as Record<string, string[]>)[providerID]
++      }
++      if (data._retryAfter) {
++        delete (data._retryAfter as Record<string, Record<string, number>>)[providerID]
++        if (Object.keys(data._retryAfter as Record<string, unknown>).length === 0) delete data._retryAfter
++      }
++      yield* writePool(fsys, data)
++    })
++
++    const removeByKey = Effect.fn("AuthPool.removeByKey")(function* (providerID: string, keyHash: string) {
++      const data = yield* rawPool(fsys)
++      const arr = getEntries(data, providerID)
++      const idx = arr.findIndex((e) => sha256(e.key) === keyHash)
++      if (idx < 0) return false
++      arr.splice(idx, 1)
++      if (arr.length === 0) {
++        delete data[providerID]
++      } else {
++        data[providerID] = arr
++      }
++      yield* writePool(fsys, data)
++      return true
++    })
++
++    const switchByKey = Effect.fn("AuthPool.switchByKey")(function* (
++      providerID: string,
++      keyHash: string,
++      currentKey?: string,
++    ) {
++      const data = yield* rawPool(fsys)
++      const arr = getEntries(data, providerID)
++      const idx = arr.findIndex((e) => sha256(e.key) === keyHash)
++      if (idx < 0) return { found: false, key: undefined as string | undefined }
++
++      const newKey = arr[idx].key
++
++      if (currentKey && !getMain(data, providerID)) {
++        const main = (data._main as Record<string, string> ?? {})
++        main[providerID] = currentKey
++        data._main = main
++      }
++
++      // Properly swap the accounts: the selected key leaves the pool and becomes
++      // the main account, while the current main key joins the pool. This keeps
++      // both accounts present in the pool file so neither is ever lost.
++      if (currentKey && currentKey !== newKey) {
++        arr.splice(idx, 1)
++        arr.push({ key: currentKey })
++        if (arr.length === 0) {
++          delete data[providerID]
++        } else {
++          data[providerID] = arr
++        }
++      }
++
++      // A manual switch starts a fresh rotation window: clear any cooldowns so
++      // the selected key is usable immediately and not skipped by auto-rotation.
++      if (data._tried) {
++        delete (data._tried as Record<string, string[]>)[providerID]
++        if (Object.keys(data._tried as Record<string, string[]>).length === 0) delete data._tried
++      }
++      if (data._retryAfter) {
++        delete (data._retryAfter as Record<string, Record<string, number>>)[providerID]
++        if (Object.keys(data._retryAfter as Record<string, unknown>).length === 0) delete data._retryAfter
++      }
++
++      yield* writePool(fsys, data)
++      return { found: true, key: newKey }
++    })
++
++    const count = Effect.fn("AuthPool.count")(function* (providerID: string) {
++      const data = yield* rawPool(fsys)
++      return getEntries(data, providerID).length
++    })
++
++    const resetToMain = Effect.fn("AuthPool.resetToMain")(function* (providerID: string) {
++      const data = yield* rawPool(fsys)
++      const mainKey = getMain(data, providerID)
++      if (!mainKey) return undefined
++
++      const arr = getEntries(data, providerID)
++
++      // Remove the restored main key from the pool so it is not duplicated
++      // as both the main account and a pool entry after a reset.
++      const idx = arr.findIndex((e) => e.key === mainKey)
++      if (idx >= 0) {
++        arr.splice(idx, 1)
++      }
++      if (arr.length === 0) {
++        delete data[providerID]
++      } else {
++        data[providerID] = arr
++      }
++
++      delete (data._main as Record<string, string>)[providerID]
++      if (Object.keys(data._main as Record<string, string>).length === 0) delete data._main
++      if (data._tried) {
++        delete (data._tried as Record<string, string[]>)[providerID]
++        if (Object.keys(data._tried as Record<string, string[]>).length === 0) delete data._tried
++      }
++      if (data._retryAfter) {
++        delete (data._retryAfter as Record<string, unknown>)[providerID]
++        if (Object.keys(data._retryAfter as Record<string, unknown>).length === 0) delete data._retryAfter
++      }
++
++      yield* writePool(fsys, data)
++      return mainKey
++    })
++
++    const rotate = Effect.fn("AuthPool.rotate")(function* (providerID: string, retryAfterMs?: number, currentKey?: string) {
++      const data = yield* rawPool(fsys)
++      const entries = getEntries(data, providerID)
++      if (entries.length === 0) return { switched: false, exhausted: false } as RotateResult
++
++      const now = Date.now()
++      const raData = (data._retryAfter ?? {}) as Record<string, Record<string, number>>
++      const ra = raData[providerID] ?? {}
++      const entryHashes = new Set(entries.map((e) => sha256(e.key)))
++
++      // Tracks whether any cooldown state changed, so the pool file is rewritten.
++      let cooldownChanged = false
++
++      // The only key that actually failed is the current one — record its recovery window
++      if (retryAfterMs !== undefined && retryAfterMs > 0 && currentKey && entryHashes.has(sha256(currentKey))) {
++        ra[sha256(currentKey)] = now + retryAfterMs
++        cooldownChanged = true
++      }
++
++      // Drop stale cooldowns (already recovered, or key removed from the pool),
++      // and migrate away from the old permanent `_tried` map.
++      for (const hash of Object.keys(ra)) {
++        if (!entryHashes.has(hash) || ra[hash] <= now) {
++          delete ra[hash]
++          cooldownChanged = true
++        }
++      }
++      if (data._tried) {
++        delete data._tried
++        cooldownChanged = true
++      }
++      if (Object.keys(ra).length > 0) {
++        raData[providerID] = ra
++        data._retryAfter = raData
++        cooldownChanged = true
++      } else if (raData[providerID] || data._retryAfter) {
++        delete raData[providerID]
++        if (Object.keys(raData).length === 0) delete data._retryAfter
++        else data._retryAfter = raData
++        cooldownChanged = true
++      }
++
++      const inCooldown = (key: string): boolean => {
++        const at = ra[sha256(key)]
++        return at !== undefined && at > now
++      }
++
++      // A key is usable right now if it is not inside an active cooldown
++      const usable = entries.filter((e) => !inCooldown(e.key))
++
++      if (usable.length > 0) {
++        // Prefer a usable key different from the one that just failed
++        const entry = usable.find((e) => e.key !== currentKey) ?? usable[0]
++        if (cooldownChanged) yield* writePool(fsys, data)
++        return { switched: true, label: entry.label, exhausted: false, key: entry.key } as RotateResult
++      }
++
++      // Every key is cooling down — silently wait for the earliest recovery instead of
++      // reporting exhaustion, so the session resumes once the best key becomes available.
++      let bestKey: string | undefined
++      let bestTime = Infinity
++      for (const [hash, at] of Object.entries(ra)) {
++        if (at < bestTime) {
++          const entry = entries.find((e) => sha256(e.key) === hash)
++          if (entry) {
++            bestKey = entry.key
++            bestTime = at
++          }
++        }
++      }
++      if (!bestKey) bestKey = getMain(data, providerID)
++      if (cooldownChanged) yield* writePool(fsys, data)
++      const waitMs = Number.isFinite(bestTime) ? Math.max(0, bestTime - Date.now()) : undefined
++      return { switched: false, exhausted: false, key: bestKey, waitMs } as RotateResult
++    })
++
++    return Service.of({ list, add, removeByKey, switchByKey, count, resetToMain, rotate })
++  }),
++)
++
++export const node = LayerNode.make({ service: Service, layer: layer, deps: [FSUtil.node] })
+diff --git a/packages/opencode/src/cli/cmd/providers.ts b/packages/opencode/src/cli/cmd/providers.ts
+index 3775123..0747d67 100644
+--- a/packages/opencode/src/cli/cmd/providers.ts
++++ b/packages/opencode/src/cli/cmd/providers.ts
+@@ -1,5 +1,6 @@
+ import type { Argv } from "yargs"
+ import { Auth } from "../../auth"
++import { FSUtil } from "@opencode-ai/core/fs-util"
+ import { cmd } from "./cmd"
+ import { CliError, effectCmd, fail } from "../effect-cmd"
+ import { UI } from "../ui"
+@@ -477,12 +478,138 @@ export const ProvidersLoginCommand = effectCmd({
+       )
+     }
+ 
+-    const key = yield* Prompt.password({
+-      message: "Enter your API key",
+-      validate: (x) => (x && x.length > 0 ? undefined : "Required"),
+-    })
+-    const apiKey = yield* promptValue(key)
+-    yield* Effect.orDie(authSvc.set(provider, { type: "api", key: apiKey }))
++    const POOL_FILE = path.join(Global.Path.data, "auth-pool.json")
++
++    const maskKey = (key: string) => (key.length <= 8 ? "****" : key.slice(0, 3) + "..." + key.slice(-4))
++
++    const fsys = yield* FSUtil.Service
++
++    const readPool = (): Effect.Effect<Record<string, Array<{ key: string; label?: string }>>> =>
++      fsys.readJson(POOL_FILE).pipe(
++        Effect.map((data) => data as Record<string, Array<{ key: string; label?: string }>>),
++        Effect.orElseSucceed(() => ({}) as Record<string, Array<{ key: string; label?: string }>>),
++      )
++
++    const writePool = (data: Record<string, Array<{ key: string; label?: string }>>) =>
++      fsys.writeJson(POOL_FILE, data, 0o600).pipe(Effect.orDie)
++
++    const getPool = (maybeProvider?: string) =>
++      Effect.gen(function* () {
++        const data = yield* readPool()
++        const targetProvider = maybeProvider ?? provider
++        return { data, list: data[targetProvider] ?? [] }
++      })
++
++    const addToPool = (maybeProvider: string, entry: { key: string; label?: string }) =>
++      Effect.gen(function* () {
++        const { data, list } = yield* getPool(maybeProvider)
++        yield* writePool({ ...data, [maybeProvider]: [...list, entry] })
++      })
++
++    const removeFromPool = (maybeProvider: string, idx: number) =>
++      Effect.gen(function* () {
++        const { data, list } = yield* getPool(maybeProvider)
++        const updated = [...list.slice(0, idx), ...list.slice(idx + 1)]
++        if (updated.length > 0) {
++          yield* writePool({ ...data, [maybeProvider]: updated })
++        } else {
++          const { [maybeProvider]: _, ...rest } = data
++          yield* writePool(rest)
++        }
++      })
++
++    const switchFromPool = (maybeProvider: string, idx: number, newMainKey: string) =>
++      Effect.gen(function* () {
++        const { data, list } = yield* getPool(maybeProvider)
++        const updated = [...list.slice(0, idx), ...list.slice(idx + 1)]
++        if (updated.length > 0) {
++          yield* writePool({ ...data, [maybeProvider]: [...updated, { key: newMainKey }] })
++        } else {
++          yield* writePool({ ...data, [maybeProvider]: [{ key: newMainKey }] })
++        }
++        yield* Effect.orDie(authSvc.set(maybeProvider, { type: "api", key: list[idx].key }))
++      })
++
++    const database = yield* modelsDev.get()
++    accounts: while (true) {
++      const all = yield* Effect.orDie(authSvc.all())
++      const main = all[provider] as Auth.Info | undefined
++      const { list: pool } = yield* getPool()
++
++      if (main) {
++        const keyStr = main.type === "api" ? maskKey(main.key) : main.type
++        yield* Prompt.log.info(`Main account: ${keyStr}`)
++      } else {
++        yield* Prompt.log.info("No current account")
++      }
++      if (pool.length > 0) {
++        yield* Prompt.log.info(`Pool accounts: ${pool.length}`)
++      }
++
++      const options: { label: string; value: string }[] = []
++      options.push({ label: "Add new API key", value: "add" })
++      for (let i = 0; i < pool.length; i++) {
++        options.push({ label: `Use: ${maskKey(pool[i].key)}`, value: `use_${i}` })
++      }
++      if (main) {
++        options.push({ label: "Delete current account", value: "delete_main" })
++      }
++      for (let i = 0; i < pool.length; i++) {
++        options.push({ label: `Delete: ${maskKey(pool[i].key)}`, value: `delete_${i}` })
++      }
++      options.push({ label: "Done", value: "done" })
++
++      const providerName = database?.[provider]?.name ?? provider
++      const action = yield* promptValue(
++        yield* Prompt.select({ message: `Manage accounts for ${providerName}`, options }),
++      )
++
++      if (action === "done") break
++
++      if (action === "add") {
++        const key = yield* promptValue(
++          yield* Prompt.password({
++            message: "Enter your API key",
++            validate: (x) => (x && x.length > 0 ? undefined : "Required"),
++          }),
++        )
++        if (main) {
++          yield* addToPool(provider, { key })
++        } else {
++          yield* Effect.orDie(authSvc.set(provider, { type: "api", key }))
++        }
++        continue
++      }
++
++      if (action.startsWith("use_")) {
++        const idx = Number(action.split("_").pop()!)
++        if (pool[idx]) {
++          if (main && main.type === "api") {
++            yield* switchFromPool(provider, idx, main.key)
++          } else {
++            yield* Effect.orDie(authSvc.set(provider, { type: "api", key: pool[idx].key }))
++            yield* removeFromPool(provider, idx)
++          }
++        }
++        continue
++      }
++
++      if (action === "delete_main") {
++        yield* Effect.orDie(authSvc.remove(provider))
++        const { list: poolAfter } = yield* getPool()
++        if (poolAfter.length > 0) {
++          yield* Effect.orDie(authSvc.set(provider, { type: "api", key: poolAfter[0].key }))
++          yield* removeFromPool(provider, 0)
++        }
++        continue
++      }
++
++      if (action.startsWith("delete_")) {
++        const idx = Number(action.split("_").pop()!)
++        yield* removeFromPool(provider, idx)
++        continue
++      }
++    }
+ 
+     yield* Prompt.outro("Done")
+   }),
+diff --git a/packages/opencode/src/effect/app-runtime.ts b/packages/opencode/src/effect/app-runtime.ts
+index d010eb8..33a7973 100644
+--- a/packages/opencode/src/effect/app-runtime.ts
++++ b/packages/opencode/src/effect/app-runtime.ts
+@@ -5,6 +5,7 @@ import * as Observability from "@opencode-ai/core/observability"
+ import { FSUtil } from "@opencode-ai/core/fs-util"
+ import { Database } from "@opencode-ai/core/database/database"
+ import { Auth } from "@/auth"
++import * as AuthPool from "@/auth/pool"
+ import { Account } from "@/account/account"
+ import { Config } from "@/config/config"
+ import { Git } from "@/git"
+@@ -60,6 +61,7 @@ export const AppLayer = AppNodeBuilderV1.build(
+     FSUtil.node,
+     Database.node,
+     Auth.node,
++    AuthPool.node,
+     Account.node,
+     Config.node,
+     Git.node,
+diff --git a/packages/opencode/src/server/routes/instance/httpapi/groups/control.ts b/packages/opencode/src/server/routes/instance/httpapi/groups/control.ts
+index 49f43f0..76bd4d1 100644
+--- a/packages/opencode/src/server/routes/instance/httpapi/groups/control.ts
++++ b/packages/opencode/src/server/routes/instance/httpapi/groups/control.ts
+@@ -28,9 +28,29 @@ export const LogInput = Schema.Struct({
+   }),
+ })
+ 
++const PoolEntry = Schema.Struct({
++  key: Schema.String,
++  label: Schema.optional(Schema.String),
++})
++
++const PublicPoolEntry = Schema.Struct({
++  key_hash: Schema.String,
++  key_masked: Schema.String,
++  label: Schema.optional(Schema.String),
++})
++
++const PoolKeyPayload = Schema.Struct({
++  key_hash: Schema.String,
++})
++
+ export const ControlPaths = {
+   auth: "/auth/:providerID",
+   log: "/log",
++  poolList: "/auth/:providerID/pool",
++  poolAdd: "/auth/:providerID/pool",
++  poolRemove: "/auth/:providerID/pool/remove",
++  poolSwitch: "/auth/:providerID/pool/switch",
++  poolReset: "/auth/:providerID/pool/reset",
+ } as const
+ 
+ export const ControlApi = HttpApi.make("control").add(
+@@ -59,6 +79,70 @@ export const ControlApi = HttpApi.make("control").add(
+           description: "Remove authentication credentials",
+         }),
+       ),
++      HttpApiEndpoint.get("poolList", ControlPaths.poolList, {
++        params: AuthParams,
++        success: described(
++          Schema.Struct({
++            entries: Schema.Array(PublicPoolEntry),
++            main: Schema.optional(Schema.NullishOr(PublicPoolEntry)),
++          }),
++          "List of pool API keys with main account",
++        ),
++        error: HttpApiError.BadRequest,
++      }).annotateMerge(
++        OpenApi.annotations({
++          identifier: "auth.pool.list",
++          summary: "List pool API keys",
++          description: "List extra API keys in the auth pool for a provider",
++        }),
++      ),
++      HttpApiEndpoint.post("poolAdd", ControlPaths.poolAdd, {
++        params: AuthParams,
++        payload: PoolEntry,
++        success: described(Schema.Boolean, "API key added to pool"),
++        error: HttpApiError.BadRequest,
++      }).annotateMerge(
++        OpenApi.annotations({
++          identifier: "auth.pool.add",
++          summary: "Add API key to pool",
++          description: "Add an extra API key to the auth pool for a provider",
++        }),
++      ),
++      HttpApiEndpoint.post("poolRemove", ControlPaths.poolRemove, {
++        params: AuthParams,
++        payload: PoolKeyPayload,
++        success: described(Schema.Boolean, "API key removed from pool"),
++        error: HttpApiError.BadRequest,
++      }).annotateMerge(
++        OpenApi.annotations({
++          identifier: "auth.pool.remove",
++          summary: "Remove API key from pool by hash",
++          description: "Remove an API key from the auth pool using its SHA256 hash",
++        }),
++      ),
++      HttpApiEndpoint.post("poolSwitch", ControlPaths.poolSwitch, {
++        params: AuthParams,
++        payload: PoolKeyPayload,
++        success: described(Schema.Boolean, "Switched main API key with pool key"),
++        error: HttpApiError.BadRequest,
++      }).annotateMerge(
++        OpenApi.annotations({
++          identifier: "auth.pool.switch",
++          summary: "Switch main API key with pool key",
++          description: "Swap the main API key with one from the pool using SHA256 hash",
++        }),
++      ),
++      HttpApiEndpoint.post("poolReset", ControlPaths.poolReset, {
++        params: AuthParams,
++        success: described(Schema.Boolean, "Reset to saved main API key"),
++        error: HttpApiError.BadRequest,
++      }).annotateMerge(
++        OpenApi.annotations({
++          identifier: "auth.pool.reset",
++          summary: "Reset to main API key",
++          description: "Switch back to the original main API key saved before the first pool switch",
++        }),
++      ),
+       HttpApiEndpoint.post("log", ControlPaths.log, {
+         query: LogQuery,
+         payload: LogInput,
+diff --git a/packages/opencode/src/server/routes/instance/httpapi/groups/persist.ts b/packages/opencode/src/server/routes/instance/httpapi/groups/persist.ts
+new file mode 100644
+index 0000000..3d6fb3f
+--- /dev/null
++++ b/packages/opencode/src/server/routes/instance/httpapi/groups/persist.ts
+@@ -0,0 +1,63 @@
++import { HttpApi, HttpApiEndpoint, HttpApiGroup, OpenApi } from "effect/unstable/httpapi"
++import { Schema } from "effect"
++import { Authorization } from "../middleware/authorization"
++import { InstanceContextMiddleware } from "../middleware/instance-context"
++import { WorkspaceRoutingMiddleware, WorkspaceRoutingQuery } from "../middleware/workspace-routing"
++import { described } from "./metadata"
++
++const root = "/persist"
++
++const PersistParams = Schema.Struct({
++  key: Schema.String,
++})
++
++export const PersistApi = HttpApi.make("persist")
++  .add(
++    HttpApiGroup.make("persist")
++      .add(
++        HttpApiEndpoint.get("get", `${root}/:key`, {
++          params: PersistParams,
++          success: described(Schema.String, "Stored value"),
++          error: Schema.Struct({ message: Schema.String }),
++        }).annotateMerge(
++          OpenApi.annotations({
++            identifier: "persist.get",
++            summary: "Get persisted value",
++          }),
++        ),
++        HttpApiEndpoint.put("set", `${root}/:key`, {
++          params: PersistParams,
++          payload: Schema.String,
++          success: Schema.Void,
++          error: Schema.Struct({ message: Schema.String }),
++        }).annotateMerge(
++          OpenApi.annotations({
++            identifier: "persist.set",
++            summary: "Set persisted value",
++          }),
++        ),
++        HttpApiEndpoint.delete("remove", `${root}/:key`, {
++          params: PersistParams,
++          success: Schema.Void,
++          error: Schema.Struct({ message: Schema.String }),
++        }).annotateMerge(
++          OpenApi.annotations({
++            identifier: "persist.remove",
++            summary: "Remove persisted value",
++          }),
++        ),
++      )
++      .annotateMerge(
++        OpenApi.annotations({
++          title: "persist",
++          description: "Key-value persistence for UI state.",
++        }),
++      )
++      .middleware(Authorization),
++  )
++  .annotateMerge(
++    OpenApi.annotations({
++      title: "opencode persistence HttpApi",
++      version: "0.0.1",
++    }),
++  )
+diff --git a/packages/opencode/src/server/routes/instance/httpapi/handlers/control.ts b/packages/opencode/src/server/routes/instance/httpapi/handlers/control.ts
+index 9974b19..2aa9635 100644
+--- a/packages/opencode/src/server/routes/instance/httpapi/handlers/control.ts
++++ b/packages/opencode/src/server/routes/instance/httpapi/handlers/control.ts
+@@ -1,6 +1,7 @@
+ import { Auth } from "@/auth"
+-
++import * as AuthPool from "@/auth/pool"
+ import { Effect } from "effect"
++import { clearProviderPoolExhaustion } from "@/session/processor"
+ import { HttpApiBuilder } from "effect/unstable/httpapi"
+ import { RootHttpApi } from "../api"
+ import { LogInput } from "../groups/control"
+@@ -9,12 +10,14 @@ import { ProviderV2 } from "@opencode-ai/core/provider"
+ export const controlHandlers = HttpApiBuilder.group(RootHttpApi, "control", (handlers) =>
+   Effect.gen(function* () {
+     const auth = yield* Auth.Service
++    const pool = yield* AuthPool.Service
+ 
+     const authSet = Effect.fn("ControlHttpApi.authSet")(function* (ctx: {
+       params: { providerID: ProviderV2.ID }
+       payload: Auth.Info
+     }) {
+       yield* auth.set(ctx.params.providerID, ctx.payload).pipe(Effect.orDie)
++      clearProviderPoolExhaustion(ctx.params.providerID)
+       return true
+     })
+ 
+@@ -25,6 +28,69 @@ export const controlHandlers = HttpApiBuilder.group(RootHttpApi, "control", (han
+       return true
+     })
+ 
++    const poolList = Effect.fn("ControlHttpApi.poolList")(function* (ctx: {
++      params: { providerID: ProviderV2.ID }
++    }) {
++      const [entries, current] = yield* Effect.all([pool.list(ctx.params.providerID), auth.get(ctx.params.providerID).pipe(Effect.orDie)])
++      return {
++        entries,
++        main: current?.type === "api"
++          ? { key_hash: AuthPool.sha256(current.key), key_masked: maskKey(current.key) }
++          : null,
++      }
++    })
++
++    const poolAdd = Effect.fn("ControlHttpApi.poolAdd")(function* (ctx: {
++      params: { providerID: ProviderV2.ID }
++      payload: { key: string; label?: string }
++    }) {
++      const current = yield* auth.get(ctx.params.providerID).pipe(Effect.orDie)
++      const mainKey = current?.type === "api" ? current.key : undefined
++      if (mainKey) {
++        yield* pool.add(ctx.params.providerID, { key: ctx.payload.key, label: ctx.payload.label })
++      } else {
++        // No main account yet: promote the newly added key to the main account
++        // instead of putting it in the pool, so the first key always works.
++        yield* auth.set(ctx.params.providerID, { type: "api", key: ctx.payload.key }).pipe(Effect.orDie)
++      }
++      clearProviderPoolExhaustion(ctx.params.providerID)
++      return true
++    })
++
++    const poolRemove = Effect.fn("ControlHttpApi.poolRemove")(function* (ctx: {
++      params: { providerID: ProviderV2.ID }
++      payload: { key_hash: string }
++    }) {
++      const removed = yield* pool.removeByKey(ctx.params.providerID, ctx.payload.key_hash)
++      clearProviderPoolExhaustion(ctx.params.providerID)
++      return removed
++    })
++
++    const poolSwitch = Effect.fn("ControlHttpApi.poolSwitch")(function* (ctx: {
++      params: { providerID: ProviderV2.ID }
++      payload: { key_hash: string }
++    }) {
++      const current = yield* auth.get(ctx.params.providerID).pipe(Effect.orDie)
++      const currentKey = current?.type === "api" ? current.key : undefined
++      const result = yield* pool.switchByKey(ctx.params.providerID, ctx.payload.key_hash, currentKey)
++      if (result.found && result.key) {
++        yield* auth.set(ctx.params.providerID, { type: "api", key: result.key }).pipe(Effect.orDie)
++        clearProviderPoolExhaustion(ctx.params.providerID)
++      }
++      return result.found
++    })
++
++    const poolReset = Effect.fn("ControlHttpApi.poolReset")(function* (ctx: {
++      params: { providerID: ProviderV2.ID }
++    }) {
++      const mainKey = yield* pool.resetToMain(ctx.params.providerID)
++      if (mainKey) {
++        yield* auth.set(ctx.params.providerID, { type: "api", key: mainKey }).pipe(Effect.orDie)
++        clearProviderPoolExhaustion(ctx.params.providerID)
++      }
++      return true
++    })
++
+     const log = Effect.fn("ControlHttpApi.log")(function* (ctx: { payload: typeof LogInput.Type }) {
+       const write =
+         ctx.payload.level === "debug"
+@@ -38,6 +104,19 @@ export const controlHandlers = HttpApiBuilder.group(RootHttpApi, "control", (han
+       return true
+     })
+ 
+-    return handlers.handle("authSet", authSet).handle("authRemove", authRemove).handle("log", log)
++    return handlers
++      .handle("authSet", authSet)
++      .handle("authRemove", authRemove)
++      .handle("poolList", poolList)
++      .handle("poolAdd", poolAdd)
++      .handle("poolRemove", poolRemove)
++      .handle("poolSwitch", poolSwitch)
++      .handle("poolReset", poolReset)
++      .handle("log", log)
+   }),
+ )
++
++function maskKey(key: string): string {
++  if (key.length <= 12) return key.slice(0, 4) + "..."
++  return key.slice(0, 8) + "..." + key.slice(-4)
++}
+diff --git a/packages/opencode/src/server/routes/instance/httpapi/handlers/persist.ts b/packages/opencode/src/server/routes/instance/httpapi/handlers/persist.ts
+new file mode 100644
+index 0000000..07d5402
+--- /dev/null
++++ b/packages/opencode/src/server/routes/instance/httpapi/handlers/persist.ts
+@@ -0,0 +1,53 @@
++import { Effect } from "effect"
++import { HttpApiBuilder } from "effect/unstable/httpapi"
++import * as HttpServerResponse from "effect/unstable/http/HttpServerResponse"
++import { InstanceHttpApi } from "../api"
++import { FSUtil } from "@opencode-ai/core/fs-util"
++import { Path as GlobalPath } from "@opencode-ai/core/global"
++import path from "path"
++import { unlink } from "fs/promises"
++
++const PERSIST_DIR = "persist"
++
++function filePath(dir: string, key: string) {
++  const safe = (s: string) => s.replace(/[^a-zA-Z0-9._-]/g, "_")
++  return path.join(dir, PERSIST_DIR, safe(key)) + ".json"
++}
++
++export const persistHandlers = HttpApiBuilder.group(InstanceHttpApi, "persist", (handlers) =>
++  Effect.gen(function* () {
++    const fs = yield* FSUtil.Service
++    const dataDir = path.join(GlobalPath.data, "storage")
++
++    const get = Effect.fn("PersistHttpApi.get")(function* (ctx: {
++      params: { key: string }
++    }) {
++      const target = filePath(dataDir, ctx.params.key)
++      const content = yield* fs.readFileStringSafe(target)
++      if (content === undefined) {
++        return HttpServerResponse.text("", { status: 404 as const })
++      }
++      return HttpServerResponse.text(content, { contentType: "application/json" })
++    })
++
++    const set = Effect.fn("PersistHttpApi.set")(function* (ctx: {
++      params: { key: string }
++      payload: string
++    }) {
++      const target = filePath(dataDir, ctx.params.key)
++      yield* fs.writeWithDirs(target, ctx.payload)
++    })
++
++    const remove = Effect.fn("PersistHttpApi.remove")(function* (ctx: {
++      params: { key: string }
++    }) {
++      const target = filePath(dataDir, ctx.params.key)
++      yield* Effect.tryPromise(() => unlink(target)).pipe(Effect.catch(() => Effect.void))
++    })
++
++    return handlers
++      .handle("get", get)
++      .handle("set", set)
++      .handle("remove", remove)
++  }),
++)
+diff --git a/packages/opencode/src/server/routes/instance/httpapi/server.ts b/packages/opencode/src/server/routes/instance/httpapi/server.ts
+index 04c1847..9824d7f 100644
+--- a/packages/opencode/src/server/routes/instance/httpapi/server.ts
++++ b/packages/opencode/src/server/routes/instance/httpapi/server.ts
+@@ -8,6 +8,7 @@ import { Account } from "@/account/account"
+ import { Agent } from "@/agent/agent"
+ import { Auth } from "@/auth"
+ import { BackgroundJob } from "@/background/job"
++import * as AuthPool from "@/auth/pool"
+ import { Command } from "@/command"
+ import { Config } from "@/config/config"
+ import { Workspace } from "@/control-plane/workspace"
+@@ -215,6 +216,7 @@ const app = LayerNode.group([
+   FSUtil.node,
+   Database.node,
+   Auth.node,
++  AuthPool.node,
+   Account.node,
+   Config.node,
+   Env.node,
+diff --git a/packages/opencode/src/session/llm.ts b/packages/opencode/src/session/llm.ts
+index a99f8ac..dfcf659 100644
+--- a/packages/opencode/src/session/llm.ts
++++ b/packages/opencode/src/session/llm.ts
+@@ -45,6 +45,7 @@ export type StreamInput = {
+   tools: Record<string, Tool>
+   retries?: number
+   toolChoice?: "auto" | "required" | "none"
++  authOverride?: Auth.Info
+ }
+ 
+ export type StreamRequest = StreamInput & {
+@@ -97,7 +98,9 @@ const live: Layer.Layer<
+           provider.getLanguage(input.model),
+           config.get(),
+           provider.getProvider(input.model.providerID),
+-          auth.get(input.model.providerID),
++          input.authOverride
++            ? Effect.succeed(input.authOverride)
++            : auth.get(input.model.providerID),
+         ],
+         { concurrency: "unbounded" },
+       )
+diff --git a/packages/opencode/src/session/message-v2.ts b/packages/opencode/src/session/message-v2.ts
+index 75f2d89..ecb93e9 100644
+--- a/packages/opencode/src/session/message-v2.ts
++++ b/packages/opencode/src/session/message-v2.ts
+@@ -213,7 +213,7 @@ export const toModelMessagesEffect = Effect.fnUntraced(function* (
+       }
+       for (const part of msg.parts) {
+         // User message parts should never be empty
+-        if (part.type === "text" && !part.ignored && part.text !== "")
++        if (part.type === "text" && !part.ignored && !part.internalContinue && part.text !== "")
+           userMessage.parts.push({
+             type: "text",
+             text: part.text,
+diff --git a/packages/opencode/src/session/processor.ts b/packages/opencode/src/session/processor.ts
+index 9f85309..5646267 100644
+--- a/packages/opencode/src/session/processor.ts
++++ b/packages/opencode/src/session/processor.ts
+@@ -9,6 +9,8 @@ import { Config } from "@/config/config"
+ import { Permission } from "@/permission"
+ import { Plugin } from "@/plugin"
+ import { Snapshot } from "@/snapshot"
++import { Auth } from "@/auth"
++import * as AuthPool from "@/auth/pool"
+ import { Session } from "./session"
+ import { LLM } from "./llm"
+ import { MessageV2 } from "./message-v2"
+@@ -27,6 +29,28 @@ import { Database } from "@opencode-ai/core/database/database"
+ import { Usage, type LLMEvent } from "@opencode-ai/llm"
+ 
+ const DOOM_LOOP_THRESHOLD = 3
++
++// Session-level auth key overrides (auto-rotation only affects session, not global auth)
++const sessionAuthKeys = new Map<string, Record<string, string>>()
++const shownExhaustion = new Set<string>()
++// Consecutive failures of the current key (reset on a key switch and whenever
++// a message finishes running). Offline/network failures do not count.
++const sessionRetryStreak = new Map<string, number>()
++
++// A retry hint longer than this triggers account rotation instead of a long wait.
++const ROTATE_LONG_WAIT_THRESHOLD_MS = 60_000
++
++export function clearProviderPoolExhaustion(providerID: string) {
++  for (const keys of sessionAuthKeys.values()) {
++    delete keys[providerID]
++  }
++  for (const key of shownExhaustion) {
++    if (key.endsWith(`:${providerID}`)) {
++      shownExhaustion.delete(key)
++    }
++  }
++}
++
+ export type Result = "compact" | "stop" | "continue"
+ 
+ export interface Handle {
+@@ -70,6 +94,7 @@ interface ProcessorContext extends Input {
+   snapshot: string | undefined
+   blocked: boolean
+   needsCompaction: boolean
++  sawOutput: boolean
+   currentText: SessionV1.TextPart | undefined
+   reasoningMap: Record<string, SessionV1.ReasoningPart>
+ }
+@@ -94,6 +119,8 @@ const layer = Layer.effect(
+     const image = yield* Image.Service
+     const events = yield* EventV2Bridge.Service
+     const database = yield* Database.Service
++    const pool = yield* AuthPool.Service
++    const authService = yield* Auth.Service
+ 
+     const create = Effect.fn("SessionProcessor.create")(function* (input: Input) {
+       // Pre-capture snapshot before the LLM stream starts. The AI SDK
+@@ -109,6 +136,7 @@ const layer = Layer.effect(
+         snapshot: initialSnapshot,
+         blocked: false,
+         needsCompaction: false,
++        sawOutput: false,
+         currentText: undefined,
+         reasoningMap: {},
+       }
+@@ -279,6 +307,7 @@ const layer = Layer.effect(
+         switch (value.type) {
+           case "reasoning-start":
+             if (value.id in ctx.reasoningMap) return
++            ctx.sawOutput = true
+             ctx.reasoningMap[value.id] = {
+               id: PartID.ascending(),
+               messageID: ctx.assistantMessage.id,
+@@ -316,6 +345,7 @@ const layer = Layer.effect(
+             if (ctx.assistantMessage.summary) {
+               throw new Error(`Tool call not allowed while generating summary: ${value.name}`)
+             }
++            ctx.sawOutput = true
+             yield* ensureToolCall(value)
+             return
+ 
+@@ -498,6 +528,7 @@ const layer = Layer.effect(
+           }
+ 
+           case "text-start":
++            ctx.sawOutput = true
+             ctx.currentText = {
+               id: PartID.ascending(),
+               messageID: ctx.assistantMessage.id,
+@@ -608,6 +639,9 @@ const layer = Layer.effect(
+         ctx.toolcalls = {}
+         ctx.assistantMessage.time.completed = Date.now()
+         yield* session.updateMessage(ctx.assistantMessage)
++        // The message finished (successfully or not): a fresh run starts on a
++        // clean bill, so a future failure begins its own 2s-then-rotate streak.
++        sessionRetryStreak.delete(ctx.sessionID)
+       })
+ 
+       const halt = Effect.fn("SessionProcessor.halt")(function* (e: unknown) {
+@@ -646,10 +680,17 @@ const layer = Layer.effect(
+         ctx.needsCompaction = false
+         ctx.shouldBreak = (yield* config.get()).experimental?.continue_loop_on_deny !== true
+ 
++        // Set session-level auth override if available
++        const providerKey = sessionAuthKeys.get(ctx.sessionID)?.[input.model.providerID]
++        if (providerKey) {
++          streamInput.authOverride = { type: "api", key: providerKey }
++        }
++
+         return yield* Effect.gen(function* () {
+           yield* Effect.gen(function* () {
+             ctx.currentText = undefined
+             ctx.reasoningMap = {}
++            ctx.sawOutput = false
+             yield* status.set(ctx.sessionID, { type: "busy" })
+             const stream = llm.stream(streamInput)
+ 
+@@ -658,6 +699,16 @@ const layer = Layer.effect(
+               Stream.takeUntil(() => ctx.needsCompaction),
+               Stream.runDrain,
+             )
++
++            // The turn finished without producing anything visible (no text,
++            // reasoning or tool call — the stream just ended, or the model ended
++            // it with nothing to say). Failing through the retry policy keeps the
++            // session alive: it waits ~2s and re-requests, retrying until a real
++            // reply arrives. Only a content-filtered reply is left alone — that
++            // is information, not a stall.
++            if (!ctx.assistantMessage.error && !ctx.needsCompaction && !ctx.sawOutput && !ctx.blocked) {
++              yield* Effect.fail(new Error(SessionRetry.EMPTY_REPLY_MESSAGE))
++            }
+           }).pipe(
+             Effect.onInterrupt(() =>
+               Effect.gen(function* () {
+@@ -676,13 +727,79 @@ const layer = Layer.effect(
+                 provider: input.model.providerID,
+                 parse,
+                 set: (info) => {
+-                  return status.set(ctx.sessionID, {
+-                    type: "retry",
+-                    attempt: info.attempt,
+-                    message: info.message,
+-                    action: info.action,
+-                    next: info.next,
++                  const providerID = input.model.providerID
++                  const provider = info.action?.provider ?? providerID
++                  const retryAfterMs = info.next - Date.now()
++                  const currentKey =
++                    streamInput.authOverride?.type === "api" ? streamInput.authOverride.key : undefined
++                  const currentKeyEff = currentKey
++                    ? Effect.succeed(currentKey)
++                    : authService.get(providerID).pipe(
++                        Effect.map((a) => (a?.type === "api" ? a.key : undefined)),
++                        Effect.orElseSucceed(() => undefined),
++                      )
++                  // Failed again on the same key. A first failure just retries
++                  // that key in place after ~2s; only a second consecutive failure
++                  // (or a quota error with a long wait hint) concludes the key is
++                  // at fault and rotates. Network/offline failures are never the
++                  // key's fault and reset the streak so a fresh key decision is
++                  // made once connectivity returns.
++                  const streak = sessionRetryStreak.get(ctx.sessionID) ?? 0
++                  const reason = info.action?.reason
++                  const network = reason === "network"
++                  const nextStreak = network ? 0 : streak + 1
++                  sessionRetryStreak.set(ctx.sessionID, nextStreak)
++                  const longWait = retryAfterMs > ROTATE_LONG_WAIT_THRESHOLD_MS
++                  const rotate = SessionRetry.shouldRotate({
++                    streak: nextStreak,
++                    reason,
++                    longWait,
+                   })
++                  const poolRotate = rotate
++                    ? currentKeyEff.pipe(Effect.andThen((ck) => pool.rotate(provider, retryAfterMs, ck)))
++                    : Effect.succeed({ switched: false, exhausted: false } as AuthPool.RotateResult)
++                  return poolRotate.pipe(
++                    Effect.andThen((rotated) => {
++                      if (rotated.key) {
++                        // Store session-level auth key override
++                        const keys = sessionAuthKeys.get(ctx.sessionID) ?? {}
++                        keys[providerID] = rotated.key
++                        sessionAuthKeys.set(ctx.sessionID, keys)
++                        streamInput.authOverride = { type: "api", key: rotated.key }
++                      }
++                      if (rotated.switched) {
++                        // The new key starts a fresh failure streak and is tried
++                        // immediately — no forced wait after a key change.
++                        sessionRetryStreak.set(ctx.sessionID, 0)
++                        ;(streamInput.user as any).__internalContinue = true
++                      }
++                      const exhKey = `${ctx.sessionID}:${providerID}`
++                      if (rotated.exhausted) {
++                        if (!shownExhaustion.has(exhKey)) {
++                          // First exhaustion → show "Rate limit exceeded" to user,
++                          // then silently poll in the background for new/recovered keys
++                          shownExhaustion.add(exhKey)
++                        } else {
++                          ;(streamInput.user as any).__internalContinue = true
++                        }
++                      } else {
++                        shownExhaustion.delete(exhKey)
++                      }
++                      const wait = SessionRetry.decidedWait({ rotate, reason, rotated, retryAfterMs })
++                      const sleep = Number.isFinite(wait) && wait >= 0 ? Math.round(wait) : 0
++                      return status.set(ctx.sessionID, {
++                        type: "retry",
++                        attempt: info.attempt,
++                        message: info.message,
++                        action: info.action,
++                        next: Date.now() + Math.max(0, sleep),
++                        poolSwitch: rotated.switched
++                          ? { provider, label: rotated.label }
++                          : undefined,
++                        poolExhausted: rotated.exhausted || undefined,
++                      }).pipe(Effect.as(sleep))
++                    }),
++                  )
+                 },
+               }),
+             ),
+@@ -717,6 +834,8 @@ export const node = LayerNode.make({
+     Session.node,
+     Config.node,
+     Snapshot.node,
++    Auth.node,
++    AuthPool.node,
+     Agent.node,
+     LLM.node,
+     Permission.node,
+diff --git a/packages/opencode/src/session/prompt.ts b/packages/opencode/src/session/prompt.ts
+index 0f85d44..0f0d230 100644
+--- a/packages/opencode/src/session/prompt.ts
++++ b/packages/opencode/src/session/prompt.ts
+@@ -1107,11 +1107,20 @@ const layer = Layer.effect(
+             lastAssistantMsg?.parts.some(
+               (part) => part.type === "tool" && !part.metadata?.providerExecuted && !isOrphanedInterruptedTool(part),
+             ) ?? false
++          // A turn is complete only when the assistant delivered a visible
++          // answer AND its termination came from the model. Reasons that mean
++          // "it stopped without concluding" — tool calls awaiting results,
++          // an unknown reason, or a generation cut off by the length cap in the
++          // middle of its answer — are stalls, not completions: keep the loop
++          // running so the model is re-requested until it really finishes.
++          const hasAnswer =
++            lastAssistantMsg?.parts.some((part) => part.type === "text" && part.text.trim() !== "") ?? false
+ 
+           if (
+             lastAssistant?.finish &&
+-            !["tool-calls", "unknown"].includes(lastAssistant.finish) &&
++            !["tool-calls", "unknown", "length"].includes(lastAssistant.finish) &&
+             !hasToolCalls &&
++            hasAnswer &&
+             lastAssistant.parentID === lastUser.id
+           ) {
+             const orphan = lastAssistantMsg?.parts.find(
+diff --git a/packages/opencode/src/session/retry.ts b/packages/opencode/src/session/retry.ts
+index 284c0f0..6b160c1 100644
+--- a/packages/opencode/src/session/retry.ts
++++ b/packages/opencode/src/session/retry.ts
+@@ -7,9 +7,7 @@ import { isRecord } from "@/util/record"
+ 
+ export type Err = ReturnType<NamedError["toObject"]>
+ 
+-export const GO_UPSELL_MESSAGE = "Free usage exceeded, subscribe to Go"
+-export const GO_UPSELL_URL = "https://opencode.ai/go"
+-export type RetryReason = "free_tier_limit" | "account_rate_limit" | (string & {})
++export type RetryReason = "account_rate_limit" | "request_queue_full" | "rate_limit" | (string & {})
+ 
+ export type Retryable = {
+   message: string
+@@ -30,6 +28,51 @@ export const RETRY_MAX_DELAY_NO_HEADERS = 30_000 // 30 seconds
+ export const RETRY_MAX_DELAY = 2_147_483_647 // max 32-bit signed integer for setTimeout
+ export const RETRY_MAX_RETRIES = 5
+ 
++// Wait applied on the first failure of a key before concluding the key itself
++// is at fault: retry the same key once (~2s), rotate only after a second
++// consecutive failure. A key change is retried immediately instead.
++export const RETRY_SAME_KEY_DELAY_MS = 2_000
++
++// A provider turn that ends without producing any visible reply. Not a hard
++// failure: the message keeps being retried (~2s same key) until a real reply
++// arrives, so a stalled turn never ends the session silently.
++export const EMPTY_REPLY_MESSAGE = "The model returned an empty response"
++
++export const QUOTA_REASONS = new Set([
++  "account_rate_limit",
++  "free_tier_limit",
++  "request_queue_full",
++  "rate_limit",
++])
++
++// True when the failure is the current key's own: quota / rate-limit
++// exhaustion is immediately decisive for a long wait, otherwise the key has to
++// fail twice in a row. Network failures are never the key's fault.
++export function shouldRotate(input: { streak: number; reason?: string; longWait: boolean }): boolean {
++  if (input.reason === "network") return false
++  if (input.reason !== undefined && QUOTA_REASONS.has(input.reason)) {
++    if (input.longWait) return true
++  }
++  return input.streak >= 2
++}
++
++// Decide how long to sleep before the next attempt:
++//  - no rotation      → fixed 2s retry of the same key (network: honour backoff)
++//  - key switched     → retry the new key immediately, no forced wait
++//  - pool all cooling → wait for the earliest key recovery
++//  - no pool          → honour the provider's hint and keep going
++export function decidedWait(input: {
++  rotate: boolean
++  reason?: string
++  rotated: { switched: boolean; waitMs?: number }
++  retryAfterMs: number
++}): number {
++  if (!input.rotate) return input.reason === "network" ? input.retryAfterMs : RETRY_SAME_KEY_DELAY_MS
++  if (input.rotated.switched) return 0
++  if (input.rotated.waitMs !== undefined && input.rotated.waitMs >= 0) return input.rotated.waitMs
++  return input.retryAfterMs
++}
++
+ const RETRYABLE_MESSAGE_PATTERNS = [
+   /429|500|502|503|504|524/i,
+   /rate increased too quickly|rate limit|rate-limit|rate_limit|too many requests/i,
+@@ -38,6 +81,16 @@ const RETRYABLE_MESSAGE_PATTERNS = [
+   /^timeout$|\b(?:request|response|connection|network|stream|read) (?:timeout|timed out|time out)\b/i,
+   /try your request again|retry your request|resource exhausted|resource_exhausted/i,
+   /\btry again (?:later|in\b)|\b(?:currently|temporarily) at capacity\b/i,
++  /empty response/i,
++]
++
++// Transport-level failures: the OS has no connectivity. These are not the key's
++// fault, so they never trigger rotation — the same key is polled at a bounded
++// backoff until connectivity returns (then the normal key-fault rules apply).
++const NETWORK_ERROR_PATTERNS = [
++  /getaddrinfo|enotfound|eai_again|econnrefused|econnreset|etimedout|network is unreachable/i,
++  /network[-_\s]?error|connection (?:error|refused|lost|reset)|socket hang up|socket connection was closed/i,
++  /failed to fetch|fetch failed|request (?:timeout|timed out|time out)|\bstream (?:error|closed)|offline|no internet|temporarily unable to resolve/i,
+ ]
+ 
+ function cap(ms: number) {
+@@ -87,31 +140,11 @@ export function retryable(error: Err, provider: string) {
+   if (SessionV1.ContextOverflowError.isInstance(error)) return undefined
+   if (SessionV1.APIError.isInstance(error)) {
+     const status = error.data.statusCode
+-    // 5xx errors are transient server failures and should always be retried,
+-    // even when the provider SDK doesn't explicitly mark them as retryable.
+-    if (
+-      !error.data.isRetryable &&
+-      !(status !== undefined && status >= 500) &&
+-      !matchesRetryableMessage(error.data.message) &&
+-      !matchesRetryableMessage(error.data.responseBody)
+-    )
+-      return undefined
+-    if (error.data.responseBody?.includes("FreeUsageLimitError")) {
+-      return {
+-        message: GO_UPSELL_MESSAGE,
+-        action: {
+-          reason: "free_tier_limit",
+-          provider,
+-          title: "Free limit reached",
+-          message: "Subscribe to OpenCode Go for reliable access to the best open-source models for $10/month.",
+-          label: "subscribe",
+-          link: GO_UPSELL_URL,
+-        },
+-      }
+-    }
++
++    // Gemini (opencode / opencode-go) quota exhaustion — this is the canonical
++    // "the current key is out of quota" signal for API-key auth.
+     if (error.data.responseBody?.includes("GoUsageLimitError")) {
+       const body = parseJSON(error.data.responseBody)
+-      const workspace = str(body?.metadata?.workspace)
+       const limitName = str(body?.metadata?.limitName)
+       const retryAfter = num(error.data.responseHeaders?.["retry-after"])
+       const resetIn = iife(() => {
+@@ -128,20 +161,44 @@ export function retryable(error: Err, provider: string) {
+       })
+ 
+       const message = `${limitName ? `${limitName} usage limit` : "Usage limit"} reached. It will reset in ${resetIn}. To continue using this model now, enable usage from your available balance`
++      return { message, action: { reason: "account_rate_limit", provider, title: "Go limit reached", message, label: "open settings" } }
++    }
+ 
+-      const link = `https://opencode.ai/workspace/${workspace}/go`
+-      return {
+-        message: `${message} - ${link}`,
+-        action: {
+-          reason: "account_rate_limit",
+-          provider,
+-          title: "Go limit reached",
+-          message,
+-          label: "open settings",
+-          link,
+-        },
+-      }
++    // The request queue of the current key's project is full — rotate to another
++    // key before surfacing the 5xx to the user, since a different project has its
++    // own queue capacity.
++    const bodyText = str(error.data.responseBody).toLowerCase()
++    const msgText = error.data.message.toLowerCase()
++    if (status === 503 && (bodyText.includes("request queue is full") || msgText.includes("request queue is full"))) {
++      const message = "Provider is overloaded"
++      return { message, action: { reason: "request_queue_full", provider, title: message, message, label: "" } }
+     }
++
++    // API-key auth providers: rotate when the current key is rate-limited,
++    // quota-exhausted, or rejected — instead of retrying that same key in place.
++    if (status === 429 || status === 401 || status === 403) {
++      const message = status === 429 ? "Rate limit reached" : "API key rejected"
++      return { message, action: { reason: "rate_limit", provider, title: message, message, label: "" } }
++    }
++
++    // Any other 4xx: the server says the client is at fault, but that is not a
++    // guarantee it is a real client bug (or that a different key won't work).
++    // Treat it like any other failure: retry the same key once, then rotate.
++    if (status !== undefined && status >= 400 && status < 500) {
++      const message = error.data.message
++      return { message, action: { reason: "client_error", provider, title: "Request rejected", message, label: "" } }
++    }
++
++    // Everything else: only retry when the SDK marks it retryable, it is a 5xx,
++    // or the message looks like a transient/retryable error.
++    if (
++      !error.data.isRetryable &&
++      !(status !== undefined && status >= 500) &&
++      !matchesRetryableMessage(error.data.message) &&
++      !matchesRetryableMessage(error.data.responseBody)
++    )
++      return undefined
++
+     return { message: error.data.message.includes("Overloaded") ? "Provider is overloaded" : error.data.message }
+   }
+ 
+@@ -150,6 +207,8 @@ export function retryable(error: Err, provider: string) {
+   const lower = message.toLowerCase()
+   if (lower.includes("too_many_requests")) return { message: "Too Many Requests" }
+   if (lower.includes("exhausted") || lower.includes("unavailable")) return { message: "Provider is overloaded" }
++  if (NETWORK_ERROR_PATTERNS.some((pattern) => pattern.test(lower)))
++    return { message, action: { reason: "network", provider, title: "Waiting for network", message, label: "" } }
+   if (matchesRetryableMessage(message)) return { message }
+   return undefined
+ }
+@@ -183,24 +242,32 @@ function parseJSON(value: unknown) {
+ export function policy(opts: {
+   provider: string
+   parse: (error: unknown) => Err
+-  set: (input: { attempt: number; message: string; action?: Retryable["action"]; next: number }) => Effect.Effect<void>
++  // set() reports the retry status and returns how long to actually sleep before
++  // retrying — it may shorten the wait, e.g. after switching to a pooled account.
++  set: (input: { attempt: number; message: string; action?: Retryable["action"]; next: number }) => Effect.Effect<number, never>
+ }) {
+   return Schedule.fromStepWithMetadata(
+     Effect.succeed((meta: Schedule.InputMetadata<unknown>) => {
+       const error = opts.parse(meta.input)
+       const retry = retryable(error, opts.provider)
+       if (!retry) return Cause.done(meta.attempt)
+-      if (meta.attempt > RETRY_MAX_RETRIES) return Cause.done(meta.attempt)
++      // No attempt budget: retryable errors keep retrying so the session never
++      // stops on its own while an account could still recover. The user can
++      // always abort explicitly; the machine must not dominate the human.
+       return Effect.gen(function* () {
+         const wait = delay(meta.attempt, SessionV1.APIError.isInstance(error) ? error : undefined)
+         const now = yield* Clock.currentTimeMillis
+-        yield* opts.set({
++        const decided = yield* opts.set({
+           attempt: meta.attempt,
+           message: retry.message,
+           action: retry.action,
+           next: now + wait,
+         })
+-        return [meta.attempt, Duration.millis(wait)] as [number, Duration.Duration]
++        const sleep =
++          typeof decided === "number" && Number.isFinite(decided) && decided >= 0
++            ? Math.min(decided, RETRY_MAX_DELAY)
++            : wait
++        return [meta.attempt, Duration.millis(Math.round(sleep))] as [number, Duration.Duration]
+       })
+     }),
+   )
+diff --git a/packages/opencode/src/session/status.ts b/packages/opencode/src/session/status.ts
+index 11140ac..e8ea3c2 100644
+--- a/packages/opencode/src/session/status.ts
++++ b/packages/opencode/src/session/status.ts
+@@ -7,7 +7,6 @@ import { SessionStatusEvent } from "@opencode-ai/schema/session-status-event"
+ 
+ export const Info = SessionStatusEvent.Info
+ export type Info = SessionStatusEvent.Info
+-
+ export const Event = SessionStatusEvent
+ 
+ export interface Interface {
+diff --git a/packages/opencode/test/auth/pool.test.ts b/packages/opencode/test/auth/pool.test.ts
+new file mode 100644
+index 0000000..e55c6c6
+--- /dev/null
++++ b/packages/opencode/test/auth/pool.test.ts
+@@ -0,0 +1,86 @@
++import { describe, expect, beforeEach } from "bun:test"
++import fs from "node:fs"
++import path from "node:path"
++import { Effect } from "effect"
++import { LayerNode } from "@opencode-ai/core/effect/layer-node"
++import { FSUtil } from "@opencode-ai/core/fs-util"
++import { Global } from "@opencode-ai/core/global"
++import { testEffect } from "../lib/effect"
++import * as AuthPool from "../../src/auth/pool"
++
++const poolFile = path.join(Global.Path.data, "auth-pool.json")
++const it = testEffect(LayerNode.compile(LayerNode.group([FSUtil.node, AuthPool.node])))
++
++function seed(data: unknown) {
++  fs.writeFileSync(poolFile, JSON.stringify(data), { mode: 0o600 })
++}
++
++function read() {
++  return JSON.parse(fs.readFileSync(poolFile, "utf8"))
++}
++
++describe("auth.pool.rotate", () => {
++  beforeEach(() => {
++    fs.rmSync(poolFile, { force: true })
++  })
++
++  it.instance("switches to a usable key and records the failed key's cooldown", () =>
++    Effect.gen(function* () {
++      seed({
++        test: [{ key: "sk-aaa", label: "A" }, { key: "sk-bbb", label: "B" }],
++      })
++      const pool = yield* AuthPool.Service
++      const res = yield* pool.rotate("test", 5_000, "sk-aaa")
++      expect(res.switched).toBe(true)
++      expect(res.exhausted).toBe(false)
++      expect(res.key).toBe("sk-bbb")
++      expect(res.label).toBe("B")
++
++      const saved = read()
++      const ra = saved._retryAfter["test"]
++      expect(Object.keys(ra)).toHaveLength(1)
++      expect(ra[AuthPool.sha256("sk-aaa")]).toBeGreaterThan(Date.now())
++    }),
++  )
++
++  it.instance("returns the earliest recovery when every pooled key is cooling down", () =>
++    Effect.gen(function* () {
++      seed({
++        test: [{ key: "sk-aaa", label: "A" }, { key: "sk-bbb", label: "B" }],
++        _retryAfter: { test: { [AuthPool.sha256("sk-aaa")]: Date.now() + 600_000 } },
++      })
++      const pool = yield* AuthPool.Service
++      const res = yield* pool.rotate("test", 700_000, "sk-bbb")
++      expect(res.switched).toBe(false)
++      expect(res.exhausted).toBe(false)
++      expect(res.key).toBe("sk-aaa")
++      expect(res.waitMs).toBeDefined()
++      expect(res.waitMs!).toBeGreaterThan(0)
++      expect(res.waitMs!).toBeLessThanOrEqual(700_000)
++    }),
++  )
++
++  it.instance("returns nothing usable when the pool is empty", () =>
++    Effect.gen(function* () {
++      seed({})
++      const pool = yield* AuthPool.Service
++      const res = yield* pool.rotate("test", 60_000, "sk-main")
++      expect(res).toEqual({ switched: false, exhausted: false })
++    }),
++  )
++
++  it.instance("a manual switch clears recorded cooldowns", () =>
++    Effect.gen(function* () {
++      seed({
++        test: [{ key: "sk-aaa", label: "A" }, { key: "sk-bbb", label: "B" }],
++        _retryAfter: { test: { [AuthPool.sha256("sk-bbb")]: Date.now() + 600_000 } },
++      })
++      const pool = yield* AuthPool.Service
++      const res = yield* pool.switchByKey("test", AuthPool.sha256("sk-aaa"), "sk-bbb")
++      expect(res.found).toBe(true)
++      expect(res.key).toBe("sk-aaa")
++      const saved = read()
++      expect(saved._retryAfter).toBeUndefined()
++    }),
++  )
++})
+\ No newline at end of file
+diff --git a/packages/opencode/test/server/httpapi-control-plane.test.ts b/packages/opencode/test/server/httpapi-control-plane.test.ts
+index b837bf7..6340241 100644
+--- a/packages/opencode/test/server/httpapi-control-plane.test.ts
++++ b/packages/opencode/test/server/httpapi-control-plane.test.ts
+@@ -7,6 +7,7 @@ import { MoveSession } from "@opencode-ai/core/control-plane/move-session"
+ import { AbsolutePath } from "@opencode-ai/core/schema"
+ import { SessionV2 } from "@opencode-ai/core/session"
+ import { Auth } from "../../src/auth"
++import * as AuthPool from "../../src/auth/pool"
+ import { Config } from "../../src/config/config"
+ import { Installation } from "../../src/installation"
+ import { ServerAuth } from "../../src/server/auth"
+@@ -37,6 +38,7 @@ const apiLayer = HttpRouter.serve(
+ ).pipe(
+   Layer.provideMerge(NodeHttpServer.layerTest),
+   Layer.provide(Layer.mock(Auth.Service)({})),
++  Layer.provide(Layer.mock(AuthPool.Service)({})),
+   Layer.provide(Layer.mock(Config.Service)({})),
+   Layer.provide(Layer.mock(Installation.Service)({})),
+   Layer.provide(
+diff --git a/packages/opencode/test/server/httpapi-global.test.ts b/packages/opencode/test/server/httpapi-global.test.ts
+index 55bdcff..498ab58 100644
+--- a/packages/opencode/test/server/httpapi-global.test.ts
++++ b/packages/opencode/test/server/httpapi-global.test.ts
+@@ -4,6 +4,7 @@ import { Context, Effect, Layer, Option } from "effect"
+ import { HttpBody, HttpClient, HttpClientRequest, HttpRouter } from "effect/unstable/http"
+ import { HttpApiBuilder } from "effect/unstable/httpapi"
+ import { Auth } from "../../src/auth"
++import * as AuthPool from "../../src/auth/pool"
+ import { Config } from "../../src/config/config"
+ import { Installation } from "../../src/installation"
+ import { MoveSession } from "@opencode-ai/core/control-plane/move-session"
+@@ -29,6 +30,7 @@ const apiLayer = HttpRouter.serve(
+ ).pipe(
+   Layer.provideMerge(NodeHttpServer.layerTest),
+   Layer.provide(Layer.mock(Auth.Service)({})),
++  Layer.provide(Layer.mock(AuthPool.Service)({})),
+   Layer.provide(Layer.mock(Config.Service)({})),
+   Layer.provide(Layer.mock(MoveSession.Service)({})),
+   Layer.provide(
+diff --git a/packages/opencode/test/session/llm.test.ts b/packages/opencode/test/session/llm.test.ts
+index ed0ad20..55b4d39 100644
+--- a/packages/opencode/test/session/llm.test.ts
++++ b/packages/opencode/test/session/llm.test.ts
+@@ -840,6 +840,88 @@ describe("session.llm.stream", () => {
+     )
+   })
+ 
++  it.instance(
++    "a switched key reaches the wire and rotates the session identity",
++    () =>
++      Effect.gen(function* () {
++        const fixture = loadFixture(vivgridFixture.providerID, vivgridFixture.modelID)
++        const chat = () =>
++          new Response(createChatStream("Hello"), {
++            status: 200,
++            headers: { "Content-Type": "text/event-stream" },
++          })
++        const resolved = yield* Provider.use.getModel(
++          ProviderV2.ID.make(vivgridFixture.providerID),
++          ModelV2.ID.make(fixture.model.id),
++        )
++        const sessionID = SessionID.make("session-rotate-1")
++        const agent = {
++          name: "test",
++          mode: "primary",
++          options: {},
++          permission: [{ permission: "*", pattern: "*", action: "allow" }],
++        } satisfies Agent.Info
++        const input = (key: string, messageID: string) => ({
++          user: {
++            id: MessageID.make(messageID),
++            sessionID,
++            role: "user" as const,
++            time: { created: Date.now() },
++            agent: agent.name,
++            model: { providerID: ProviderV2.ID.make(vivgridFixture.providerID), modelID: resolved.id },
++          } satisfies SessionV1.User,
++          sessionID,
++          model: resolved,
++          agent,
++          system: ["You are a helpful assistant."],
++          messages: [{ role: "user" as const, content: "Hello" }] as ModelMessage[],
++          tools: {},
++          authOverride: { type: "api" as const, key },
++        })
++
++        // First key of the session: the credential reaches the wire and the
++        // identity is derived deterministically from (session, key).
++        const first = waitRequest("/chat/completions", chat())
++        yield* drain(input("key-aaa", "msg_rotate-1"))
++        const firstCapture = yield* Effect.promise(() => first)
++        expect(firstCapture.headers.get("Authorization")).toBe("Bearer key-aaa")
++        expect(firstCapture.headers.get("x-opencode-session-id")).not.toBe(sessionID)
++        expect(firstCapture.headers.get("x-session-affinity")).not.toBe(sessionID)
++        expect(firstCapture.headers.get("x-opencode-session-id")).toMatch(/^ses_[0-9a-f]{12}[0-9A-Za-z]{14}$/)
++
++        // Rotated key: the new credential is used and every identity it sends is
++        // derived for that key, so nothing the first key saw goes out again.
++        const second = waitRequest("/chat/completions", chat())
++        yield* drain(input("key-bbb", "msg_rotate-2"))
++        const secondCapture = yield* Effect.promise(() => second)
++        expect(secondCapture.headers.get("Authorization")).toBe("Bearer key-bbb")
++        expect(secondCapture.headers.get("x-opencode-session-id")).not.toBe(
++          firstCapture.headers.get("x-opencode-session-id"),
++        )
++        expect(secondCapture.headers.get("x-session-affinity")).not.toBe(
++          firstCapture.headers.get("x-session-affinity"),
++        )
++      }),
++    {
++      config: () => {
++        const fixture = loadFixture(vivgridFixture.providerID, vivgridFixture.modelID)
++        return {
++          enabled_providers: [vivgridFixture.providerID],
++          provider: {
++            [vivgridFixture.providerID]: {
++              name: "OpenCode Test",
++              npm: "@ai-sdk/openai-compatible",
++              models: { [fixture.model.id]: configModel(fixture.model) as ConfigModel },
++              // The frozen options key is the point of this test: a key handed to
++              // the request must win over whatever options froze at load time.
++              options: { apiKey: "frozen-key", baseURL: `${state.server!.url.origin}/v1` },
++            },
++          },
++        }
++      },
++    },
++  )
++
+   it.instance(
+     "sends temperature, tokens, and reasoning options for openai-compatible models",
+     () =>
+diff --git a/packages/opencode/test/session/processor-effect.test.ts b/packages/opencode/test/session/processor-effect.test.ts
+index c67f82d..ae3dd64 100644
+--- a/packages/opencode/test/session/processor-effect.test.ts
++++ b/packages/opencode/test/session/processor-effect.test.ts
+@@ -514,13 +514,14 @@ it.live("session.processor effect tests reset reasoning state across retries", (
+   ),
+ )
+ 
+-it.live("session.processor effect tests do not retry unknown json errors", () =>
++it.live("session.processor effect tests retry unknown json client errors", () =>
+   provideTmpdirServer(
+     ({ dir, llm }) =>
+       Effect.gen(function* () {
+         const { processors, session, provider } = yield* boot()
+ 
+         yield* llm.error(400, { error: { message: "no_kv_space" } })
++        yield* llm.text("after")
+ 
+         const chat = yield* session.create({})
+         const parent = yield* user(chat.id, "json")
+@@ -549,9 +550,12 @@ it.live("session.processor effect tests do not retry unknown json errors", () =>
+           tools: {},
+         })
+ 
+-        expect(value).toBe("stop")
+-        expect(yield* llm.calls).toBe(1)
+-        expect(handle.message.error?.name).toBe("APIError")
++        const parts = yield* MessageV2.parts(msg.id)
++
++        expect(value).toBe("continue")
++        expect(yield* llm.calls).toBe(2)
++        expect(parts.some((part) => part.type === "text" && part.text === "after")).toBe(true)
++        expect(handle.message.error).toBeUndefined()
+       }),
+     { config: (url) => providerCfg(url) },
+   ),
+@@ -708,6 +712,53 @@ it.live("session.processor effect tests retry network_error finish reasons", ()
+   ),
+ )
+ 
++it.live("session.processor effect tests retry an empty reply until a reply arrives", () =>
++  provideTmpdirServer(
++    ({ dir, llm }) =>
++      Effect.gen(function* () {
++        const { processors, session, provider } = yield* boot()
++
++        yield* llm.push(reply().stop())
++        yield* llm.text("after retry")
++
++        const chat = yield* session.create({})
++        const parent = yield* user(chat.id, "empty reply")
++        const msg = yield* assistant(chat.id, parent.id, path.resolve(dir))
++        const mdl = yield* provider.getModel(ref.providerID, ref.modelID)
++        const handle = yield* processors.create({
++          assistantMessage: msg,
++          sessionID: chat.id,
++          model: mdl,
++        })
++
++        const value = yield* handle.process({
++          user: {
++            id: parent.id,
++            sessionID: chat.id,
++            role: "user",
++            time: parent.time,
++            agent: parent.agent,
++            model: { providerID: ref.providerID, modelID: ref.modelID },
++          } satisfies SessionV1.User,
++          sessionID: chat.id,
++          model: mdl,
++          agent: agent(),
++          system: [],
++          messages: [{ role: "user", content: "empty reply" }],
++          tools: {},
++        })
++
++        const parts = yield* MessageV2.parts(msg.id)
++
++        expect(value).toBe("continue")
++        expect(yield* llm.calls).toBe(2)
++        expect(parts.some((part) => part.type === "text" && part.text === "after retry")).toBe(true)
++        expect(handle.message.error).toBeUndefined()
++      }),
++    { config: (url) => providerCfg(url) },
++  ),
++)
++
+ it.live("session.processor effect tests publish retry status updates", () =>
+   provideTmpdirServer(
+     ({ dir, llm }) =>
+@@ -716,7 +767,7 @@ it.live("session.processor effect tests publish retry status updates", () =>
+         const events = yield* EventV2Bridge.Service
+ 
+         yield* llm.error(503, { error: "boom" })
+-        yield* llm.text("")
++        yield* llm.text("after retry")
+ 
+         const chat = yield* session.create({})
+         const parent = yield* user(chat.id, "retry")
+diff --git a/packages/opencode/test/session/prompt.test.ts b/packages/opencode/test/session/prompt.test.ts
+index da6e0f8..45ae364 100644
+--- a/packages/opencode/test/session/prompt.test.ts
++++ b/packages/opencode/test/session/prompt.test.ts
+@@ -492,6 +492,13 @@ noLLMServer.instance(
+         time: { created: 200, completed: 201 },
+         finish: "stop",
+       })
++      yield* sessions.updatePart({
++        id: PartID.ascending(),
++        messageID: assistantID,
++        sessionID: chat.id,
++        type: "text",
++        text: "hi there",
++      })
+ 
+       const result = yield* prompt.loop({ sessionID: chat.id })
+ 
+@@ -945,6 +952,61 @@ it.instance("loop continues when finish is stop but assistant has tool parts", (
+   }),
+ )
+ 
++it.instance("loop re-requests the model when the assistant finished without a visible answer", () =>
++  Effect.gen(function* () {
++    const { llm } = yield* useServerConfig(providerCfg)
++    const prompt = yield* SessionPrompt.Service
++    const sessions = yield* Session.Service
++    const chat = yield* sessions.create({ title: "Pinned" })
++
++    const lastUser = yield* user(chat.id, "hello")
++    yield* sessions.updateMessage({
++      id: MessageID.ascending(),
++      role: "assistant",
++      parentID: lastUser.id,
++      sessionID: chat.id,
++      mode: "build",
++      agent: "build",
++      cost: 0,
++      path: { cwd: "/tmp", root: "/tmp" },
++      tokens: { input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } },
++      modelID: ref.modelID,
++      providerID: ref.providerID,
++      time: { created: Date.now() },
++      finish: "stop",
++    })
++
++    yield* llm.text("real reply")
++
++    const result = yield* prompt.loop({ sessionID: chat.id })
++    expect(yield* llm.calls).toBe(1)
++    expect(result.info.role).toBe("assistant")
++    if (result.info.role === "assistant") {
++      expect(result.parts.some((part) => part.type === "text" && part.text === "real reply")).toBe(true)
++      expect(result.info.finish).toBe("stop")
++    }
++  }),
++)
++
++it.instance("loop re-requests the model when the assistant was cut off by the length cap mid-answer", () =>
++  Effect.gen(function* () {
++    const { llm } = yield* useServerConfig(providerCfg)
++    const prompt = yield* SessionPrompt.Service
++    const sessions = yield* Session.Service
++    const chat = yield* sessions.create({ title: "Pinned" })
++    yield* seed(chat.id, { finish: "length" })
++
++    yield* llm.text("final answer")
++
++    const result = yield* prompt.loop({ sessionID: chat.id })
++    expect(yield* llm.calls).toBe(1)
++    expect(result.info.role).toBe("assistant")
++    if (result.info.role === "assistant") {
++      expect(result.parts.some((part) => part.type === "text" && part.text === "final answer")).toBe(true)
++    }
++  }),
++)
++
+ it.instance("failed subtask preserves metadata on error tool state", () =>
+   Effect.gen(function* () {
+     const { llm } = yield* useServerConfig((url) => ({
+diff --git a/packages/opencode/test/session/retry.test.ts b/packages/opencode/test/session/retry.test.ts
+index 20c8678..27be0b3 100644
+--- a/packages/opencode/test/session/retry.test.ts
++++ b/packages/opencode/test/session/retry.test.ts
+@@ -4,7 +4,7 @@ import { SessionV1 } from "@opencode-ai/core/v1/session"
+ import type { NamedError } from "@opencode-ai/core/util/error"
+ import { APICallError } from "ai"
+ import { setTimeout as sleep } from "node:timers/promises"
+-import { Effect, Schedule, Schema } from "effect"
++import { Duration, Effect, Schedule, Schema } from "effect"
+ import { CrossSpawnSpawner } from "@opencode-ai/core/cross-spawn-spawner"
+ import { SessionRetry } from "../../src/session/retry"
+ import { MessageV2 } from "../../src/session/message-v2"
+@@ -110,7 +110,7 @@ describe("session.retry.delay", () => {
+               attempt: info.attempt,
+               message: info.message,
+               next: info.next,
+-            }),
++            }).pipe(Effect.as(Math.max(0, info.next - Date.now()))),
+         }),
+       )
+       yield* step(error)
+@@ -124,7 +124,7 @@ describe("session.retry.delay", () => {
+     }),
+   )
+ 
+-  it.instance("policy stops after five retries", () =>
++  it.instance("policy keeps retrying retryable errors and uses set()'s decided wait", () =>
+     Effect.gen(function* () {
+       const attempts: number[] = []
+       const error = apiError({ "retry-after-ms": "0" })
+@@ -135,15 +135,19 @@ describe("session.retry.delay", () => {
+           set: (info) =>
+             Effect.sync(() => {
+               attempts.push(info.attempt)
++              return 111
+             }),
+         }),
+       )
+ 
+-      yield* Effect.forEach(Array.from({ length: SessionRetry.RETRY_MAX_RETRIES + 1 }), () =>
++      const first = yield* step(error)
++      expect(Duration.toMillis(first.duration)).toBe(111)
++
++      // No attempt budget: retryable errors keep retrying instead of stopping.
++      yield* Effect.forEach(Array.from({ length: 2 * SessionRetry.RETRY_MAX_RETRIES }), () =>
+         Effect.ignore(step(error)),
+       )
+-
+-      expect(attempts).toStrictEqual([1, 2, 3, 4, 5])
++      expect(attempts).toHaveLength(1 + 2 * SessionRetry.RETRY_MAX_RETRIES)
+     }),
+   )
+ })
+@@ -193,6 +197,11 @@ describe("session.retry.retryable", () => {
+     expect(SessionRetry.retryable(error, retryProvider)).toEqual({ message: msg })
+   })
+ 
++  test("retries an empty-response turn as a retryable failure without an action", () => {
++    const error = wrap(SessionRetry.EMPTY_REPLY_MESSAGE)
++    expect(SessionRetry.retryable(error, retryProvider)).toEqual({ message: SessionRetry.EMPTY_REPLY_MESSAGE })
++  })
++
+   test("retries too many requests in plain text", () => {
+     const msg = "Too many requests, please slow down"
+     const error = wrap(msg)
+@@ -206,15 +215,6 @@ describe("session.retry.retryable", () => {
+     "Provider returned error",
+     "provider-returned-error",
+     "terminated",
+-    "fetch failed",
+-    "network error",
+-    "network-error",
+-    "network_error",
+-    "connection refused",
+-    "connect ECONNREFUSED",
+-    "request ETIMEDOUT",
+-    "failed to fetch",
+-    "EAI_AGAIN",
+     "response timed out",
+     "Please retry your request",
+     "try your request again",
+@@ -226,18 +226,50 @@ describe("session.retry.retryable", () => {
+     expect(SessionRetry.retryable(wrap(message), retryProvider)).toEqual({ message })
+   })
+ 
++  test.each([
++    "fetch failed",
++    "failed to fetch",
++    "network error",
++    "network-error",
++    "network_error",
++    "connection refused",
++    "connect ECONNREFUSED",
++    "request ETIMEDOUT",
++    "EAI_AGAIN",
++    "Network is unreachable",
++  ])("classifies transport failure as network (no rotation): %s", (message) => {
++    expect(SessionRetry.retryable(wrap(message), retryProvider)).toEqual({
++      message,
++      action: { reason: "network", provider: retryProvider, title: "Waiting for network", message, label: "" },
++    })
++  })
++
+   test("retries hyphenated service-unavailable errors", () => {
+     expect(SessionRetry.retryable(wrap("service-unavailable"), retryProvider)).toEqual({
+       message: "Provider is overloaded",
+     })
+   })
+ 
+-  test("matches retryable API response bodies", () => {
++  test.each([400, 404, 422])("retries %s as a client_error (same-key then rotate)", (statusCode) => {
++    const error = Schema.decodeUnknownSync(SessionV1.APIError.Schema)(
++      new SessionV1.APIError({
++        message: "Bad request",
++        isRetryable: false,
++        statusCode,
++      }).toObject(),
++    )
++    expect(SessionRetry.retryable(error, retryProvider)).toEqual({
++      message: "Bad request",
++      action: { reason: "client_error", provider: retryProvider, title: "Request rejected", message: "Bad request", label: "" },
++    })
++  })
++
++  test("retries 4xx response bodies via message matching", () => {
+     const error = Schema.decodeUnknownSync(SessionV1.APIError.Schema)(
+       new SessionV1.APIError({
+         message: "Request failed",
+         isRetryable: false,
+-        statusCode: 400,
++        statusCode: 502,
+         responseBody: JSON.stringify({ error: { message: "upstream connection refused" } }),
+       }).toObject(),
+     )
+@@ -309,16 +341,22 @@ describe("session.retry.retryable", () => {
+     expect(SessionRetry.retryable(error, retryProvider)).toEqual({ message: "Service unavailable" })
+   })
+ 
+-  test("does not retry 4xx errors when isRetryable is false", () => {
+-    const error = Schema.decodeUnknownSync(SessionV1.APIError.Schema)(
+-      new SessionV1.APIError({
+-        message: "Bad request",
+-        isRetryable: false,
+-        statusCode: 400,
+-      }).toObject(),
+-    )
++  test("rotates the API key on 401/403/429 even when isRetryable is false", () => {
++    for (const statusCode of [401, 403, 429]) {
++      const error = Schema.decodeUnknownSync(SessionV1.APIError.Schema)(
++        new SessionV1.APIError({
++          message: statusCode === 429 ? "Rate limit reached" : "Unauthorized",
++          isRetryable: false,
++          statusCode,
++        }).toObject(),
++      )
+ 
+-    expect(SessionRetry.retryable(error, retryProvider)).toBeUndefined()
++      const message = statusCode === 429 ? "Rate limit reached" : "API key rejected"
++      expect(SessionRetry.retryable(error, retryProvider)).toEqual({
++        message,
++        action: { reason: "rate_limit", provider: retryProvider, title: message, message, label: "" },
++      })
++    }
+   })
+ 
+   test("retries ZlibError decompression failures", () => {
+@@ -335,32 +373,6 @@ describe("session.retry.retryable", () => {
+     expect(retryable).toEqual({ message: "Response decompression failed" })
+   })
+ 
+-  test("maps free limits to Go upsell action", () => {
+-    const error = Schema.decodeUnknownSync(SessionV1.APIError.Schema)(
+-      new SessionV1.APIError({
+-        message: "Free usage exceeded",
+-        isRetryable: true,
+-        statusCode: 429,
+-        responseBody: JSON.stringify({
+-          type: "error",
+-          error: { type: "FreeUsageLimitError", message: "Free usage exceeded" },
+-        }),
+-      }).toObject(),
+-    )
+-
+-    expect(SessionRetry.retryable(error, "opencode")).toEqual({
+-      message: SessionRetry.GO_UPSELL_MESSAGE,
+-      action: {
+-        reason: "free_tier_limit",
+-        provider: "opencode",
+-        title: "Free limit reached",
+-        message: "Subscribe to OpenCode Go for reliable access to the best open-source models for $10/month.",
+-        label: "subscribe",
+-        link: SessionRetry.GO_UPSELL_URL,
+-      },
+-    })
+-  })
+-
+   test("maps Go subscription limits to workspace PAYG upsell", () => {
+     const error = Schema.decodeUnknownSync(SessionV1.APIError.Schema)(
+       new SessionV1.APIError({
+@@ -386,7 +398,7 @@ describe("session.retry.retryable", () => {
+ 
+     expect(SessionRetry.retryable(error, "opencode-go")).toEqual({
+       message:
+-        "5 hour usage limit reached. It will reset in 5 hours 23 minutes. To continue using this model now, enable usage from your available balance - https://opencode.ai/workspace/wrk_01K6XGM22R6FM8JVABE9XDQXGH/go",
++        "5 hour usage limit reached. It will reset in 5 hours 23 minutes. To continue using this model now, enable usage from your available balance",
+       action: {
+         reason: "account_rate_limit",
+         provider: "opencode-go",
+@@ -394,7 +406,6 @@ describe("session.retry.retryable", () => {
+         message:
+           "5 hour usage limit reached. It will reset in 5 hours 23 minutes. To continue using this model now, enable usage from your available balance",
+         label: "open settings",
+-        link: "https://opencode.ai/workspace/wrk_01K6XGM22R6FM8JVABE9XDQXGH/go",
+       },
+     })
+   })
+@@ -427,6 +438,82 @@ describe("session.retry.retryable", () => {
+   })
+ })
+ 
++describe("session.retry.decision", () => {
++  test("network failures never rotate and reset the streak", () => {
++    expect(
++      SessionRetry.shouldRotate({ streak: 99, reason: "network", longWait: false }),
++    ).toBe(false)
++  })
++
++  test("first same-key failure waits ~2s without rotating", () => {
++    expect(
++      SessionRetry.shouldRotate({ streak: 1, reason: "rate_limit", longWait: false }),
++    ).toBe(false)
++    expect(
++      SessionRetry.decidedWait({
++        rotate: false,
++        reason: "rate_limit",
++        rotated: { switched: false },
++        retryAfterMs: 7_000,
++      }),
++    ).toBe(SessionRetry.RETRY_SAME_KEY_DELAY_MS)
++  })
++
++  test("second consecutive failure rotates", () => {
++    expect(
++      SessionRetry.shouldRotate({ streak: 2, reason: undefined, longWait: false }),
++    ).toBe(true)
++    expect(
++      SessionRetry.shouldRotate({ streak: 2, reason: "client_error", longWait: false }),
++    ).toBe(true)
++  })
++
++  test("a long quota wait rotates immediately", () => {
++    expect(
++      SessionRetry.shouldRotate({ streak: 1, reason: "account_rate_limit", longWait: true }),
++    ).toBe(true)
++  })
++
++  test("a long non-quota wait still waits for a second failure", () => {
++    expect(
++      SessionRetry.shouldRotate({ streak: 1, reason: undefined, longWait: true }),
++    ).toBe(false)
++  })
++
++  test("a key switch is retried immediately, no forced wait", () => {
++    expect(
++      SessionRetry.decidedWait({
++        rotate: true,
++        reason: "client_error",
++        rotated: { switched: true },
++        retryAfterMs: 60_000,
++      }),
++    ).toBe(0)
++  })
++
++  test("all-cooling waits for the earliest recovery", () => {
++    expect(
++      SessionRetry.decidedWait({
++        rotate: true,
++        reason: "rate_limit",
++        rotated: { switched: false, waitMs: 90_000 },
++        retryAfterMs: 5_000,
++      }),
++    ).toBe(90_000)
++  })
++
++  test("single-account fallback honours the provider hint", () => {
++    expect(
++      SessionRetry.decidedWait({
++        rotate: true,
++        reason: "rate_limit",
++        rotated: { switched: false },
++        retryAfterMs: 30_000,
++      }),
++    ).toBe(30_000)
++  })
++})
++
+ describe("session.message-v2.fromError", () => {
+   test.concurrent(
+     "converts ECONNRESET socket errors to retryable APIError",
+diff --git a/packages/schema/src/session-status-event.ts b/packages/schema/src/session-status-event.ts
+index f6a3022..eb6331a 100644
+--- a/packages/schema/src/session-status-event.ts
++++ b/packages/schema/src/session-status-event.ts
+@@ -25,6 +25,13 @@ export const Info = Schema.Union([
+       }),
+     ),
+     next: NonNegativeInt,
++    poolSwitch: optional(
++      Schema.Struct({
++        provider: Schema.String,
++        label: optional(Schema.String),
++      }),
++    ),
++    poolExhausted: optional(Schema.Boolean),
+   }),
+   Schema.Struct({
+     type: Schema.Literal("busy"),
+diff --git a/packages/schema/src/v1/session.ts b/packages/schema/src/v1/session.ts
+index 75e9282..b2b712d 100644
+--- a/packages/schema/src/v1/session.ts
++++ b/packages/schema/src/v1/session.ts
+@@ -105,6 +105,7 @@ export const TextPart = Schema.Struct({
+   text: Schema.String,
+   synthetic: Schema.optional(Schema.Boolean),
+   ignored: Schema.optional(Schema.Boolean),
++  internalContinue: Schema.optional(Schema.Boolean),
+   time: Schema.optional(
+     Schema.Struct({
+       start: NonNegativeInt,
+diff --git a/packages/sdk/js/src/v2/gen/types.gen.ts b/packages/sdk/js/src/v2/gen/types.gen.ts
+index 5ac9bd7..9db86c7 100644
+--- a/packages/sdk/js/src/v2/gen/types.gen.ts
++++ b/packages/sdk/js/src/v2/gen/types.gen.ts
+@@ -686,6 +686,11 @@ export type SessionStatus =
+         label: string
+         link?: string
+       }
++      poolSwitch?: {
++        provider: string
++        label?: string
++      }
++      poolExhausted?: boolean
+       next: number
+     }
+   | {
+diff --git a/packages/session-ui/src/components/session-retry.tsx b/packages/session-ui/src/components/session-retry.tsx
+index cf2d6c9..ccf8800 100644
+--- a/packages/session-ui/src/components/session-retry.tsx
++++ b/packages/session-ui/src/components/session-retry.tsx
+@@ -11,6 +11,7 @@ export function SessionRetry(props: { status: SessionStatus; show?: boolean }) {
+     if (props.status.type !== "retry") return
+     return props.status
+   })
++  const offline = createMemo(() => retry()?.action?.reason === "network")
+   const [seconds, setSeconds] = createSignal(0)
+   createEffect(
+     on(retry, (current) => {
+@@ -28,6 +29,9 @@ export function SessionRetry(props: { status: SessionStatus; show?: boolean }) {
+   const message = createMemo(() => {
+     const current = retry()
+     if (!current) return ""
++    if (offline()) {
++      return i18n.t("ui.sessionTurn.retry.offline")
++    }
+     if (current.message.includes("exceeded your current quota") && current.message.includes("gemini")) {
+       return i18n.t("ui.sessionTurn.retry.geminiHot")
+     }
+@@ -53,7 +57,7 @@ export function SessionRetry(props: { status: SessionStatus; show?: boolean }) {
+   return (
+     <Show when={retry() && (props.show ?? true)}>
+       <div data-slot="session-turn-retry">
+-        <Card variant="error" class="error-card">
++        <Card variant={offline() ? "warning" : "error"} class="error-card">
+           <div class="flex items-start gap-2">
+             <Spinner class="size-4 mt-0.5" />
+             <div class="min-w-0">
+diff --git a/packages/tui/src/component/prompt/index.tsx b/packages/tui/src/component/prompt/index.tsx
+index c48c751..d6b78de 100644
+--- a/packages/tui/src/component/prompt/index.tsx
++++ b/packages/tui/src/component/prompt/index.tsx
+@@ -1535,6 +1535,7 @@ export function Prompt(props: PromptProps) {
+                       const message = createMemo(() => {
+                         const r = retry()
+                         if (!r) return
++                        if (r.action?.reason === "network") return "オンライン復帰を待機しています"
+                         if (r.message.includes("exceeded your current quota") && r.message.includes("gemini"))
+                           return "gemini is way too hot right now"
+                         if (r.message.length > 80) return r.message.slice(0, 80) + "…"
+diff --git a/packages/ui/src/i18n/en.ts b/packages/ui/src/i18n/en.ts
+index 54008fb..ced143f 100644
+--- a/packages/ui/src/i18n/en.ts
++++ b/packages/ui/src/i18n/en.ts
+@@ -70,6 +70,7 @@ export const dict: Record<string, string> = {
+   "ui.sessionTurn.retry.attempt": "attempt #{{attempt}}",
+   "ui.sessionTurn.retry.attemptLine": "{{line}} - attempt #{{attempt}}",
+   "ui.sessionTurn.retry.geminiHot": "gemini is way too hot right now",
++  "ui.sessionTurn.retry.offline": "Waiting for network recovery",
+   "ui.sessionTurn.error.freeUsageExceeded": "Free usage exceeded",
+   "ui.sessionTurn.error.addCredits": "Add credits",
+ 
+diff --git a/packages/ui/src/i18n/ja.ts b/packages/ui/src/i18n/ja.ts
+index 1b32e05..f93a801 100644
+--- a/packages/ui/src/i18n/ja.ts
++++ b/packages/ui/src/i18n/ja.ts
+@@ -67,6 +67,7 @@ export const dict = {
+   "ui.sessionTurn.retry.attempt": "{{attempt}}回目",
+   "ui.sessionTurn.retry.attemptLine": "{{line}} - {{attempt}}回目",
+   "ui.sessionTurn.retry.geminiHot": "gemini が混雑しています",
++  "ui.sessionTurn.retry.offline": "オンライン復帰を待機しています",
+   "ui.sessionTurn.error.freeUsageExceeded": "無料使用制限に達しました",
+   "ui.sessionTurn.error.addCredits": "クレジットを追加",
+ 
