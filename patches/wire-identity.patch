@@ -4712,6 +4712,541 @@ index a133e88..9253ffa 100644
      })
  
      const get = Effect.fn("Auth.get")(function* (providerID: string) {
+diff --git a/packages/opencode/src/auth/pool.ts b/packages/opencode/src/auth/pool.ts
+new file mode 100644
+index 0000000..31c84d0
+--- /dev/null
++++ b/packages/opencode/src/auth/pool.ts
+@@ -0,0 +1,458 @@
++import path from "path"
++import crypto from "crypto"
++import { Effect, Layer, Schema, Context } from "effect"
++import { Global } from "@opencode-ai/core/global"
++import { FSUtil } from "@opencode-ai/core/fs-util"
++import { LayerNode } from "@opencode-ai/core/effect/layer-node"
++import { Auth } from "@/auth"
++
++const POOL_FILE = path.join(Global.Path.data, "auth-pool.json")
++
++// A lease is a claim that some session is currently using a key. Leases live in
++// memory only: they describe who is busy right now, which the pool file cannot
++// know. Cooldowns, by contrast, must outlive a restart, so they stay on disk.
++const LEASE_TTL_MS = 15 * 60_000
++
++export class PoolSchema extends Schema.Class<PoolSchema>("AuthPoolEntry")({
++  key: Schema.String,
++  label: Schema.optional(Schema.String),
++}) {}
++
++export type PoolEntry = Schema.Schema.Type<typeof PoolSchema>
++
++type PoolData = Record<string, unknown>
++
++export interface RotateResult {
++  switched: boolean
++  label?: string
++  exhausted: boolean
++  key?: string
++  // When every key is cooling down: ms until the earliest recovery.
++  waitMs?: number
++}
++
++export type SelectReason = "held" | "idle" | "lru" | "cooling" | "none"
++
++export interface SelectOptions {
++  sessionID?: string
++  exclude?: string[]
++}
++
++export interface SelectResult {
++  key?: string
++  label?: string
++  reason: SelectReason
++  // Present only when `reason` is "cooling": ms until the earliest key recovers.
++  waitMs?: number
++}
++
++export interface PublicLease {
++  key_hash: string
++  key_masked: string
++  label?: string
++  since: number
++}
++
++export interface Interface {
++  readonly list: (providerID: string) => Effect.Effect<PublicPoolEntry[], never>
++  readonly add: (providerID: string, entry: PoolEntry) => Effect.Effect<void, never>
++  readonly removeByKey: (providerID: string, keyHash: string) => Effect.Effect<boolean, never>
++  readonly switchByKey: (providerID: string, keyHash: string, currentKey?: string) => Effect.Effect<{ found: boolean; key?: string }, never>
++  readonly count: (providerID: string) => Effect.Effect<number, never>
++  readonly resetToMain: (providerID: string) => Effect.Effect<string | undefined, never>
++  readonly rotate: (providerID: string, retryAfterMs?: number, currentKey?: string) => Effect.Effect<RotateResult, never>
++  readonly select: (providerID: string, opts?: SelectOptions) => Effect.Effect<SelectResult, never>
++  readonly cooldown: (providerID: string, key: string, retryAfterMs: number) => Effect.Effect<void, never>
++  readonly touch: (providerID: string, key: string, sessionID: string) => Effect.Effect<void, never>
++  readonly releaseSession: (sessionID: string) => Effect.Effect<void, never>
++  readonly leases: (providerID: string) => Effect.Effect<PublicLease[], never>
++}
++
++export class Service extends Context.Service<Service, Interface>()("@opencode/AuthPool") {}
++
++export function sha256(key: string): string {
++  return crypto.createHash("sha256").update(key).digest("hex")
++}
++
++export interface PublicPoolEntry {
++  key_hash: string
++  key_masked: string
++  label?: string
++}
++
++function maskKey(key: string): string {
++  if (key.length <= 12) return key.slice(0, 4) + "..."
++  return key.slice(0, 8) + "..." + key.slice(-4)
++}
++
++function getEntries(data: PoolData, providerID: string): PoolEntry[] {
++  return Array.isArray(data[providerID]) ? (data[providerID] as PoolEntry[]) : []
++}
++
++function getMain(data: PoolData, providerID: string): string | undefined {
++  const main = data._main as Record<string, string> | undefined
++  return main?.[providerID]
++}
++
++const rawPool = (fsys: FSUtil.Interface) =>
++  fsys.readJson(POOL_FILE).pipe(
++    Effect.map((data) => data as PoolData),
++    Effect.orElseSucceed(() => ({}) as PoolData),
++  )
++
++const writePool = (fsys: FSUtil.Interface, data: PoolData) =>
++  fsys.writeJson(POOL_FILE, data, 0o600).pipe(Effect.orDie)
++
++interface Lease {
++  sessionID: string
++  lastUsed: number
++  keyHash: string
++  keyMasked: string
++  label?: string
++}
++
++export const layer = Layer.effect(
++  Service,
++  Effect.gen(function* () {
++    const fsys = yield* FSUtil.Service
++    const auth = yield* Auth.Service
++
++    // providerID -> keyHash -> lease
++    const leaseTable = new Map<string, Map<string, Lease>>()
++
++    // The key in auth.json is not privileged. It is kept in its own file purely so
++    // upstream opencode (which reads a single key) keeps working, and it joins the
++    // rotation set as one member among equals, ordered first so that the very first
++    // request of the very first session uses it.
++    const authKey = Effect.fn("AuthPool.authKey")(function* (providerID: string) {
++      const info = yield* auth.get(providerID).pipe(Effect.orElseSucceed(() => undefined))
++      return info?.type === "api" ? info.key : undefined
++    })
++
++    const candidates = (data: PoolData, providerID: string, mainKey?: string): PoolEntry[] => {
++      const out: PoolEntry[] = []
++      if (mainKey) out.push({ key: mainKey, label: "auth.json" })
++      for (const entry of getEntries(data, providerID)) {
++        if (entry.key !== mainKey) out.push(entry)
++      }
++      return out
++    }
++
++    const pruneLeases = (providerID: string, now: number) => {
++      const table = leaseTable.get(providerID)
++      if (!table) return
++      for (const [hash, lease] of table) {
++        if (now - lease.lastUsed > LEASE_TTL_MS) table.delete(hash)
++      }
++      if (table.size === 0) leaseTable.delete(providerID)
++    }
++
++    // Reads the cooldown table for a provider, dropping entries that already
++    // recovered. Cooldowns are tracked for every known key, including the one in
++    // auth.json, which is why this cannot simply intersect the pool entries.
++    const readCooldowns = (data: PoolData, providerID: string, now: number, known: PoolEntry[]) => {
++      const before = JSON.stringify(data._retryAfter ?? null) + "|" + JSON.stringify(data._tried ?? null)
++      const raData = { ...((data._retryAfter ?? {}) as Record<string, Record<string, number>>) }
++      const ra = { ...(raData[providerID] ?? {}) }
++      const knownHashes = new Set(known.map((e) => sha256(e.key)))
++      for (const hash of Object.keys(ra)) {
++        if (!knownHashes.has(hash) || ra[hash] <= now) {
++          delete ra[hash]
++        }
++      }
++      if (Object.keys(ra).length > 0) {
++        raData[providerID] = ra
++      } else {
++        delete raData[providerID]
++      }
++      if (Object.keys(raData).length === 0) {
++        delete data._retryAfter
++      } else {
++        data._retryAfter = raData
++      }
++      delete data._tried
++      const after = JSON.stringify(data._retryAfter ?? null) + "|" + JSON.stringify(data._tried ?? null)
++      return { ra, changed: before !== after }
++    }
++
++    const list = Effect.fn("AuthPool.list")(function* (providerID: string) {
++      const data = yield* rawPool(fsys)
++      return getEntries(data, providerID).map((e) => ({
++        key_hash: sha256(e.key),
++        key_masked: maskKey(e.key),
++        label: e.label,
++      }))
++    })
++
++    const add = Effect.fn("AuthPool.add")(function* (providerID: string, entry: PoolEntry) {
++      const data = yield* rawPool(fsys)
++      const arr = getEntries(data, providerID)
++      if (!arr.some((e) => e.key === entry.key)) arr.push(entry)
++      data[providerID] = arr
++      if (data._tried) {
++        delete (data._tried as Record<string, string[]>)[providerID]
++      }
++      const raData = (data._retryAfter ?? {}) as Record<string, Record<string, number>>
++      if (raData[providerID]) {
++        const ra = { ...raData[providerID] }
++        delete ra[sha256(entry.key)]
++        if (Object.keys(ra).length === 0) delete raData[providerID]
++        else raData[providerID] = ra
++      }
++      if (Object.keys(raData).length === 0) delete data._retryAfter
++      else data._retryAfter = raData
++      yield* writePool(fsys, data)
++    })
++
++    const removeByKey = Effect.fn("AuthPool.removeByKey")(function* (providerID: string, keyHash: string) {
++      const data = yield* rawPool(fsys)
++      const arr = getEntries(data, providerID)
++      const idx = arr.findIndex((e) => sha256(e.key) === keyHash)
++      if (idx < 0) return false
++      arr.splice(idx, 1)
++      if (arr.length === 0) {
++        delete data[providerID]
++      } else {
++        data[providerID] = arr
++      }
++      yield* writePool(fsys, data)
++      leaseTable.get(providerID)?.delete(keyHash)
++      return true
++    })
++
++    const switchByKey = Effect.fn("AuthPool.switchByKey")(function* (
++      providerID: string,
++      keyHash: string,
++      currentKey?: string,
++    ) {
++      const data = yield* rawPool(fsys)
++      const arr = getEntries(data, providerID)
++      const idx = arr.findIndex((e) => sha256(e.key) === keyHash)
++      if (idx < 0) return { found: false, key: undefined as string | undefined }
++
++      const newKey = arr[idx].key
++
++      if (currentKey && !getMain(data, providerID)) {
++        const main = (data._main as Record<string, string> ?? {})
++        main[providerID] = currentKey
++        data._main = main
++      }
++
++      // Properly swap the accounts: the selected key leaves the pool and becomes
++      // the main account, while the current main key joins the pool. This keeps
++      // both accounts present in the pool file so neither is ever lost.
++      if (currentKey && currentKey !== newKey) {
++        arr.splice(idx, 1)
++        arr.push({ key: currentKey })
++        if (arr.length === 0) {
++          delete data[providerID]
++        } else {
++          data[providerID] = arr
++        }
++      }
++
++      // A manual switch starts a fresh rotation window: clear any cooldowns so
++      // the selected key is usable immediately and not skipped by auto-rotation.
++      if (data._tried) {
++        delete (data._tried as Record<string, string[]>)[providerID]
++        if (Object.keys(data._tried as Record<string, string[]>).length === 0) delete data._tried
++      }
++      if (data._retryAfter) {
++        delete (data._retryAfter as Record<string, Record<string, number>>)[providerID]
++        if (Object.keys(data._retryAfter as Record<string, unknown>).length === 0) delete data._retryAfter
++      }
++
++      yield* writePool(fsys, data)
++      return { found: true, key: newKey }
++    })
++
++    const count = Effect.fn("AuthPool.count")(function* (providerID: string) {
++      const data = yield* rawPool(fsys)
++      return getEntries(data, providerID).length
++    })
++
++    const resetToMain = Effect.fn("AuthPool.resetToMain")(function* (providerID: string) {
++      const data = yield* rawPool(fsys)
++      const mainKey = getMain(data, providerID)
++      if (!mainKey) return undefined
++
++      const arr = getEntries(data, providerID)
++
++      // Remove the restored main key from the pool so it is not duplicated
++      // as both the main account and a pool entry after a reset.
++      const idx = arr.findIndex((e) => e.key === mainKey)
++      if (idx >= 0) {
++        arr.splice(idx, 1)
++      }
++      if (arr.length === 0) {
++        delete data[providerID]
++      } else {
++        data[providerID] = arr
++      }
++
++      delete (data._main as Record<string, string>)[providerID]
++      if (Object.keys(data._main as Record<string, string>).length === 0) delete data._main
++      if (data._tried) {
++        delete (data._tried as Record<string, string[]>)[providerID]
++        if (Object.keys(data._tried as Record<string, string[]>).length === 0) delete data._tried
++      }
++      if (data._retryAfter) {
++        delete (data._retryAfter as Record<string, Record<string, number>>)[providerID]
++        if (Object.keys(data._retryAfter as Record<string, unknown>).length === 0) delete data._retryAfter
++      }
++
++      yield* writePool(fsys, data)
++      return mainKey
++    })
++
++    // Marks a key unusable for `retryAfterMs`. Deliberately does not promote,
++    // demote or rewrite auth.json: a rate limit on one key says nothing about
++    // the others, and every one of them must stay selectable.
++    const cooldown = Effect.fn("AuthPool.cooldown")(function* (
++      providerID: string,
++      key: string,
++      retryAfterMs: number,
++    ) {
++      if (!Number.isFinite(retryAfterMs) || retryAfterMs <= 0) return
++      const data = yield* rawPool(fsys)
++      const raData = { ...((data._retryAfter ?? {}) as Record<string, Record<string, number>>) }
++      const ra = { ...(raData[providerID] ?? {}) }
++      ra[sha256(key)] = Date.now() + retryAfterMs
++      raData[providerID] = ra
++      data._retryAfter = raData
++      yield* writePool(fsys, data)
++    })
++
++    const select = Effect.fn("AuthPool.select")(function* (providerID: string, opts?: SelectOptions) {
++      const now = Date.now()
++      pruneLeases(providerID, now)
++
++      const data = yield* rawPool(fsys)
++      const mainKey = yield* authKey(providerID)
++      const all = candidates(data, providerID, mainKey)
++      if (all.length === 0) return { reason: "none" } as SelectResult
++
++      const { ra, changed } = readCooldowns(data, providerID, now, all)
++      const excluded = new Set(opts?.exclude ?? [])
++      const usable = all.filter((e) => !excluded.has(e.key) && ra[sha256(e.key)] === undefined)
++
++      // A session that already holds a key keeps it. Re-selecting is a no-op so a
++      // stray call can never reshuffle a running session onto another account.
++      if (opts?.sessionID) {
++        const held = leaseTable.get(providerID)
++        if (held) {
++          for (const entry of all) {
++            const lease = held.get(sha256(entry.key))
++            if (lease?.sessionID !== opts.sessionID) continue
++            if (excluded.has(entry.key) || ra[sha256(entry.key)] !== undefined) break
++            lease.lastUsed = now
++            if (changed) yield* writePool(fsys, data)
++            return { key: entry.key, label: entry.label, reason: "held" } as SelectResult
++          }
++        }
++      }
++
++      if (usable.length === 0) {
++        let best: { key: string; at: number } | undefined
++        for (const entry of all) {
++          const at = ra[sha256(entry.key)]
++          if (at === undefined) continue
++          if (!best || at < best.at) best = { key: entry.key, at }
++        }
++        if (changed) yield* writePool(fsys, data)
++        if (!best) return { reason: "none" } as SelectResult
++        const label = all.find((e) => e.key === best!.key)?.label
++        return { key: best.key, label, reason: "cooling", waitMs: Math.max(0, best.at - now) } as SelectResult
++      }
++
++      const table = leaseTable.get(providerID) ?? new Map<string, Lease>()
++      const idle = usable.filter((e) => !table.has(sha256(e.key)))
++      let pick: PoolEntry | undefined
++      let reason: SelectReason = "idle"
++      if (idle.length > 0) {
++        pick = idle[0]
++      } else {
++        reason = "lru"
++        pick = [...usable].sort(
++          (a, b) => (table.get(sha256(a.key))?.lastUsed ?? 0) - (table.get(sha256(b.key))?.lastUsed ?? 0),
++        )[0]
++      }
++
++      if (opts?.sessionID && pick) {
++        table.set(sha256(pick.key), {
++          sessionID: opts.sessionID,
++          lastUsed: now,
++          keyHash: sha256(pick.key),
++          keyMasked: maskKey(pick.key),
++          label: pick.label,
++        })
++        leaseTable.set(providerID, table)
++      }
++      if (changed) yield* writePool(fsys, data)
++      return { key: pick?.key, label: pick?.label, reason } as SelectResult
++    })
++
++    const touch = Effect.fn("AuthPool.touch")(function* (providerID: string, key: string, sessionID: string) {
++      const now = Date.now()
++      pruneLeases(providerID, now)
++      const table = leaseTable.get(providerID) ?? new Map<string, Lease>()
++      const hash = sha256(key)
++      const existing = table.get(hash)
++      if (existing) {
++        existing.lastUsed = now
++      } else {
++        table.set(hash, { sessionID, lastUsed: now, keyHash: hash, keyMasked: maskKey(key) })
++      }
++      leaseTable.set(providerID, table)
++    })
++
++    const releaseSession = Effect.fn("AuthPool.releaseSession")(function* (sessionID: string) {
++      for (const table of leaseTable.values()) {
++        for (const [hash, lease] of table) {
++          if (lease.sessionID === sessionID) table.delete(hash)
++        }
++      }
++    })
++
++    const leases = Effect.fn("AuthPool.leases")(function* (providerID: string) {
++      pruneLeases(providerID, Date.now())
++      const table = leaseTable.get(providerID)
++      if (!table) return [] as PublicLease[]
++      return [...table.values()].map((lease) => ({
++        key_hash: lease.keyHash,
++        key_masked: lease.keyMasked,
++        label: lease.label,
++        since: lease.lastUsed,
++      }))
++    })
++
++    const rotate = Effect.fn("AuthPool.rotate")(function* (providerID: string, retryAfterMs?: number, currentKey?: string) {
++      if (currentKey) yield* cooldown(providerID, currentKey, retryAfterMs ?? 0)
++      const picked = yield* select(providerID, currentKey ? { exclude: [currentKey] } : undefined)
++      return {
++        switched: picked.reason === "idle" || picked.reason === "lru",
++        label: picked.label,
++        exhausted: false,
++        key: picked.key,
++        waitMs: picked.waitMs,
++      } as RotateResult
++    })
++
++    return Service.of({
++      list,
++      add,
++      removeByKey,
++      switchByKey,
++      count,
++      resetToMain,
++      rotate,
++      select,
++      cooldown,
++      touch,
++      releaseSession,
++      leases,
++    })
++  }),
++)
++
++export const node = LayerNode.make({ service: Service, layer: layer, deps: [FSUtil.node, Auth.node] })
+diff --git a/packages/opencode/src/auth/wire-identity.ts b/packages/opencode/src/auth/wire-identity.ts
+new file mode 100644
+index 0000000..7c046a4
+--- /dev/null
++++ b/packages/opencode/src/auth/wire-identity.ts
+@@ -0,0 +1,65 @@
++import { createHash } from "crypto"
++
++// Wire identity derived deterministically from (local session id, api key).
++//
++// The local session id remains stable. For requests that carry an API key,
++// the wire session/message/project/parent are derived as a stable hash of
++// (localId, keyId). Same (session, key) always produces the same wire
++// identity even across restarts. Different keys produce different identities
++// so keys cannot be correlated through the wire.
++//
++// When no API key is present (e.g. oauth / no key context), identities are
++// passed through unchanged to avoid changing behavior outside the pool path.
++
++const LENGTH = 26
++const CHARS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
++
++function keyId(key: string) {
++  return createHash("sha256").update(key).digest("hex")
++}
++
++function mintIdentifier(prefix: string, seed: string) {
++  const digest = createHash("sha512").update(seed).digest()
++  let hex = ""
++  for (let index = 0; index < 6; index++) hex += digest[index]!.toString(16).padStart(2, "0")
++  let tail = ""
++  for (let index = 0; index < LENGTH - 12; index++) tail += CHARS[digest[6 + index]! % 62]
++  return `${prefix}_${hex}${tail}`
++}
++
++function mintProject(seed: string) {
++  return createHash("sha1").update(seed).digest("hex")
++}
++
++export type WireInput = {
++  readonly sessionID: string
++  readonly messageID: string
++  readonly projectID?: string
++  readonly parentSessionID?: string
++  readonly key: string | undefined
++}
++
++export function identity(input: WireInput) {
++  const key = input.key
++  if (!key) {
++    return {
++      session: input.sessionID,
++      message: input.messageID,
++      project: input.projectID,
++      parent: input.parentSessionID,
++    }
++  }
++  const salt = `\u0000${keyId(key)}`
++  return {
++    session: mintIdentifier("ses", `${input.sessionID}${salt}`),
++    message: mintIdentifier("msg", `${input.messageID}${salt}`),
++    project: input.projectID ? mintProject(`${input.projectID}${salt}`) : undefined,
++    parent: input.parentSessionID ? mintIdentifier("ses", `${input.parentSessionID}${salt}`) : undefined,
++  }
++}
++
++export function release(_sessionID: string) {
++  // Identity is deterministic from (sessionID, key); no in-memory bindings to release.
++}
++
++export * as AuthWireIdentity from "./wire-identity"
 diff --git a/packages/opencode/src/cli/cmd/agent.ts b/packages/opencode/src/cli/cmd/agent.ts
 index c9c1d2c..3ae05c5 100644
 --- a/packages/opencode/src/cli/cmd/agent.ts
@@ -5652,6 +6187,75 @@ index 49f43f0..b7ddac2 100644
        HttpApiEndpoint.post("log", ControlPaths.log, {
          query: LogQuery,
          payload: LogInput,
+diff --git a/packages/opencode/src/server/routes/instance/httpapi/groups/persist.ts b/packages/opencode/src/server/routes/instance/httpapi/groups/persist.ts
+new file mode 100644
+index 0000000..3d6fb3f
+--- /dev/null
++++ b/packages/opencode/src/server/routes/instance/httpapi/groups/persist.ts
+@@ -0,0 +1,63 @@
++import { HttpApi, HttpApiEndpoint, HttpApiGroup, OpenApi } from "effect/unstable/httpapi"
++import { Schema } from "effect"
++import { Authorization } from "../middleware/authorization"
++import { InstanceContextMiddleware } from "../middleware/instance-context"
++import { WorkspaceRoutingMiddleware, WorkspaceRoutingQuery } from "../middleware/workspace-routing"
++import { described } from "./metadata"
++
++const root = "/persist"
++
++const PersistParams = Schema.Struct({
++  key: Schema.String,
++})
++
++export const PersistApi = HttpApi.make("persist")
++  .add(
++    HttpApiGroup.make("persist")
++      .add(
++        HttpApiEndpoint.get("get", `${root}/:key`, {
++          params: PersistParams,
++          success: described(Schema.String, "Stored value"),
++          error: Schema.Struct({ message: Schema.String }),
++        }).annotateMerge(
++          OpenApi.annotations({
++            identifier: "persist.get",
++            summary: "Get persisted value",
++          }),
++        ),
++        HttpApiEndpoint.put("set", `${root}/:key`, {
++          params: PersistParams,
++          payload: Schema.String,
++          success: Schema.Void,
++          error: Schema.Struct({ message: Schema.String }),
++        }).annotateMerge(
++          OpenApi.annotations({
++            identifier: "persist.set",
++            summary: "Set persisted value",
++          }),
++        ),
++        HttpApiEndpoint.delete("remove", `${root}/:key`, {
++          params: PersistParams,
++          success: Schema.Void,
++          error: Schema.Struct({ message: Schema.String }),
++        }).annotateMerge(
++          OpenApi.annotations({
++            identifier: "persist.remove",
++            summary: "Remove persisted value",
++          }),
++        ),
++      )
++      .annotateMerge(
++        OpenApi.annotations({
++          title: "persist",
++          description: "Key-value persistence for UI state.",
++        }),
++      )
++      .middleware(Authorization),
++  )
++  .annotateMerge(
++    OpenApi.annotations({
++      title: "opencode persistence HttpApi",
++      version: "0.0.1",
++    }),
++  )
 diff --git a/packages/opencode/src/server/routes/instance/httpapi/groups/session.ts b/packages/opencode/src/server/routes/instance/httpapi/groups/session.ts
 index 959a303..d75450e 100644
 --- a/packages/opencode/src/server/routes/instance/httpapi/groups/session.ts
@@ -5788,6 +6392,65 @@ index 9974b19..31bed28 100644
 +  if (key.length <= 12) return key.slice(0, 4) + "..."
 +  return key.slice(0, 8) + "..." + key.slice(-4)
 +}
+diff --git a/packages/opencode/src/server/routes/instance/httpapi/handlers/persist.ts b/packages/opencode/src/server/routes/instance/httpapi/handlers/persist.ts
+new file mode 100644
+index 0000000..07d5402
+--- /dev/null
++++ b/packages/opencode/src/server/routes/instance/httpapi/handlers/persist.ts
+@@ -0,0 +1,53 @@
++import { Effect } from "effect"
++import { HttpApiBuilder } from "effect/unstable/httpapi"
++import * as HttpServerResponse from "effect/unstable/http/HttpServerResponse"
++import { InstanceHttpApi } from "../api"
++import { FSUtil } from "@opencode-ai/core/fs-util"
++import { Path as GlobalPath } from "@opencode-ai/core/global"
++import path from "path"
++import { unlink } from "fs/promises"
++
++const PERSIST_DIR = "persist"
++
++function filePath(dir: string, key: string) {
++  const safe = (s: string) => s.replace(/[^a-zA-Z0-9._-]/g, "_")
++  return path.join(dir, PERSIST_DIR, safe(key)) + ".json"
++}
++
++export const persistHandlers = HttpApiBuilder.group(InstanceHttpApi, "persist", (handlers) =>
++  Effect.gen(function* () {
++    const fs = yield* FSUtil.Service
++    const dataDir = path.join(GlobalPath.data, "storage")
++
++    const get = Effect.fn("PersistHttpApi.get")(function* (ctx: {
++      params: { key: string }
++    }) {
++      const target = filePath(dataDir, ctx.params.key)
++      const content = yield* fs.readFileStringSafe(target)
++      if (content === undefined) {
++        return HttpServerResponse.text("", { status: 404 as const })
++      }
++      return HttpServerResponse.text(content, { contentType: "application/json" })
++    })
++
++    const set = Effect.fn("PersistHttpApi.set")(function* (ctx: {
++      params: { key: string }
++      payload: string
++    }) {
++      const target = filePath(dataDir, ctx.params.key)
++      yield* fs.writeWithDirs(target, ctx.payload)
++    })
++
++    const remove = Effect.fn("PersistHttpApi.remove")(function* (ctx: {
++      params: { key: string }
++    }) {
++      const target = filePath(dataDir, ctx.params.key)
++      yield* Effect.tryPromise(() => unlink(target)).pipe(Effect.catch(() => Effect.void))
++    })
++
++    return handlers
++      .handle("get", get)
++      .handle("set", set)
++      .handle("remove", remove)
++  }),
++)
 diff --git a/packages/opencode/src/server/routes/instance/httpapi/handlers/session.ts b/packages/opencode/src/server/routes/instance/httpapi/handlers/session.ts
 index 6625850..fe99a88 100644
 --- a/packages/opencode/src/server/routes/instance/httpapi/handlers/session.ts
@@ -7016,6 +7679,287 @@ index b576b77..f542943 100644
    return {
      description: renderPrompt(DESCRIPTION, {
        intro: selected.intro,
+diff --git a/packages/opencode/src/tool/wait.ts b/packages/opencode/src/tool/wait.ts
+new file mode 100644
+index 0000000..1ac4ccb
+--- /dev/null
++++ b/packages/opencode/src/tool/wait.ts
+@@ -0,0 +1,240 @@
++import { Effect, Schema } from "effect"
++import net from "node:net"
++import fs from "node:fs/promises"
++import * as Tool from "./tool"
++import DESCRIPTION from "./wait.txt"
++
++const PROBE_TIMEOUT_MS = 5_000
++const DEFAULT_INTERVAL_MS = 5_000
++const DEFAULT_TIMEOUT_MS = 60 * 60 * 1000
++
++const Condition = Schema.Union([
++  Schema.Struct({
++    kind: Schema.Literal("port"),
++    port: Schema.Number.annotate({ description: "TCP port that must start accepting connections" }),
++    host: Schema.optional(Schema.String).annotate({ description: "Host to connect to. Defaults to 127.0.0.1" }),
++  }),
++  Schema.Struct({
++    kind: Schema.Literal("http"),
++    url: Schema.String.annotate({ description: "URL that must respond" }),
++    status: Schema.optional(Schema.Number).annotate({ description: "Status that must come back. Defaults to 200" }),
++  }),
++  Schema.Struct({
++    kind: Schema.Literal("file"),
++    path: Schema.String.annotate({ description: "Path that must exist" }),
++    contains: Schema.optional(Schema.String).annotate({ description: "Text the file must contain" }),
++  }),
++  Schema.Struct({
++    kind: Schema.Literal("process"),
++    pid: Schema.Number.annotate({ description: "PID that must have exited" }),
++  }),
++])
++
++export const Parameters = Schema.Struct({
++  until: Condition.annotate({ description: "The condition to wait for" }),
++  timeoutMs: Schema.optional(
++    Schema.Number.annotate({
++      description: `Give up after this long. Defaults to ${DEFAULT_TIMEOUT_MS}ms. Nothing is killed on timeout`,
++    }),
++  ),
++  intervalMs: Schema.optional(
++    Schema.Number.annotate({ description: `How often to re-check. Defaults to ${DEFAULT_INTERVAL_MS}ms` }),
++  ),
++})
++
++type Metadata = {
++  until: string
++  satisfied: boolean
++  elapsedMs: number
++  timedOut: boolean
++  aborted: boolean
++  polls: number
++}
++
++/**
++ * Every probe answers one question 窶・"is it ready yet?" 窶・so a failure to even
++ * ask is a "no", never a defect. Each one swallows its own errors and returns
++ * `false`, which keeps a closed port, a 500 or a missing file from killing the
++ * turn and keeps the error channel of `check` empty.
++ */
++const probePort = (host: string, port: number) =>
++  Effect.promise(
++    () =>
++      new Promise<boolean>((resolve) => {
++        const socket = net.connect({ host, port })
++        const settle = (value: boolean) => {
++          socket.removeAllListeners()
++          socket.destroy()
++          resolve(value)
++        }
++        socket.setTimeout(PROBE_TIMEOUT_MS, () => settle(false))
++        socket.once("connect", () => settle(true))
++        socket.once("error", () => settle(false))
++      }),
++  )
++
++const probeHttp = (url: string, status: number) =>
++  Effect.promise(async () => {
++    try {
++      const response = await fetch(url, { signal: AbortSignal.timeout(PROBE_TIMEOUT_MS) })
++      return response.status === status
++    } catch {
++      return false
++    }
++  })
++
++const probeFile = (path: string, contains: string | undefined) =>
++  Effect.promise(async () => {
++    try {
++      if (contains === undefined) {
++        await fs.stat(path)
++        return true
++      }
++      const text = await fs.readFile(path, "utf8")
++      return text.includes(contains)
++    } catch {
++      return false
++    }
++  })
++
++/**
++ * Inverted on purpose: a backgrounded job is "done" when it is gone. Signal 0
++ * performs the existence check without touching the process, and anything other
++ * than ESRCH (EPERM, say) means it is still there, so we keep waiting.
++ */
++const probeProcess = (pid: number) =>
++  Effect.sync(() => {
++    try {
++      process.kill(pid, 0)
++      return false
++    } catch (error) {
++      return (error as NodeJS.ErrnoException)?.code === "ESRCH"
++    }
++  })
++
++const describe = (until: Schema.Schema.Type<typeof Condition>) => {
++  switch (until.kind) {
++    case "port":
++      return `${until.host ?? "127.0.0.1"}:${until.port} accepting connections`
++    case "http":
++      return `${until.url} returning ${until.status ?? 200}`
++    case "file":
++      return `${until.path} existing${until.contains ? ` and containing ${JSON.stringify(until.contains)}` : ""}`
++    case "process":
++      return `process ${until.pid} having exited`
++  }
++}
++
++const check = (until: Schema.Schema.Type<typeof Condition>): Effect.Effect<boolean> => {
++  switch (until.kind) {
++    case "port":
++      return probePort(until.host ?? "127.0.0.1", until.port)
++    case "http":
++      return probeHttp(until.url, until.status ?? 200)
++    case "file":
++      return probeFile(until.path, until.contains)
++    case "process":
++      return probeProcess(until.pid)
++  }
++}
++
++export const WaitTool = Tool.define<typeof Parameters, Metadata, never>(
++  "wait",
++  Effect.succeed({
++    description: DESCRIPTION,
++    parameters: Parameters,
++    execute: (
++      params: Schema.Schema.Type<typeof Parameters>,
++      ctx: Tool.Context<Metadata>,
++    ): Effect.Effect<Tool.ExecuteResult<Metadata>> =>
++      Effect.gen(function* () {
++        yield* ctx.ask({
++          permission: "wait",
++          patterns: ["*"],
++          always: ["*"],
++          metadata: {},
++        })
++
++        const until = params.until
++        const subject = describe(until)
++        const intervalMs = params.intervalMs ?? DEFAULT_INTERVAL_MS
++        const timeoutMs = params.timeoutMs ?? DEFAULT_TIMEOUT_MS
++        const start = Date.now()
++
++        // Publish progress every poll. A wait that looks identical to a hang is
++        // the failure mode this whole feature exists to avoid, so the running
++        // clock is part of the tool's output rather than something the user has
++        // to guess at.
++        const report = (satisfied: boolean, polls: number) =>
++          ctx.metadata({
++            metadata: {
++              until: subject,
++              satisfied,
++              elapsedMs: Date.now() - start,
++              timedOut: false,
++              aborted: false,
++              polls,
++            },
++          })
++
++        const poll = Effect.gen(function* () {
++          let polls = 0
++          while (true) {
++            polls++
++            if (yield* check(until)) return { kind: "satisfied" as const, polls }
++            const remaining = timeoutMs - (Date.now() - start)
++            if (remaining <= 0) return { kind: "timedout" as const, polls }
++            yield* report(false, polls)
++            yield* Effect.sleep(`${Math.min(intervalMs, remaining)} millis`)
++          }
++        })
++
++        const abort = Effect.callback<void>((resume) => {
++          if (ctx.abort.aborted) return resume(Effect.void)
++          const handler = () => resume(Effect.void)
++          ctx.abort.addEventListener("abort", handler, { once: true })
++          return Effect.sync(() => ctx.abort.removeEventListener("abort", handler))
++        })
++
++        // Abort only ends the waiting. There is no child process here to spare,
++        // so unlike `bash` there is nothing to leave running and nothing to
++        // clean up.
++        const outcome = yield* Effect.raceAll([
++          poll.pipe(Effect.map((result) => ({ ...result, aborted: false as const }))),
++          abort.pipe(Effect.map(() => ({ kind: "abort" as const, polls: 0, aborted: true as const }))),
++        ])
++
++        const elapsedMs = Date.now() - start
++        const satisfied = outcome.kind === "satisfied"
++        const metadata: Metadata = {
++          until: subject,
++          satisfied,
++          elapsedMs,
++          timedOut: outcome.kind === "timedout",
++          aborted: outcome.aborted,
++          polls: outcome.polls,
++        }
++
++        let title: string
++        let output: string
++        if (satisfied) {
++          title = `waited ${(elapsedMs / 1000).toFixed(1)}s`
++          output = `Condition satisfied after ${(elapsedMs / 1000).toFixed(1)}s (${outcome.polls} checks): ${subject}`
++        } else if (metadata.aborted) {
++          title = "wait aborted"
++          output = `Wait was aborted by the user after ${(elapsedMs / 1000).toFixed(1)}s, before the condition held: ${subject}`
++        } else {
++          title = "wait timed out"
++          // Nothing was killed 窶・there is nothing of ours to kill 窶・so say so
++          // plainly. The condition simply never became true within the budget.
++          output = [
++            `Condition did not become true within ${(elapsedMs / 1000).toFixed(1)}s (${outcome.polls} checks): ${subject}`,
++            ``,
++            `Nothing was started or killed by this wait. If the condition is still expected to hold, call wait again with a larger timeoutMs.`,
++          ].join("\n")
++        }
++
++        return { title, output, metadata }
++      }),
++  }),
++)
+diff --git a/packages/opencode/src/tool/wait.txt b/packages/opencode/src/tool/wait.txt
+new file mode 100644
+index 0000000..9a71a4b
+--- /dev/null
++++ b/packages/opencode/src/tool/wait.txt
+@@ -0,0 +1,29 @@
++Block until a condition becomes true, then report the result. Use this when you
++genuinely cannot make progress until something external happens 窶・a service on
++another machine finishes booting, a port opens, a deployment goes green, a
++remote job you already started comes back.
++
++This tool never starts anything. It cannot launch a server, a watcher or a
++build, so it cannot leave a process running with nobody watching it. To start
++something, use `bash`. If that command then goes silent, `bash` already moves it
++to the background and hands you its PID 窶・pass that PID here as
++`{ "kind": "process", "pid": N }` to wait for it to finish.
++
++Conditions:
++
++- `{ "kind": "port", "port": 5432, "host": "db.internal" }` 窶・a TCP port accepts
++  a connection. Defaults to 127.0.0.1.
++- `{ "kind": "http", "url": "https://x/health", "status": 200 }` 窶・an HTTP
++  request returns that status. Defaults to 200.
++- `{ "kind": "file", "path": "/tmp/ready", "contains": "listening" }` 窶・a file
++  exists, optionally containing that text.
++- `{ "kind": "process", "pid": 12345 }` 窶・that process has exited. Use this for
++  a job `bash` already backgrounded.
++
++`timeoutMs` bounds the whole wait and defaults to 1 hour. On timeout nothing is
++killed 窶・there is nothing of yours running 窶・and you are told the condition never
++became true, so you can raise the limit or give up deliberately. Set `intervalMs`
++(default 5s) to trade responsiveness against request volume.
++
++Do not use this to wait for your own backgrounded command's output by polling a
++log when the PID is available: `kind: "process"` is exact and cheaper.
 diff --git a/packages/opencode/src/tool/websearch.ts b/packages/opencode/src/tool/websearch.ts
 index d08ae1d..b4563fc 100644
 --- a/packages/opencode/src/tool/websearch.ts
@@ -7038,6 +7982,99 @@ index d08ae1d..b4563fc 100644
    if (!process.env.PARALLEL_API_KEY) return headers
    return { ...headers, Authorization: `Bearer ${process.env.PARALLEL_API_KEY}` }
  }
+diff --git a/packages/opencode/test/auth/pool.test.ts b/packages/opencode/test/auth/pool.test.ts
+new file mode 100644
+index 0000000..e55c6c6
+--- /dev/null
++++ b/packages/opencode/test/auth/pool.test.ts
+@@ -0,0 +1,86 @@
++import { describe, expect, beforeEach } from "bun:test"
++import fs from "node:fs"
++import path from "node:path"
++import { Effect } from "effect"
++import { LayerNode } from "@opencode-ai/core/effect/layer-node"
++import { FSUtil } from "@opencode-ai/core/fs-util"
++import { Global } from "@opencode-ai/core/global"
++import { testEffect } from "../lib/effect"
++import * as AuthPool from "../../src/auth/pool"
++
++const poolFile = path.join(Global.Path.data, "auth-pool.json")
++const it = testEffect(LayerNode.compile(LayerNode.group([FSUtil.node, AuthPool.node])))
++
++function seed(data: unknown) {
++  fs.writeFileSync(poolFile, JSON.stringify(data), { mode: 0o600 })
++}
++
++function read() {
++  return JSON.parse(fs.readFileSync(poolFile, "utf8"))
++}
++
++describe("auth.pool.rotate", () => {
++  beforeEach(() => {
++    fs.rmSync(poolFile, { force: true })
++  })
++
++  it.instance("switches to a usable key and records the failed key's cooldown", () =>
++    Effect.gen(function* () {
++      seed({
++        test: [{ key: "sk-aaa", label: "A" }, { key: "sk-bbb", label: "B" }],
++      })
++      const pool = yield* AuthPool.Service
++      const res = yield* pool.rotate("test", 5_000, "sk-aaa")
++      expect(res.switched).toBe(true)
++      expect(res.exhausted).toBe(false)
++      expect(res.key).toBe("sk-bbb")
++      expect(res.label).toBe("B")
++
++      const saved = read()
++      const ra = saved._retryAfter["test"]
++      expect(Object.keys(ra)).toHaveLength(1)
++      expect(ra[AuthPool.sha256("sk-aaa")]).toBeGreaterThan(Date.now())
++    }),
++  )
++
++  it.instance("returns the earliest recovery when every pooled key is cooling down", () =>
++    Effect.gen(function* () {
++      seed({
++        test: [{ key: "sk-aaa", label: "A" }, { key: "sk-bbb", label: "B" }],
++        _retryAfter: { test: { [AuthPool.sha256("sk-aaa")]: Date.now() + 600_000 } },
++      })
++      const pool = yield* AuthPool.Service
++      const res = yield* pool.rotate("test", 700_000, "sk-bbb")
++      expect(res.switched).toBe(false)
++      expect(res.exhausted).toBe(false)
++      expect(res.key).toBe("sk-aaa")
++      expect(res.waitMs).toBeDefined()
++      expect(res.waitMs!).toBeGreaterThan(0)
++      expect(res.waitMs!).toBeLessThanOrEqual(700_000)
++    }),
++  )
++
++  it.instance("returns nothing usable when the pool is empty", () =>
++    Effect.gen(function* () {
++      seed({})
++      const pool = yield* AuthPool.Service
++      const res = yield* pool.rotate("test", 60_000, "sk-main")
++      expect(res).toEqual({ switched: false, exhausted: false })
++    }),
++  )
++
++  it.instance("a manual switch clears recorded cooldowns", () =>
++    Effect.gen(function* () {
++      seed({
++        test: [{ key: "sk-aaa", label: "A" }, { key: "sk-bbb", label: "B" }],
++        _retryAfter: { test: { [AuthPool.sha256("sk-bbb")]: Date.now() + 600_000 } },
++      })
++      const pool = yield* AuthPool.Service
++      const res = yield* pool.switchByKey("test", AuthPool.sha256("sk-aaa"), "sk-bbb")
++      expect(res.found).toBe(true)
++      expect(res.key).toBe("sk-aaa")
++      const saved = read()
++      expect(saved._retryAfter).toBeUndefined()
++    }),
++  )
++})
+\ No newline at end of file
 diff --git a/packages/opencode/test/cli/upgrade.test.ts b/packages/opencode/test/cli/upgrade.test.ts
 deleted file mode 100644
 index 2543d2a..0000000
@@ -7108,6 +8145,349 @@ index 6d90eee..e7a026b 100644
            configure(info) {
              return {
                ...info,
+diff --git a/packages/opencode/test/provider/header-identity.test.ts b/packages/opencode/test/provider/header-identity.test.ts
+new file mode 100644
+index 0000000..9a3dd52
+--- /dev/null
++++ b/packages/opencode/test/provider/header-identity.test.ts
+@@ -0,0 +1,122 @@
++// Proves the header contract, which is the part that is easy to get wrong by
++// accident: the set of field names must equal upstream's, and a session that
++// stays on one key must put upstream's own values on the wire, byte for byte.
++import { expect, test } from "bun:test"
++import { readFileSync } from "fs"
++import { join } from "path"
++import { AuthWireIdentity } from "../../src/auth/wire-identity"
++
++// The literal field names upstream sends in session/llm/request.ts, transcribed
++// at the base version named in the tatepatch VERSION file. Re-read this list when
++// the base version moves.
++const UPSTREAM_HEADER_FIELDS = [
++  "User-Agent",
++  "X-Session-Id",
++  "x-opencode-client",
++  "x-opencode-parent-session-id",
++  "x-opencode-project",
++  "x-opencode-request",
++  "x-opencode-session",
++  "x-opencode-session-id",
++  "x-parent-session-id",
++  "x-session-affinity",
++]
++
++const CURRENT = join(import.meta.dir, "..", "..", "src", "session", "llm", "request.ts")
++
++// Pull the literal header names out of the headers object, so the comparison is
++// against the source text rather than against a restatement of it.
++function headerNames(source: string): string[] {
++  const start = source.indexOf("headers: {")
++  if (start === -1) throw new Error("no headers object found")
++  const body = source.slice(start, source.indexOf("\n    },\n  }", start))
++  return [...body.matchAll(/"([A-Za-z0-9-]+)":/g)].map((m) => m[1]!)
++}
++
++test("the header field names are exactly the ones upstream sends", () => {
++  const current = [...new Set(headerNames(readFileSync(CURRENT, "utf8")))].toSorted()
++  expect(current).toEqual([...UPSTREAM_HEADER_FIELDS].toSorted())
++})
++
++const SESSION = "ses_0123456789abcdefghijklmn"
++const MESSAGE = "msg_0123456789abcdefghijklmn"
++const PROJECT = "783c65d89f614968990f66a33764ba28df48704a"
++
++const wire = (key?: string) =>
++  AuthWireIdentity.identity({
++    sessionID: SESSION,
++    messageID: MESSAGE,
++    projectID: PROJECT,
++    key,
++  })
++
++test("a session that stays on one key sends deterministic key-scoped values", () => {
++  const out = wire("key-A")
++  expect(out.session).toMatch(/^ses_[0-9a-f]{12}[0-9A-Za-z]{14}$/)
++  expect(out.message).toMatch(/^msg_[0-9a-f]{12}[0-9A-Za-z]{14}$/)
++  expect(out.project).toMatch(/^[0-9a-f]{40}$/)
++  expect(out.session).not.toBe(SESSION)
++})
++
++test("a request with no API key is passed through unchanged", () => {
++  const out = wire(undefined)
++  expect(out.session).toBe(SESSION)
++  expect(out.message).toBe(MESSAGE)
++  expect(out.project).toBe(PROJECT)
++})
++
++test("a rotated key sends none of the strings the previous key was shown", () => {
++  const first = wire("key-A")
++  const second = wire("key-B")
++  expect(second.session).not.toBe(first.session)
++  expect(second.message).not.toBe(first.message)
++  expect(second.project).not.toBe(first.project)
++})
++
++test("a minted value keeps upstream's own format", () => {
++  const out = wire("key-B")
++  // Upstream identifiers are <prefix>_<26 chars>: 12 hex then 14 base62.
++  expect(out.session).toMatch(/^ses_[0-9a-f]{12}[0-9A-Za-z]{14}$/)
++  expect(out.message).toMatch(/^msg_[0-9a-f]{12}[0-9A-Za-z]{14}$/)
++  // Upstream project ids are 40 hex characters.
++  expect(out.project).toMatch(/^[0-9a-f]{40}$/)
++})
++
++test("a minted value does not contain the seed", () => {
++  const out = wire("key-B")
++  expect(out.project).not.toContain("git-remote")
++  expect(out.session).not.toContain(SESSION)
++})
++
++test("an identity is stable while a key stays in use, so a gateway can cache it", () => {
++  expect(wire("key-A")).toEqual(wire("key-A"))
++})
++
++test("a key that comes back presents the identity it had before", () => {
++  const before = wire("key-A")
++  wire("key-B")
++  expect(wire("key-A")).toEqual(before)
++})
++
++test("two sessions on one key stay distinguishable", () => {
++  const other = AuthWireIdentity.identity({ sessionID: "ses_other", messageID: MESSAGE, key: "key-C" })
++  expect(other.session).not.toBe(wire("key-C").session)
++})
++
++test("the parent identity follows the same key scoping as the session", () => {
++  const parent = "ses_parent0123456789abcdefghi"
++  const out = (key?: string) =>
++    AuthWireIdentity.identity({ sessionID: SESSION, messageID: MESSAGE, parentSessionID: parent, key })
++  expect(out(undefined).parent).toBe(parent)
++  expect(out("key-A").parent).not.toBe(parent)
++  expect(out("key-B").parent).not.toBe(parent)
++  expect(out("key-B").parent).toMatch(/^ses_[0-9a-f]{12}[0-9A-Za-z]{14}$/)
++})
++
++test("releasing a session is a no-op with deterministic identities", () => {
++  const first = AuthWireIdentity.identity({ sessionID: "ses_release", messageID: MESSAGE, key: "key-A" })
++  AuthWireIdentity.release("ses_release")
++  expect(
++    AuthWireIdentity.identity({ sessionID: "ses_release", messageID: MESSAGE, key: "key-A" }),
++  ).toEqual(first)
++})
+\ No newline at end of file
+diff --git a/packages/opencode/test/provider/key-switch.test.ts b/packages/opencode/test/provider/key-switch.test.ts
+new file mode 100644
+index 0000000..1153e4c
+--- /dev/null
++++ b/packages/opencode/test/provider/key-switch.test.ts
+@@ -0,0 +1,208 @@
++import { afterEach, expect } from "bun:test"
++import { LayerNode } from "@opencode-ai/core/effect/layer-node"
++import { CrossSpawnSpawner } from "@opencode-ai/core/cross-spawn-spawner"
++import { Effect } from "effect"
++import { ProviderV2 } from "@opencode-ai/core/provider"
++import { ModelV2 } from "@opencode-ai/core/model"
++import { disposeAllInstances, provideTmpdirInstance } from "../fixture/fixture"
++import { testEffect } from "../lib/effect"
++import { testProviderConfig } from "../lib/test-provider"
++import { Env } from "@/env"
++import { Plugin } from "@/plugin"
++import { Provider } from "@/provider/provider"
++import { Auth } from "@/auth"
++import * as AuthPool from "@/auth/pool"
++
++// Regression cover for "switching the API key did nothing".
++//
++// The provider state is an instance-scoped cache, so a credential resolved once
++// used to stay in force for the whole process. Every key switch therefore
++// returned HTTP 200 while the old key kept being sent, which presented as
++// "quota is still exhausted no matter which key I pick".
++
++afterEach(async () => {
++  await disposeAllInstances()
++})
++
++const it = testEffect(
++  LayerNode.compile(LayerNode.group([Provider.node, Env.node, Plugin.node, CrossSpawnSpawner.node, Auth.node])),
++)
++
++it.live("getLanguage returns a distinct client per API key instead of reusing the first one", () =>
++  Effect.gen(function* () {
++    yield* provideTmpdirInstance(
++      () =>
++        Effect.gen(function* () {
++          const provider = yield* Provider.Service
++          const model = yield* provider.getModel(ProviderV2.ID.make("test"), ModelV2.ID.make("test-model"))
++
++          const first = yield* provider.getLanguage(model, "key-one")
++          const firstAgain = yield* provider.getLanguage(model, "key-one")
++          const second = yield* provider.getLanguage(model, "key-two")
++
++          // Stable for the same key, distinct for a different one.
++          expect(firstAgain).toBe(first)
++          expect(second).not.toBe(first)
++
++          // The default path must also be unaffected.
++          const fallback = yield* provider.getLanguage(model)
++          expect(fallback).toBeDefined()
++        }),
++      { config: testProviderConfig("http://127.0.0.1:1/v1") },
++    )
++  }),
++)
++
++it.live("Auth.all prefers the on-disk store over OPENCODE_AUTH_CONTENT", () =>
++  Effect.gen(function* () {
++    yield* provideTmpdirInstance(
++      () =>
++        Effect.gen(function* () {
++          const auth = yield* Auth.Service
++          const previous = process.env.OPENCODE_AUTH_CONTENT
++          process.env.OPENCODE_AUTH_CONTENT = JSON.stringify({ test: { type: "api", key: "seeded-key" } })
++          try {
++            // A key written after the seed was set must win immediately.
++            yield* auth.set("test", { type: "api", key: "written-key" })
++            const current = yield* auth.get("test")
++            expect(current?.type).toBe("api")
++            expect(current?.type === "api" ? current.key : undefined).toBe("written-key")
++          } finally {
++            if (previous === undefined) delete process.env.OPENCODE_AUTH_CONTENT
++            else process.env.OPENCODE_AUTH_CONTENT = previous
++          }
++        }),
++      { config: testProviderConfig("http://127.0.0.1:1/v1") },
++    )
++  }),
++)
++
++// Regression cover for key selection across a set of accounts.
++//
++// The set is the key in auth.json plus every entry in auth-pool.json, and no
++// member is privileged: the auth.json key is merely first, so the very first
++// request of the very first session uses it. A session keeps the key it was given
++// for as long as that key stays healthy, and only gives it up when that key is rate
++// limited.
++
++const poolIt = testEffect(
++  LayerNode.compile(
++    LayerNode.group([Provider.node, Env.node, Plugin.node, CrossSpawnSpawner.node, Auth.node, AuthPool.node]),
++  ),
++)
++
++// The lease table lives for the lifetime of the service, so each test uses its own
++// provider id: sharing one would let an earlier test's leases decide a later
++// test's key.
++const withThreeKeys = (
++  providerID: string,
++  fn: (pool: AuthPool.Interface, auth: Auth.Interface) => Effect.Effect<unknown, Auth.AuthError>,
++) =>
++  provideTmpdirInstance(
++    () =>
++      Effect.gen(function* () {
++        const auth = yield* Auth.Service
++        const pool = yield* AuthPool.Service
++        yield* auth.set(providerID, { type: "api", key: "sk-auth-json" })
++        yield* pool.add(providerID, { key: "sk-pool-1", label: "one" })
++        yield* pool.add(providerID, { key: "sk-pool-2", label: "two" })
++        return yield* fn(pool, auth)
++      }),
++    { config: testProviderConfig("http://127.0.0.1:1/v1") },
++  )
++
++poolIt.live("the first session is given the auth.json key and later sessions get idle keys", () =>
++  withThreeKeys("p-first", (pool) =>
++    Effect.gen(function* () {
++      const first = yield* pool.select("p-first", { sessionID: "ses-1" })
++      expect(first.key).toBe("sk-auth-json")
++      expect(first.reason).toBe("idle")
++
++      const second = yield* pool.select("p-first", { sessionID: "ses-2" })
++      expect(second.key).toBe("sk-pool-1")
++      expect(second.reason).toBe("idle")
++
++      const third = yield* pool.select("p-first", { sessionID: "ses-3" })
++      expect(third.key).toBe("sk-pool-2")
++    }),
++  ),
++)
++
++poolIt.live("a session keeps its key instead of being moved to an idle one", () =>
++  withThreeKeys("p-hold", (pool) =>
++    Effect.gen(function* () {
++      yield* pool.select("p-hold", { sessionID: "ses-1" })
++      const again = yield* pool.select("p-hold", { sessionID: "ses-1" })
++      expect(again.key).toBe("sk-auth-json")
++      expect(again.reason).toBe("held")
++    }),
++  ),
++)
++
++poolIt.live("deleting a session releases its key for the next session", () =>
++  withThreeKeys("p-release", (pool) =>
++    Effect.gen(function* () {
++      yield* pool.select("p-release", { sessionID: "ses-1" })
++      expect((yield* pool.select("p-release", { sessionID: "ses-2" })).key).toBe("sk-pool-1")
++      yield* pool.releaseSession("ses-1")
++      expect((yield* pool.select("p-release", { sessionID: "ses-3" })).key).toBe("sk-auth-json")
++    }),
++  ),
++)
++
++poolIt.live("a cooled down key is skipped, including the one in auth.json", () =>
++  withThreeKeys("p-cool", (pool) =>
++    Effect.gen(function* () {
++      yield* pool.cooldown("p-cool", "sk-auth-json", 60_000)
++      const picked = yield* pool.select("p-cool", { sessionID: "ses-1" })
++      expect(picked.key).not.toBe("sk-auth-json")
++      expect(picked.key).toBe("sk-pool-1")
++    }),
++  ),
++)
++
++poolIt.live("selecting never rewrites auth.json", () =>
++  withThreeKeys("p-nowrite", (pool, auth) =>
++    Effect.gen(function* () {
++      yield* pool.select("p-nowrite", { sessionID: "ses-1" })
++      yield* pool.cooldown("p-nowrite", "sk-auth-json", 60_000)
++      yield* pool.select("p-nowrite", { sessionID: "ses-2" })
++      yield* pool.select("p-nowrite", { sessionID: "ses-3" })
++      const current = yield* auth.get("p-nowrite")
++      expect(current?.type === "api" ? current.key : undefined).toBe("sk-auth-json")
++    }),
++  ),
++)
++
++poolIt.live("when every key is cooling down the earliest recovery is reported", () =>
++  withThreeKeys("p-allcool", (pool) =>
++    Effect.gen(function* () {
++      yield* pool.cooldown("p-allcool", "sk-auth-json", 90_000)
++      yield* pool.cooldown("p-allcool", "sk-pool-1", 30_000)
++      yield* pool.cooldown("p-allcool", "sk-pool-2", 60_000)
++      const picked = yield* pool.select("p-allcool", { sessionID: "ses-1" })
++      expect(picked.reason).toBe("cooling")
++      expect(picked.key).toBe("sk-pool-1")
++      expect(picked.waitMs).toBeGreaterThan(0)
++      expect(picked.waitMs!).toBeLessThanOrEqual(30_000)
++    }),
++  ),
++)
++
++poolIt.live("a rotation moves only the failing session, leaving other sessions alone", () =>
++  withThreeKeys("p-rotate", (pool) =>
++    Effect.gen(function* () {
++      const held = yield* pool.select("p-rotate", { sessionID: "ses-1" })
++      expect(held.key).toBe("sk-auth-json")
++      yield* pool.select("p-rotate", { sessionID: "ses-2" })
++
++      yield* pool.cooldown("p-rotate", "sk-auth-json", 60_000)
++      const rotated = yield* pool.select("p-rotate", { sessionID: "ses-1", exclude: ["sk-auth-json"] })
++      expect(rotated.key).toBe("sk-pool-2")
++      expect(rotated.reason).toBe("idle")
++
++      // ses-2 still holds sk-pool-1 and is untouched by ses-1's rotation.
++      expect((yield* pool.select("p-rotate", { sessionID: "ses-2" })).key).toBe("sk-pool-1")
++    }),
++  ),
++)
 diff --git a/packages/opencode/test/server/httpapi-control-plane.test.ts b/packages/opencode/test/server/httpapi-control-plane.test.ts
 index b837bf7..6340241 100644
 --- a/packages/opencode/test/server/httpapi-control-plane.test.ts
@@ -8023,6 +9403,322 @@ index a970f85..21026e2 100644
  describe("tool.shell truncation", () => {
    it.live("truncates output exceeding line limit", () =>
      runIn(
+diff --git a/packages/opencode/test/tool/wait.test.ts b/packages/opencode/test/tool/wait.test.ts
+new file mode 100644
+index 0000000..aae6298
+--- /dev/null
++++ b/packages/opencode/test/tool/wait.test.ts
+@@ -0,0 +1,310 @@
++import { describe, expect, test } from "bun:test"
++import { Effect, Exit, Layer, Schema } from "effect"
++import { LayerNode } from "@opencode-ai/core/effect/layer-node"
++import { Agent } from "@/agent/agent"
++import { Config } from "@/config/config"
++import { Truncate } from "@/tool/truncate"
++import { WaitTool, Parameters } from "../../src/tool/wait"
++import { Tool } from "@/tool/tool"
++import { SessionID, MessageID } from "@/session/schema"
++import { testInstanceStoreLayer } from "../fixture/fixture"
++import { testEffect } from "../lib/effect"
++import { CrossSpawnSpawner } from "@opencode-ai/core/cross-spawn-spawner"
++import { FSUtil } from "@opencode-ai/core/fs-util"
++import { Plugin } from "@/plugin"
++import { RuntimeFlags } from "@/effect/runtime-flags"
++
++const waitLayer = Layer.mergeAll(
++  LayerNode.compile(
++    LayerNode.group([
++      CrossSpawnSpawner.node,
++      FSUtil.node,
++      Plugin.node,
++      Truncate.node,
++      Config.node,
++      Agent.node,
++      RuntimeFlags.node,
++    ]),
++  ),
++  testInstanceStoreLayer,
++)
++const it = testEffect(waitLayer)
++
++const ctx = {
++  sessionID: SessionID.make("ses_test"),
++  messageID: MessageID.make("msg_test"),
++  callID: "",
++  agent: "build",
++  abort: AbortSignal.any([]),
++  messages: [],
++  metadata: () => Effect.void,
++  ask: () => Effect.void,
++}
++
++const initWait = Effect.fn("WaitToolTest.init")(function* () {
++  const info = yield* WaitTool
++  return yield* info.init()
++})
++
++const run = Effect.fn("WaitToolTest.run")(function* (
++  args: Tool.InferParameters<typeof WaitTool>,
++  next: Tool.Context = ctx,
++) {
++  const wait = yield* initWait()
++  return yield* wait.execute(args, next)
++})
++
++const tmp = (name: string) => `${Bun.env.TEMP ?? "C:/Temp"}/${name}-${crypto.randomUUID()}`
++
++// `it.effect` runs on a TestClock, which would freeze the very sleeps this tool
++// is built on, and tool init needs a real project instance for Truncate/Agent.
++// `it.instance` gives us both: a live clock and a throwaway tmpdir instance.
++type Body = Effect.Effect<any, any, any> | (() => Effect.Effect<any, any, any>)
++const itWait = (name: string, value: Body) => it.instance(name, value as Effect.Effect<any, any, any>, undefined, 30_000)
++
++/** Grab a port that is definitely not listening, for the timeout paths. */
++const closedPort = () =>
++  Effect.promise(async () => {
++    const probe = Bun.serve({ port: 0, fetch: () => new Response("") })
++    const port = probe.port!
++    probe.stop(true)
++    return port
++  })
++
++describe("tool.wait", () => {
++  itWait("resolves as soon as a port starts accepting connections", () =>
++    Effect.gen(function* () {
++      const server = Bun.serve({ port: 0, fetch: () => new Response("up") })
++      const port = server.port!
++      try {
++        const result = yield* run({
++          until: { kind: "port", port },
++          intervalMs: 20,
++          timeoutMs: 10_000,
++        })
++        expect(result.metadata.satisfied).toBe(true)
++        expect(result.metadata.timedOut).toBe(false)
++        expect(result.metadata.elapsedMs).toBeLessThan(10_000)
++        expect(result.output).toContain(String(port))
++      } finally {
++        server.stop(true)
++      }
++    }),
++  )
++
++  itWait("times out on a port that never opens, and says nothing was killed", () =>
++    Effect.gen(function* () {
++      const port = yield* closedPort()
++      const result = yield* run({
++        until: { kind: "port", port },
++        intervalMs: 20,
++        timeoutMs: 200,
++      })
++      expect(result.metadata.satisfied).toBe(false)
++      expect(result.metadata.timedOut).toBe(true)
++      // The wording matters: a timeout here is not a kill, so the model must not
++      // go and restart anything.
++      expect(result.output).toContain("Nothing was started or killed")
++    }),
++  )
++
++  itWait("waits for an http endpoint and matches the requested status", () =>
++    Effect.gen(function* () {
++      const server = Bun.serve({ port: 0, fetch: () => new Response("up") })
++      try {
++        const result = yield* run({
++          until: { kind: "http", url: `http://127.0.0.1:${server.port}/health`, status: 200 },
++          intervalMs: 20,
++          timeoutMs: 10_000,
++        })
++        expect(result.metadata.satisfied).toBe(true)
++      } finally {
++        server.stop(true)
++      }
++    }),
++  )
++
++  itWait("keeps waiting when http answers with a different status", () =>
++    Effect.gen(function* () {
++      const server = Bun.serve({ port: 0, fetch: () => new Response("nope", { status: 503 }) })
++      try {
++        const result = yield* run({
++          until: { kind: "http", url: `http://127.0.0.1:${server.port}/health`, status: 200 },
++          intervalMs: 20,
++          timeoutMs: 300,
++        })
++        expect(result.metadata.satisfied).toBe(false)
++        expect(result.metadata.timedOut).toBe(true)
++      } finally {
++        server.stop(true)
++      }
++    }),
++  )
++
++  itWait("waits for a file to appear with the expected contents", () =>
++    Effect.gen(function* () {
++      const path = tmp("wait-probe") + ".txt"
++      const writer = Bun.spawn({
++        cmd: [
++          process.execPath,
++          "-e",
++          `setTimeout(() => require("fs").writeFileSync(${JSON.stringify(path)}, "listening on 3000"), 400)`,
++        ],
++        stdout: "ignore",
++        stderr: "ignore",
++      })
++      try {
++        const result = yield* run({
++          until: { kind: "file", path, contains: "listening" },
++          intervalMs: 30,
++          timeoutMs: 20_000,
++        })
++        expect(result.metadata.satisfied).toBe(true)
++      } finally {
++        writer.kill()
++        yield* Effect.promise(() => Bun.file(path).delete().catch(() => {}))
++      }
++    }),
++  )
++
++  itWait("times out when a file never shows up", () =>
++    Effect.gen(function* () {
++      const result = yield* run({
++        until: { kind: "file", path: tmp("wait-never") },
++        intervalMs: 20,
++        timeoutMs: 200,
++      })
++      expect(result.metadata.satisfied).toBe(false)
++      expect(result.metadata.timedOut).toBe(true)
++    }),
++  )
++
++  itWait("resolves once a process it did not start has exited", () =>
++    Effect.gen(function* () {
++      const child = Bun.spawn({
++        cmd: [process.execPath, "-e", "setTimeout(() => {}, 500)"],
++        stdout: "ignore",
++        stderr: "ignore",
++      })
++      const result = yield* run({
++        until: { kind: "process", pid: child.pid },
++        intervalMs: 30,
++        timeoutMs: 20_000,
++      })
++      expect(result.metadata.satisfied).toBe(true)
++    }),
++  )
++
++  itWait("keeps waiting while the process is still alive", () =>
++    Effect.gen(function* () {
++      const child = Bun.spawn({
++        cmd: [process.execPath, "-e", "setTimeout(() => {}, 10000)"],
++        stdout: "ignore",
++        stderr: "ignore",
++      })
++      try {
++        const result = yield* run({
++          until: { kind: "process", pid: child.pid },
++          intervalMs: 20,
++          timeoutMs: 250,
++        })
++        expect(result.metadata.satisfied).toBe(false)
++        expect(result.metadata.timedOut).toBe(true)
++      } finally {
++        child.kill()
++      }
++    }),
++  )
++
++  itWait("reports abort without pretending the condition held", () =>
++    Effect.gen(function* () {
++      const controller = new AbortController()
++      const port = yield* closedPort()
++      const pending = run(
++        { until: { kind: "port", port }, intervalMs: 50, timeoutMs: 60_000 },
++        { ...ctx, abort: controller.signal },
++      )
++      yield* Effect.sleep("150 millis")
++      controller.abort()
++      const result = yield* pending
++      expect(result.metadata.aborted).toBe(true)
++      expect(result.metadata.satisfied).toBe(false)
++      expect(result.metadata.timedOut).toBe(false)
++      expect(result.output).toContain("aborted")
++    }),
++  )
++
++  itWait("publishes progress while it waits so it never looks like a hang", () =>
++    Effect.gen(function* () {
++      const seen: number[] = []
++      const port = yield* closedPort()
++      yield* run(
++        { until: { kind: "port", port }, intervalMs: 20, timeoutMs: 400 },
++        {
++          ...ctx,
++          metadata: (input: any) =>
++            Effect.sync(() => {
++              seen.push(input?.metadata?.elapsedMs ?? -1)
++            }),
++        },
++      )
++      expect(seen.length).toBeGreaterThan(1)
++      expect(Math.max(...seen)).toBeGreaterThan(0)
++    }),
++  )
++
++  itWait("tells the model to launch with bash and to wait on a pid", () =>
++    Effect.gen(function* () {
++      const tool = yield* initWait()
++      expect(tool.description).toContain("never starts anything")
++      expect(tool.description).toContain("bash")
++      expect(tool.description).toContain("pid")
++    }),
++  )
++
++  itWait("asks permission under its own name rather than borrowing bash's", () =>
++    Effect.gen(function* () {
++      const asked: string[] = []
++      yield* run(
++        { until: { kind: "file", path: tmp("wait-perm") }, intervalMs: 20, timeoutMs: 50 },
++        {
++          ...ctx,
++          ask: (input: any) =>
++            Effect.sync(() => {
++              asked.push(input.permission)
++            }),
++        },
++      )
++      expect(asked).toEqual(["wait"])
++    }),
++  )
++})
++
++describe("tool.wait parameters", () => {
++  // Schema-only, so it needs no layer or instance 窶・just run the decoder.
++  const decode = (input: unknown) => Effect.runPromise(Schema.decodeUnknownEffect(Parameters)(input))
++
++  test("accepts every condition kind", async () => {
++    expect((await decode({ until: { kind: "process", pid: 1 } })).until).toEqual({ kind: "process", pid: 1 })
++    expect((await decode({ until: { kind: "port", port: 5432 } })).until).toEqual({ kind: "port", port: 5432 })
++  })
++
++  test("refuses a condition kind it does not know", async () => {
++    // `kind` is a closed set, so there is no way to smuggle a command in here.
++    await expect(decode({ until: { kind: "shell", command: "sleep 999" } })).rejects.toBeDefined()
++  })
++
++  test("drops a command field rather than honouring it", async () => {
++    // Effect schemas discard undeclared keys instead of failing, so a model that
++    // tries to sneak a command in gets it silently ignored. The guarantee that
++    // matters is structural: there is no field the tool could read one from.
++    const decoded = await decode({ until: { kind: "port", port: 1 }, command: "npm run dev" })
++    expect(decoded).toEqual({ until: { kind: "port", port: 1 } })
++    expect(Object.keys(decoded).sort()).toEqual(["until"])
++  })
++
++  test("drops a timeout field so the only clock is timeoutMs", async () => {
++    const decoded = await decode({ until: { kind: "port", port: 1 }, timeout: 10 })
++    expect(decoded).toEqual({ until: { kind: "port", port: 1 } })
++  })
++})
 diff --git a/packages/schema/src/session-status-event.ts b/packages/schema/src/session-status-event.ts
 index f6a3022..cc37804 100644
 --- a/packages/schema/src/session-status-event.ts
