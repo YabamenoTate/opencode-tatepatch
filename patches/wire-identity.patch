@@ -1,0 +1,122 @@
+diff --git a/packages/opencode/src/auth/wire-identity.ts b/packages/opencode/src/auth/wire-identity.ts
+index 0ec72b6..e7e0b47 100644
+--- a/packages/opencode/src/auth/wire-identity.ts
++++ b/packages/opencode/src/auth/wire-identity.ts
+@@ -1,111 +1,78 @@
+ import { createHash } from "crypto"
+ 
+-// Wire identity, per session and per key.
+-//
+-// A gateway learns an account by the identity it is shown, and it learns that a
+-// client is scripted by anything about the request that upstream would not have
+-// produced. So there are two rules, in this order:
+-//
+-//  1. While a session stays on one key, the identity on the wire is the one
+-//     upstream sends, untouched - same value, same length, same character class,
+-//     same prefix. A session that never rotates a key is byte-identical to
+-//     upstream, so nothing in the request gives this build away.
+-//
+-//  2. When a session moves to another key, by rotation or because the pool
+-//     changed underneath it, every identity it sends is replaced at once by a
+-//     freshly minted value in upstream's own format. Nothing the previous key
+-//     already saw goes out again, so the two accounts cannot be joined from
+-//     either side.
+-//
+-// The identity belongs to the key rather than to the attempt, so a key that
+-// comes back presents the identity it had before. That is what lets a gateway
+-// reuse a cached prefix per account, which is the only place such a cache is
+-// worth anything. Epoch 0 is the key a session starts on and is deliberately
+-// left alone for exactly that reason.
++// Wire identity derived deterministically from (local session id, api key).
++//
++// The local session id remains stable. For requests that carry an API key,
++// the wire session/message/project/parent are derived as a stable hash of
++// (localId, keyId). Same (session, key) always produces the same wire
++// identity even across restarts. Different keys produce different identities
++// so keys cannot be correlated through the wire.
++//
++// When no API key is present (e.g. oauth / no key context), identities are
++// passed through unchanged to avoid changing behavior outside the pool path.
+ 
+ const LENGTH = 26
+ const CHARS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+ 
+-// sessionID -> (key fingerprint -> epoch)
+-const bindings = new Map<string, Map<string, number>>()
+-
+-function fingerprint(key: string) {
+-  return createHash("sha256").update(key).digest("hex").slice(0, 32)
+-}
+-
+-// Which key of this session is in use, counting from the one it started on.
+-function epochFor(sessionID: string, key: string | undefined) {
+-  if (!key) return 0
+-  const id = fingerprint(key)
+-  let order = bindings.get(sessionID)
+-  if (!order) {
+-    order = new Map()
+-    bindings.set(sessionID, order)
+-  }
+-  const seen = order.get(id)
+-  if (seen !== undefined) return seen
+-  const epoch = order.size
+-  order.set(id, epoch)
+-  return epoch
++function keyId(key: string) {
++  return createHash("sha256").update(key).digest("hex")
+ }
+ 
+ // Rebuild the shape the upstream identifier module emits: twelve hex characters
+ // standing in for time and counter, then fourteen base62 characters.
+ function mintIdentifier(prefix: string, seed: string) {
+   const digest = createHash("sha512").update(seed).digest()
+   let hex = ""
+   for (let index = 0; index < 6; index++) hex += digest[index]!.toString(16).padStart(2, "0")
+   let tail = ""
+   for (let index = 0; index < LENGTH - 12; index++) tail += CHARS[digest[6 + index]! % 62]
+   return `${prefix}_${hex}${tail}`
+ }
+ 
+ function mintProject(seed: string) {
+   return createHash("sha1").update(seed).digest("hex")
+ }
+ 
+ export type WireInput = {
+   readonly sessionID: string
+   readonly messageID: string
+   readonly projectID?: string
+   readonly parentSessionID?: string
+   readonly key: string | undefined
+ }
+ 
+ export function identity(input: WireInput) {
+-  const epoch = epochFor(input.sessionID, input.key)
+-  if (epoch === 0)
++  const key = input.key
++  if (!key) {
+     return {
+       session: input.sessionID,
+       message: input.messageID,
+       project: input.projectID,
+       parent: input.parentSessionID,
+     }
+-  const salt = `\u0000${epoch}`
++  }
++  const salt = `\u0000${keyId(key)}`
+   return {
+-    session: mintIdentifier("ses", `${input.sessionID}${salt}`),
+-    message: mintIdentifier("msg", `${input.messageID}${salt}`),
++    session: mintIdentifier("ses", `${input.sessionID}${salt}`),
++    message: mintIdentifier("msg", `${input.messageID}${salt}`),
+     project: input.projectID ? mintProject(`${input.projectID}${salt}`) : undefined,
+     parent: input.parentSessionID ? mintIdentifier("ses", `${input.parentSessionID}${salt}`) : undefined,
+   }
+ }
+ 
+-export function release(sessionID: string) {
+-  bindings.delete(sessionID)
++export function release(_sessionID: string) {
++  // Identity is deterministic from (sessionID, key); no in-memory bindings to release.
+ }
+ 
+ export * as AuthWireIdentity from "./wire-identity"
