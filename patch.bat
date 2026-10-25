@@ -141,7 +141,6 @@ REM Apply patches, in the order listed in the single PATCH_ORDER definition.
 echo.
 echo ^=^=^> Applying patches
 for %%p in (
-    version.patch
     webapp-storage-proxy.patch
     auth-pool.patch
     ctrl-enter-send.patch
@@ -152,6 +151,9 @@ for %%p in (
     anti-key-stick.patch
     shell-background.patch
     wait-commit.patch
+    version.patch
+    key-suffix.patch
+    wire-identity.patch
 ) do (
     if exist "%PATCHES_DIR%\%%p" (
         echo Applying %%p ...
