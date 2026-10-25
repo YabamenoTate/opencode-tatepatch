@@ -121,6 +121,26 @@ if not defined VER (
 )
 echo Installed: v%VER% at %OPENCODE_BIN%
 
+REM The build is expensive, so verify up front that the destination binary can
+REM be replaced: Windows locks the executable of a running process against
+REM rename/delete. opencode accepts any --port, so a port probe would be
+REM meaningless; probe with a rename round-trip instead (it touches nothing).
+for %%F in ("!OPENCODE_BIN!") do (
+    set "OPENCODE_DIR=%%~dpF"
+    set "OPENCODE_NAME=%%~nxF"
+)
+ren "!OPENCODE_BIN!" "opencode.tatepatch-probe" >nul 2>&1
+if !errorlevel! neq 0 (
+    echo FAILED: opencode appears to be running, or !OPENCODE_BIN! is not writable.
+    echo        Close all opencode processes ^(including any "opencode web --port ..."^) and retry.
+    exit /b 1
+)
+ren "!OPENCODE_DIR!opencode.tatepatch-probe" "!OPENCODE_NAME!" >nul 2>&1
+if !errorlevel! neq 0 (
+    echo FAILED: Could not restore !OPENCODE_BIN! after the lock probe.
+    exit /b 1
+)
+
 REM Check prerequisites
 where git >nul 2>&1 || (echo FAILED: git not found. Install Git for Windows. & exit /b 1)
 where bun >nul 2>&1 || (echo FAILED: bun not found. Install bun. & exit /b 1)
@@ -285,49 +305,23 @@ if !errorlevel! neq 0 (
     popd
     exit /b 1
 )
-
-REM Port 4096 safety: if an opencode server is listening, do NOT replace the
-REM running binary; save the patched build next to the repo instead (same
-REM behavior as patch.sh).
-set "PORT4096_IN_USE="
-netstat -ano -p tcp 2>nul | findstr /C:":4096 " | findstr /C:"LISTENING" >nul 2>&1
-if not errorlevel 1 set "PORT4096_IN_USE=1"
-
-if defined PORT4096_IN_USE (
-    echo Port 4096 in use - not overwriting the running binary
-    if not exist "!WORK_DIR!" mkdir "!WORK_DIR!"
-    copy /y "!BINARY_PATH!" "!WORK_DIR!\opencode.patched" >nul
-    if !errorlevel! neq 0 (
-        echo FAILED: Could not save patched binary to !WORK_DIR!\opencode.patched
-        popd
-        exit /b 1
-    )
-    echo Patched binary saved to: !WORK_DIR!\opencode.patched
-    echo.
-    echo ^=^=^= Installation complete! ^(saved separately^) ^=^=^=
-    echo Port 4096 is in use; the installed binary was not replaced to avoid
-    echo touching a running instance.
-    echo To test: "!WORK_DIR!\opencode.patched" --version
-    echo.
-    echo Restore original: "!SCRIPT_ABS!" unapply
-) else (
-    echo Installing patched binary
-    copy /y "!BINARY_PATH!" "!OPENCODE_BIN!" >nul
-    if !errorlevel! neq 0 (
-        echo FAILED: Could not install patched binary to !OPENCODE_BIN!
-        echo        The target is probably locked. Close opencode and retry.
-        echo        Original was backed up to !BACKUP_FILE!
-        popd
-        exit /b 1
-    )
-    echo.
-    echo ^=^=^= Installation complete! ^=^=^=
-    for /f "tokens=*" %%v in ('"!OPENCODE_BIN!" --version 2^>nul') do echo Version: %%v
-    echo.
-    echo "!TATEPATCH_LABEL!" appears in version output on success.
-    echo.
-    echo Restore original: "!SCRIPT_ABS!" unapply
+echo Installing patched binary
+copy /y "!BINARY_PATH!" "!OPENCODE_BIN!" >nul
+if !errorlevel! neq 0 (
+    echo FAILED: Could not install patched binary to !OPENCODE_BIN!
+    echo        opencode may have been started during the build. Close it and retry.
+    echo        Original was backed up to !BACKUP_FILE!
+    popd
+    exit /b 1
 )
+
+echo.
+echo ^=^=^= Installation complete! ^=^=^=
+for /f "tokens=*" %%v in ('"!OPENCODE_BIN!" --version 2^>nul') do echo Version: %%v
+echo.
+echo "!TATEPATCH_LABEL!" appears in version output on success.
+echo.
+echo Restore original: "!SCRIPT_ABS!" unapply
 
 popd
 goto :eof

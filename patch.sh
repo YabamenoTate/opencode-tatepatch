@@ -194,6 +194,14 @@ do_patch() {
   fi
   info "Installed: $("$OPENCODE_BIN" --version 2>/dev/null) at $OPENCODE_BIN"
 
+  # ビルドは時間がかかるので、その前にコピー先の binary が置き換え可能か確認する。
+  # 実行中の実行ファイルへの書き込みオープンは ETXTBSY になる。追記オープンは
+  # 中身を変更しないため、それをプローブに使う。opencode は --port を任意に
+  # 変えられるため、ポート番号での実行判定は行わない。
+  if ! ( : >> "$OPENCODE_BIN" ) 2>/dev/null; then
+    fail "opencode appears to be running (or the binary is not writable): $OPENCODE_BIN. Close all opencode processes (including any 'opencode web --port ...') and retry."
+  fi
+
   # 必要なツールの確認
   require_cmd git
   require_cmd bun
@@ -302,29 +310,16 @@ do_patch() {
   info "Backing up original to $BACKUP_FILE"
   cp "$OPENCODE_BIN" "$BACKUP_FILE" 2>/dev/null || true
   info "Installing patched binary"
-  local running_4096=0
-  if command -v ss >/dev/null 2>&1 && ss -Hlnpt 'sport = :4096' 2>/dev/null | grep -q LISTEN; then running_4096=1; fi
-  if command -v lsof >/dev/null 2>&1 && lsof -iTCP:4096 -sTCP:LISTEN >/dev/null 2>&1; then running_4096=1; fi
-  if [ "$running_4096" -eq 1 ]; then
-    info "Port 4096 in use — not overwriting running binary"
-    cp "$binary_path" "$WORK_DIR/opencode.patched"
-    chmod +x "$WORK_DIR/opencode.patched" 2>/dev/null || true
-    info "Patched binary saved to: $WORK_DIR/opencode.patched"
-    header "Installation complete! (saved separately)"
-    info "Port 4096 is in use; installed binary not replaced to avoid touching running instance."
-    info "To test: $WORK_DIR/opencode.patched --version"
-    info ""
-    info "元の binary に戻す: $0 unapply"
-  else
-    cp "$binary_path" "$OPENCODE_BIN"
-    chmod +x "$OPENCODE_BIN"
-    header "Installation complete!"
-    info "Version: $("$OPENCODE_BIN" --version 2>/dev/null)"
-    info ""
-    info "$TATEPATCH_LABEL が表示されていれば成功です。"
-    info ""
-    info "元の binary に戻す: $0 unapply"
+  if ! cp "$binary_path" "$OPENCODE_BIN" 2>/dev/null; then
+    fail "Could not replace $OPENCODE_BIN — opencode may have been started during the build. Close it and rerun (backup: $BACKUP_FILE)."
   fi
+  chmod +x "$OPENCODE_BIN"
+  header "Installation complete!"
+  info "Version: $("$OPENCODE_BIN" --version 2>/dev/null)"
+  info ""
+  info "$TATEPATCH_LABEL が表示されていれば成功です。"
+  info ""
+  info "元の binary に戻す: $0 unapply"
 }
 
 _post_patch_source() {
