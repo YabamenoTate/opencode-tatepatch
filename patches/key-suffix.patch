@@ -1,18 +1,128 @@
+diff --git a/packages/app/src/pages/session/timeline/message-timeline.tsx b/packages/app/src/pages/session/timeline/message-timeline.tsx
+index 77d0762..9e26f28 100644
+--- a/packages/app/src/pages/session/timeline/message-timeline.tsx
++++ b/packages/app/src/pages/session/timeline/message-timeline.tsx
+@@ -1110,7 +1110,12 @@ export function MessageTimeline(props: {
+               <TimelineThinkingRow
+                 reasoningHeading={thinkingRow().reasoningHeading}
+                 showReasoningSummaries={settings.general.showReasoningSummaries()}
+-                keySuffix={sessionStatus().type === "busy" ? sessionStatus().keySuffix : undefined}
++                keySuffix={(() => {
++                  const status = sessionStatus()
++                  // The vendored client pins an older SessionStatus type; the
++                  // busy event carries keySuffix at runtime.
++                  return status.type === "busy" ? (status as { keySuffix?: string }).keySuffix : undefined
++                })()}
+               />
+             </div>
+           </TimelineRowFrame>
 diff --git a/packages/opencode/src/provider/provider.ts b/packages/opencode/src/provider/provider.ts
-index d34d601..2b1deab 100644
+index d34d601..11de052 100644
 --- a/packages/opencode/src/provider/provider.ts
 +++ b/packages/opencode/src/provider/provider.ts
-@@ -1832,7 +1832,9 @@ const layer = Layer.effect(
+@@ -1248,6 +1248,7 @@ export interface Interface {
+   readonly getProvider: (providerID: ProviderV2.ID) => Effect.Effect<Info>
+   readonly getModel: (providerID: ProviderV2.ID, modelID: ModelV2.ID) => Effect.Effect<Model, ModelNotFoundError>
+   readonly getLanguage: (model: Model) => Effect.Effect<LanguageModelV3, ModelNotFoundError>
++  readonly getLanguageWithKey: (model: Model, requestKey: string) => Effect.Effect<LanguageModelV3, ModelNotFoundError>
+   readonly closest: (
+     providerID: ProviderV2.ID,
+     query: string[],
+@@ -1785,7 +1786,7 @@ const layer = Layer.effect(
+ 
+     const list = Effect.fn("Provider.list")(() => InstanceState.use(state, (s) => s.providers))
+ 
+-    async function resolveSDK(model: Model, s: State, envs: Record<string, string | undefined>) {
++    async function resolveSDK(model: Model, s: State, envs: Record<string, string | undefined>, requestKey?: string) {
+       try {
+         const provider = s.providers[model.providerID]
+         const options = { ...provider.options }
+@@ -1832,7 +1833,13 @@ const layer = Layer.effect(
          })
  
          if (baseURL !== undefined) options["baseURL"] = baseURL
 -        if (options["apiKey"] === undefined && provider.key) options["apiKey"] = provider.key
-+        const requestApiKey = (s as any).requestApiKey
-+        if (requestApiKey) options["apiKey"] = requestApiKey
++        // A credential resolved for this specific request always wins over the one
++        // frozen into the instance state or provider options, so changing the API
++        // key takes effect on the very next request instead of after an instance
++        // restart. Options frozen at provider-load time (config `options.apiKey`,
++        // plugin loaders) must never shadow the key this request was handed.
++        if (requestKey) options["apiKey"] = requestKey
 +        else if (options["apiKey"] === undefined && provider.key) options["apiKey"] = provider.key
          if (model.headers)
            options["headers"] = {
              ...options["headers"],
+@@ -1918,6 +1925,40 @@ const layer = Layer.effect(
+       return info
+     })
+ 
++    // Same as getLanguage, but builds (and caches) the language model for one
++    // specific request credential. Rotating the key must produce a client that
++    // actually uses the new key, so the cache is scoped by (model, key).
++    const getLanguageWithKey = Effect.fn("Provider.getLanguageWithKey")(function* (model: Model, requestKey: string) {
++      const s = yield* InstanceState.get(state)
++      const envs = yield* env.all()
++      const key = `${model.providerID}/${model.id}#${Hash.fast(requestKey)}`
++      if (s.models.has(key)) return s.models.get(key)!
++
++      const provider = s.providers[model.providerID]
++      return yield* EffectPromise.refineRejection(
++        async () => {
++          const sdk = await resolveSDK(model, s, envs, requestKey)
++          const language = s.modelLoaders[model.providerID]
++            ? await s.modelLoaders[model.providerID](
++                sdk,
++                model.api.id,
++                {
++                  ...provider.options,
++                  ...model.options,
++                },
++                model,
++              )
++            : sdk.languageModel(model.api.id)
++          s.models.set(key, language)
++          return language
++        },
++        (cause) =>
++          cause instanceof NoSuchModelError
++            ? new ModelNotFoundError({ modelID: model.id, providerID: model.providerID, cause })
++            : undefined,
++      )
++    })
++
+     const getLanguage = Effect.fn("Provider.getLanguage")(function* (model: Model) {
+       const s = yield* InstanceState.get(state)
+       const envs = yield* env.all()
+@@ -2065,7 +2106,7 @@ const layer = Layer.effect(
+       }
+     })
+ 
+-    return Service.of({ list, getProvider, getModel, getLanguage, closest, getSmallModel, defaultModel })
++    return Service.of({ list, getProvider, getModel, getLanguage, getLanguageWithKey, closest, getSmallModel, defaultModel })
+   }),
+ )
+ 
+diff --git a/packages/opencode/src/session/llm.ts b/packages/opencode/src/session/llm.ts
+index dfcf659..ba05717 100644
+--- a/packages/opencode/src/session/llm.ts
++++ b/packages/opencode/src/session/llm.ts
+@@ -93,9 +93,14 @@ const live: Layer.Layer<
+         mode: input.agent.mode,
+       })
+ 
+-      const [language, cfg, item, info] = yield* Effect.all(
++      // When the request carries a specific credential (e.g. a rotated pool key),
++      // the language model must be built with that key so it actually reaches the
++      // wire; the frozen provider-level key must not shadow it.
++      const language = yield* (input.authOverride?.type === "api"
++        ? provider.getLanguageWithKey(input.model, input.authOverride.key)
++        : provider.getLanguage(input.model))
++      const [cfg, item, info] = yield* Effect.all(
+         [
+-          provider.getLanguage(input.model),
+           config.get(),
+           provider.getProvider(input.model.providerID),
+           input.authOverride
 diff --git a/packages/opencode/src/session/processor.ts b/packages/opencode/src/session/processor.ts
 index 5646267..16ae12e 100644
 --- a/packages/opencode/src/session/processor.ts
@@ -27,6 +137,20 @@ index 5646267..16ae12e 100644
              const stream = llm.stream(streamInput)
  
              yield* stream.pipe(
+diff --git a/packages/opencode/test/fake/provider.ts b/packages/opencode/test/fake/provider.ts
+index 1dbfa6f..9f4e2f7 100644
+--- a/packages/opencode/test/fake/provider.ts
++++ b/packages/opencode/test/fake/provider.ts
+@@ -65,6 +65,9 @@ export namespace ProviderTest {
+           getLanguage: Effect.fn("TestProvider.getLanguage")(() =>
+             Effect.die(new Error("ProviderTest.getLanguage not configured")),
+           ),
++          getLanguageWithKey: Effect.fn("TestProvider.getLanguageWithKey")(() =>
++            Effect.die(new Error("ProviderTest.getLanguageWithKey not configured")),
++          ),
+           closest: Effect.fn("TestProvider.closest")((providerID) =>
+             Effect.succeed(providerID === row.id ? { providerID: row.id, modelID: mdl.id } : undefined),
+           ),
 diff --git a/packages/sdk/js/src/v2/gen/types.gen.ts b/packages/sdk/js/src/v2/gen/types.gen.ts
 index 3634510..cb369d6 100644
 --- a/packages/sdk/js/src/v2/gen/types.gen.ts
@@ -39,3 +163,25 @@ index 3634510..cb369d6 100644
      }
  
  export type QuestionOption = {
+diff --git a/packages/session-ui/src/components/session-turn.tsx b/packages/session-ui/src/components/session-turn.tsx
+index 203e965..f1737f1 100644
+--- a/packages/session-ui/src/components/session-turn.tsx
++++ b/packages/session-ui/src/components/session-turn.tsx
+@@ -422,11 +422,13 @@ export function SessionTurn(
+               <Show when={showThinking()}>
+                 <div data-slot="session-turn-thinking">
+                   <TextShimmer
+-                    text={
+-                      status().type === "busy" && status().keySuffix
+-                        ? `${i18n.t("ui.sessionTurn.status.thinking")} · ${status().keySuffix}`
++                    text={(() => {
++                      const current = status()
++                      const suffix = current.type === "busy" ? current.keySuffix : undefined
++                      return suffix
++                        ? `${i18n.t("ui.sessionTurn.status.thinking")} · ${suffix}`
+                         : i18n.t("ui.sessionTurn.status.thinking")
+-                    }
++                    })()}
+                   />
+                   <Show when={!showReasoningSummaries()}>
+                     <TextReveal

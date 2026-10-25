@@ -1,3 +1,30 @@
+diff --git a/packages/app/src/pages/session/timeline/message-timeline.tsx b/packages/app/src/pages/session/timeline/message-timeline.tsx
+index 5888151..77d0762 100644
+--- a/packages/app/src/pages/session/timeline/message-timeline.tsx
++++ b/packages/app/src/pages/session/timeline/message-timeline.tsx
+@@ -126,12 +126,12 @@ const markBoundaryGesture = (input: {
+   }
+ }
+ 
+-function TimelineThinkingRow(props: { reasoningHeading?: string; showReasoningSummaries: boolean }) {
++function TimelineThinkingRow(props: { reasoningHeading?: string; showReasoningSummaries: boolean; keySuffix?: string }) {
+   const language = useLanguage()
+ 
+   return (
+     <div data-slot="session-turn-thinking">
+-      <TextShimmer text={language.t("ui.sessionTurn.status.thinking")} />
++      <TextShimmer text={props.keySuffix ? `${language.t("ui.sessionTurn.status.thinking")} · ${props.keySuffix}` : language.t("ui.sessionTurn.status.thinking")} />
+       <Show when={!props.showReasoningSummaries}>
+         <TextReveal text={props.reasoningHeading} class="session-turn-thinking-heading" travel={25} duration={700} />
+       </Show>
+@@ -1110,6 +1110,7 @@ export function MessageTimeline(props: {
+               <TimelineThinkingRow
+                 reasoningHeading={thinkingRow().reasoningHeading}
+                 showReasoningSummaries={settings.general.showReasoningSummaries()}
++                keySuffix={sessionStatus().type === "busy" ? sessionStatus().keySuffix : undefined}
+               />
+             </div>
+           </TimelineRowFrame>
 diff --git a/packages/opencode/src/auth/wire-identity.ts b/packages/opencode/src/auth/wire-identity.ts
 new file mode 100644
 index 0000000..be700d2
@@ -26,6 +53,69 @@ index 0000000..be700d2
 +}
 +export function release(_sessionID:string){}
 +export * as AuthWireIdentity from "./wire-identity"
+diff --git a/packages/opencode/src/session/llm/request.ts b/packages/opencode/src/session/llm/request.ts
+index a945b66..d2cae71 100644
+--- a/packages/opencode/src/session/llm/request.ts
++++ b/packages/opencode/src/session/llm/request.ts
+@@ -1,5 +1,6 @@
+ import { PermissionV1 } from "@opencode-ai/core/v1/permission"
+ import type { Auth } from "@/auth"
++import { identity as wireIdentity } from "@/auth/wire-identity"
+ import { SessionV1 } from "@opencode-ai/core/v1/session"
+ import type { RuntimeFlags } from "@/effect/runtime-flags"
+ import { InstanceState } from "@/effect/instance-state"
+@@ -178,6 +179,20 @@ export const prepare = Effect.fn("LLMRequestPrep.prepare")(function* (input: Pre
+     ? (yield* InstanceState.context).project.id
+     : undefined
+ 
++  // The local session id must never leave the machine. When a credential is
++  // present, every identifier that reaches the wire is derived deterministically
++  // from (local session id, api key): the same pair always maps to the same wire
++  // identity, different keys cannot be correlated, and without a key nothing is
++  // rewritten.
++  const apiKey = input.auth?.type === "api" ? input.auth.key : input.auth?.type === "oauth" ? input.auth.access : undefined
++  const wire = wireIdentity({
++    sessionID: input.sessionID,
++    messageID: input.user.id,
++    projectID: opencodeProjectID,
++    parentSessionID: input.parentSessionID,
++    key: apiKey,
++  })
++
+   return {
+     system,
+     messages,
+@@ -185,22 +200,22 @@ export const prepare = Effect.fn("LLMRequestPrep.prepare")(function* (input: Pre
+     params,
+     messageTransformOptions: options,
+     headers: {
+-      "x-opencode-session-id": input.sessionID,
+-      ...(input.parentSessionID ? { "x-opencode-parent-session-id": input.parentSessionID } : {}),
++      "x-opencode-session-id": wire.session,
++      ...(input.parentSessionID ? { "x-opencode-parent-session-id": wire.parent } : {}),
+       ...(input.model.providerID.startsWith("opencode")
+         ? {
+-            ...(opencodeProjectID ? { "x-opencode-project": opencodeProjectID } : {}),
+-            "x-opencode-session": input.sessionID,
+-            "x-opencode-request": input.user.id,
++            ...(wire.project ? { "x-opencode-project": wire.project } : {}),
++            "x-opencode-session": wire.session,
++            "x-opencode-request": wire.message,
+             "x-opencode-client": input.flags.client,
+             "User-Agent": USER_AGENT,
+           }
+         : {
+-            "x-session-affinity": input.sessionID,
+-            "X-Session-Id": input.sessionID,
++            "x-session-affinity": wire.session,
++            "X-Session-Id": wire.session,
+             "User-Agent": USER_AGENT,
+           }),
+-      ...(input.parentSessionID ? { "x-parent-session-id": input.parentSessionID } : {}),
++      ...(input.parentSessionID ? { "x-parent-session-id": wire.parent } : {}),
+       ...input.model.headers,
+       ...headers,
+     },
 diff --git a/packages/opencode/test/provider/header-identity.test.ts b/packages/opencode/test/provider/header-identity.test.ts
 new file mode 100644
 index 0000000..6fbb9b2
@@ -87,3 +177,94 @@ index 0000000..6fbb9b2
 +    ).toEqual(first)
 +  })
 +})
+diff --git a/packages/schema/src/session-status-event.ts b/packages/schema/src/session-status-event.ts
+index eb6331a..cc37804 100644
+--- a/packages/schema/src/session-status-event.ts
++++ b/packages/schema/src/session-status-event.ts
+@@ -35,6 +35,7 @@ export const Info = Schema.Union([
+   }),
+   Schema.Struct({
+     type: Schema.Literal("busy"),
++    keySuffix: optional(Schema.String),
+   }),
+ ]).annotate({ identifier: "SessionStatus" })
+ export type Info = Schema.Schema.Type<typeof Info>
+diff --git a/packages/session-ui/src/components/message-part.tsx b/packages/session-ui/src/components/message-part.tsx
+index d2a00b9..4043f4b 100644
+--- a/packages/session-ui/src/components/message-part.tsx
++++ b/packages/session-ui/src/components/message-part.tsx
+@@ -2157,6 +2157,11 @@ ToolRegistry.register({
+   render(props) {
+     const i18n = useI18n()
+     const fileComponent = useFileComponent()
++    const data = useData()
++    const keySuffix = createMemo(() => {
++      const status = props.sessionID ? data.store.session_status[props.sessionID] : undefined
++      return status?.type === "busy" ? status.keySuffix : undefined
++    })
+     const diagnostics = createMemo(() => getDiagnostics(props.metadata.diagnostics, props.input.filePath))
+     const path = createMemo(() => props.metadata?.filediff?.file || props.input.filePath || "")
+     const filename = () => getFilename(props.input.filePath ?? "")
+@@ -2211,7 +2216,14 @@ ToolRegistry.register({
+               <div data-slot="message-part-title-area">
+                 <div data-slot="message-part-title">
+                   <span data-slot="message-part-title-text">
+-                    <TextShimmer text={i18n.t("ui.messagePart.title.edit")} active={pending()} />
++                    <TextShimmer
++                      text={
++                        keySuffix()
++                          ? `${i18n.t("ui.messagePart.title.edit")} · ${keySuffix()}`
++                          : i18n.t("ui.messagePart.title.edit")
++                      }
++                      active={pending()}
++                    />
+                   </span>
+                   <Show when={!pending()}>
+                     <span data-slot="message-part-title-filename">{filename()}</span>
+@@ -2263,6 +2275,11 @@ ToolRegistry.register({
+   render(props) {
+     const i18n = useI18n()
+     const fileComponent = useFileComponent()
++    const data = useData()
++    const keySuffix = createMemo(() => {
++      const status = props.sessionID ? data.store.session_status[props.sessionID] : undefined
++      return status?.type === "busy" ? status.keySuffix : undefined
++    })
+     const diagnostics = createMemo(() => getDiagnostics(props.metadata.diagnostics, props.input.filePath))
+     const path = createMemo(() => props.input.filePath || "")
+     const filename = () => getFilename(props.input.filePath ?? "")
+@@ -2278,7 +2295,14 @@ ToolRegistry.register({
+               <div data-slot="message-part-title-area">
+                 <div data-slot="message-part-title">
+                   <span data-slot="message-part-title-text">
+-                    <TextShimmer text={i18n.t("ui.messagePart.title.write")} active={pending()} />
++                    <TextShimmer
++                      text={
++                        keySuffix()
++                          ? `${i18n.t("ui.messagePart.title.write")} · ${keySuffix()}`
++                          : i18n.t("ui.messagePart.title.write")
++                      }
++                      active={pending()}
++                    />
+                   </span>
+                   <Show when={!pending()}>
+                     <span data-slot="message-part-title-filename">{filename()}</span>
+diff --git a/packages/session-ui/src/components/session-turn.tsx b/packages/session-ui/src/components/session-turn.tsx
+index ce5f0b5..203e965 100644
+--- a/packages/session-ui/src/components/session-turn.tsx
++++ b/packages/session-ui/src/components/session-turn.tsx
+@@ -421,7 +421,13 @@ export function SessionTurn(
+               </Show>
+               <Show when={showThinking()}>
+                 <div data-slot="session-turn-thinking">
+-                  <TextShimmer text={i18n.t("ui.sessionTurn.status.thinking")} />
++                  <TextShimmer
++                    text={
++                      status().type === "busy" && status().keySuffix
++                        ? `${i18n.t("ui.sessionTurn.status.thinking")} · ${status().keySuffix}`
++                        : i18n.t("ui.sessionTurn.status.thinking")
++                    }
++                  />
+                   <Show when={!showReasoningSummaries()}>
+                     <TextReveal
+                       text={reasoningHeading()}
