@@ -624,7 +624,7 @@ index a455121..26b06a5 100644
              return fetch(requestInput, { ...init, headers })
            },
 diff --git a/packages/opencode/src/provider/provider.ts b/packages/opencode/src/provider/provider.ts
-index 27c2807..5e742cf 100644
+index 42fde1e..d34d601 100644
 --- a/packages/opencode/src/provider/provider.ts
 +++ b/packages/opencode/src/provider/provider.ts
 @@ -13,7 +13,7 @@ import { type LanguageModelV3 } from "@ai-sdk/provider"
@@ -636,7 +636,7 @@ index 27c2807..5e742cf 100644
  import { iife } from "@/util/iife"
  import { Global } from "@opencode-ai/core/global"
  import path from "path"
-@@ -664,7 +664,7 @@ function custom(dep: CustomDep): Record<string, CustomLoader> {
+@@ -663,7 +663,7 @@ function custom(dep: CustomDep): Record<string, CustomLoader> {
        const directory = yield* InstanceState.directory
  
        const aiGatewayHeaders = {
@@ -645,7 +645,7 @@ index 27c2807..5e742cf 100644
          "anthropic-beta": "context-1m-2025-08-07",
          ...providerConfig?.options?.aiGatewayHeaders,
        }
-@@ -797,7 +797,7 @@ function custom(dep: CustomDep): Record<string, CustomLoader> {
+@@ -796,7 +796,7 @@ function custom(dep: CustomDep): Record<string, CustomLoader> {
          options: {
            apiKey,
            headers: {
@@ -654,7 +654,7 @@ index 27c2807..5e742cf 100644
            },
          },
          async getModel(sdk: any, modelID: string) {
-@@ -867,7 +867,7 @@ function custom(dep: CustomDep): Record<string, CustomLoader> {
+@@ -866,7 +866,7 @@ function custom(dep: CustomDep): Record<string, CustomLoader> {
          skipCache: input.options?.skipCache,
          collectLog: input.options?.collectLog,
          headers: {
@@ -664,10 +664,10 @@ index 27c2807..5e742cf 100644
        }
  
 diff --git a/packages/opencode/src/session/llm/request.ts b/packages/opencode/src/session/llm/request.ts
-index 790f9ff..93b150c 100644
+index a945b66..0da2b99 100644
 --- a/packages/opencode/src/session/llm/request.ts
 +++ b/packages/opencode/src/session/llm/request.ts
-@@ -10,13 +10,13 @@ import type { MessageV2 } from "../message-v2"
+@@ -9,13 +9,13 @@ import type { MessageV2 } from "../message-v2"
  import type { Provider } from "@/provider/provider"
  import { ProviderTransform } from "@/provider/transform"
  import { SystemPrompt } from "../system"
