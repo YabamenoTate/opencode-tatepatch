@@ -132,13 +132,28 @@ if exist "%SOURCE_DIR%" rmdir /s /q "%SOURCE_DIR%"
 mkdir "%SOURCE_DIR%"
 
 echo Cloning opencode source at tag %OPENCODE_TAG% ...
-git clone --depth 1 --branch "%OPENCODE_TAG%" https://github.com/anomalyco/opencode.git "%SOURCE_DIR%"
+git clone --depth 1 --branch "%OPENCODE_TAG%" --config core.autocrlf=false --config core.eol=lf https://github.com/anomalyco/opencode.git "%SOURCE_DIR%"
 if %errorlevel% neq 0 (
     echo FAILED: Clone failed. Check that v%VER% tag exists on GitHub.
     exit /b 1
 )
 
 pushd "%SOURCE_DIR%"
+
+REM Normalize patch files to LF: a Windows checkout of this repository may
+REM carry CRLF in patches\*.patch. git apply tolerates CR on normal lines but
+REM NOT on the "\ No newline at end of file" marker, which makes the single
+REM no-trailing-newline hunk (folder-environment.svg) fail with
+REM "patch does not apply". Apply from CR-stripped copies in the work dir.
+set "APPLY_DIR=%WORK_DIR%\patches"
+if exist "%APPLY_DIR%" rmdir /s /q "%APPLY_DIR%"
+mkdir "%APPLY_DIR%"
+powershell -NoProfile -Command "Get-ChildItem -Path '%PATCHES_DIR%' -Filter '*.patch' | ForEach-Object { $t = [IO.File]::ReadAllText($_.FullName).Replace(\"`r`n\", \"`n\"); [IO.File]::WriteAllText((Join-Path '%APPLY_DIR%' $_.Name), $t) }"
+if %errorlevel% neq 0 (
+    echo FAILED: Could not normalize patch files to LF.
+    popd
+    exit /b 1
+)
 
 REM Apply patches, in the order listed in the single PATCH_ORDER definition.
 echo.
@@ -157,9 +172,9 @@ for %%p in (
     version.patch
     key-suffix.patch
 ) do (
-    if exist "!PATCHES_DIR!\%%p" (
+    if exist "!APPLY_DIR!\%%p" (
         echo Applying %%p ...
-        git apply --whitespace=nowarn "!PATCHES_DIR!\%%p" 2>"!WORK_DIR!\apply_err.log"
+        git apply --whitespace=nowarn "!APPLY_DIR!\%%p" 2>"!WORK_DIR!\apply_err.log"
         if !errorlevel! neq 0 (
             echo FAILED: Patch %%p could not be applied. Source has changed.
             type "!WORK_DIR!\apply_err.log"

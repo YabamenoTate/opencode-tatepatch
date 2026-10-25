@@ -205,16 +205,31 @@ do_patch() {
 
   info "Cloning opencode source at tag $OPENCODE_TAG ..."
   git clone --depth 1 --branch "$OPENCODE_TAG" \
+    --config core.autocrlf=false --config core.eol=lf \
     https://github.com/anomalyco/opencode.git "$SOURCE_DIR" 2>&1 | tail -3 || {
     fail "Failed to clone source. Check: $OPENCODE_TAG tag exists on GitHub?"
   }
 
   cd "$SOURCE_DIR"
 
+  # Normalize patch files to LF (a Windows checkout of this repository may
+  # carry CRLF in patches/*.patch; git apply tolerates CR on normal lines but
+  # NOT on the "\ No newline at end of file" marker, which makes the single
+  # no-trailing-newline hunk (folder-environment.svg) fail with
+  # "patch does not apply"). Apply from the normalized copies.
+  APPLY_DIR="$WORK_DIR/patches"
+  rm -rf "$APPLY_DIR"
+  mkdir -p "$APPLY_DIR"
+  for patch_name in "${PATCH_ORDER[@]}"; do
+    if [ -f "$PATCHES_DIR/$patch_name" ]; then
+      tr -d '\r' < "$PATCHES_DIR/$patch_name" > "$APPLY_DIR/$patch_name"
+    fi
+  done
+
   # パッチの適用
   header "Applying patches"
   for patch_name in "${PATCH_ORDER[@]}"; do
-    local patch_file="$PATCHES_DIR/$patch_name"
+    local patch_file="$APPLY_DIR/$patch_name"
     if [ -f "$patch_file" ]; then
       info "Applying $patch_name ..."
       if ! git apply --whitespace=nowarn "$patch_file" 2>"$WORK_DIR/apply_err.log"; then

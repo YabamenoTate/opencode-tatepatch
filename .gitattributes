@@ -1,0 +1,12 @@
+# Keep line endings deterministic across platforms.
+#
+# git apply tolerates CR at the end of ordinary patch lines, but NOT on the
+# "\ No newline at end of file" marker line. A Windows checkout with
+# core.autocrlf=true converts patches/*.patch to CRLF, which then makes the
+# only no-trailing-newline hunk (packages/ui/src/assets/icons/file-types/
+# folder-environment.svg in version.patch) fail with "patch does not apply".
+# Pin the patch files (and the scripts) so they are always checked out with LF.
+*.patch text eol=lf
+*.sh text eol=lf
+VERSION text eol=lf
+*.bat text eol=crlf
