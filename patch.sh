@@ -70,6 +70,7 @@ PATCH_ORDER=(
   "wait-commit.patch"
   "version.patch"
   "key-suffix.patch"
+  "wire-identity.patch"
 )
 
 # インストール先 (opencode のパスを自動検出)
