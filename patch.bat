@@ -153,7 +153,6 @@ for %%p in (
     wait-commit.patch
     version.patch
     key-suffix.patch
-    wire-identity.patch
 ) do (
     if exist "%PATCHES_DIR%\%%p" (
         echo Applying %%p ...
