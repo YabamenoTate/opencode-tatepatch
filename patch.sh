@@ -68,6 +68,8 @@ PATCH_ORDER=(
   "anti-key-stick.patch"
   "shell-background.patch"
   "wait-commit.patch"
+  "version.patch"
+  "key-suffix.patch"
 )
 
 # インストール先 (opencode のパスを自動検出)

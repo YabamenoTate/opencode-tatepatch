@@ -126,21 +126,22 @@ If you want to revert back to the original unmodified binary:
 }
 ```
 
-### Patch Inventory (11 patches)
+### Patch Inventory (12 patches)
 
 | # | Patch | Target | Description |
 |---|-------|--------|-------------|
-| 1 | `version.patch` | Version split | Adds the tatepatch label (CLI `--version`, health, TUI) from `VERSION`, while outbound User-Agents stay clean semver via `InstallationClientVersion` |
-| 2 | `webapp-storage-proxy.patch` | Local persistence | Proxies webapp localStorage requests to server and persists layout config locally |
-| 3 | `auth-pool.patch` | Multi-account pool | Implements auth key pool management (CRUD backend APIs, WebUI connected badge & config page, CLI commands) with auto-rotation on quota or long waits and a no-hard-stop retry policy: offline shows a waiting banner (オンライン復帰を待機しています) in WebUI + CLI and keeps polling, empty provider replies auto-retry after ~2s until a real reply arrives, including localized language keys |
-| 4 | `ctrl-enter-send.patch` | Keyboard input | Rebinds Enter to newline and Ctrl/Cmd+Enter to send, adding UI tray hint with all translations |
-| 5 | `remove-help-button.patch` | Help button | Removes the sidebar help icon linking to an external Discord server |
-| 6 | `remove-share.patch` | Cloud share | Removes the cloud session publishing feature entirely (menus, commands, share button) |
-| 7 | `remove-upsell.patch` | Billing ads | Strips away Go subscription billing promotion banners and error messages |
-| 8 | `trash.patch` | Trash (archive) | Adds the Home trash tray (archive/restore/delete), makes the `archived` timestamp nullable for `archived: null` restore, and adds a trash icon plus all translations |
-| 9 | `anti-key-stick.patch` | Key switch integrity | Makes a switched API key take effect on the **next request, with no restart**, and gives every session its own key that rotates only when that key is actually rate limited (see below) |
-| 10 | `shell-background.patch` | Non-blocking shell | Ends the wait on a silent long-running command without ever cutting short a command that is still making progress (see below) |
-| 11 | `wait-commit.patch` | Wait tool / commit permissions | Adds the `wait` tool (registered in the tool registry), grants the `"wait"` permission to agents, and adjusts shell/commit-related flow so long-running work can be coordinated safely |
+| 1 | `webapp-storage-proxy.patch` | Local persistence | Proxies webapp localStorage requests to server and persists layout config locally |
+| 2 | `auth-pool.patch` | Multi-account pool | Implements auth key pool management (CRUD backend APIs, WebUI connected badge & config page, CLI commands) with auto-rotation on quota or long waits and a no-hard-stop retry policy: offline shows a waiting banner (オンライン復帰を待機しています) in WebUI + CLI and keeps polling, empty provider replies auto-retry after ~2s until a real reply arrives, including localized language keys |
+| 3 | `ctrl-enter-send.patch` | Keyboard input | Rebinds Enter to newline and Ctrl/Cmd+Enter to send, adding UI tray hint with all translations |
+| 4 | `remove-help-button.patch` | Help button | Removes the sidebar help icon linking to an external Discord server |
+| 5 | `remove-share.patch` | Cloud share | Removes the cloud session publishing feature entirely (menus, commands, share button) |
+| 6 | `remove-upsell.patch` | Billing ads | Strips away Go subscription billing promotion banners and error messages |
+| 7 | `trash.patch` | Trash (archive) | Adds the Home trash tray (archive/restore/delete), makes the `archived` timestamp nullable for `archived: null` restore, and adds a trash icon plus all translations |
+| 8 | `anti-key-stick.patch` | Key switch integrity | Makes a switched API key take effect on the **next request, with no restart**, and gives every session its own key that rotates only when that key is actually rate limited (see below) |
+| 9 | `shell-background.patch` | Non-blocking shell | Ends the wait on a silent long-running command without ever cutting short a command that is still making progress (see below) |
+| 10 | `wait-commit.patch` | Wait tool / commit permissions | Adds the `wait` tool (registered in the tool registry), grants the `"wait"` permission to agents, and adjusts shell/commit-related flow so long-running work can be coordinated safely |
+| 11 | `version.patch` | Version split | Adds the tatepatch label (CLI `--version`, health, TUI) from `VERSION`, while outbound User-Agents stay clean semver via `InstallationClientVersion` |
+| 12 | `key-suffix.patch` | Key visibility | Shows the last 4 characters of the API key currently serving a session next to status labels ("Thinking", "Edit", "Write") in the WebUI, and fixes a frozen `options.apiKey` shadowing the rotated key in `resolveSDK` |
 
 #### Why `shell-background.patch` exists
 
@@ -438,21 +439,22 @@ Tate Patchは、中央集権的な依存関係を排し、ローカルとして�
 }
 ```
 
-### パッチ構成一覧（計11個）
+### パッチ構成一覧（計12個）
 
 | # | パッチ名 | 対象 | 説明 |
 |---|---------|------|------|
-| 1 | `version.patch` | バージョン表記 | `VERSION` から取得した tatepatch ラベルを UIに表示しつつ、対外的なUser-Agentは `InstallationClientVersion` によりクリーンなセマンティクスとして識別（表示と送信は分離） |
-| 2 | `webapp-storage-proxy.patch` | 設定のローカル永続化 | localStorageの操作をサーバーへ転送し、レイアウト設定をPC上に保存 |
-| 3 | `auth-pool.patch` | 複数アカウントプール | APIキーのローカルプール管理機能（バックエンドAPI、CLI/WebUI管理画面、Connectedバッジ）、クォータ・長時間待機時の自動ローテーション、およびリトライポリシー、関連言語ラベルを実装 |
-| 4 | `ctrl-enter-send.patch` | キーボード入力 | Enterを改行、Ctrl+Enterを送信にマッピング変更し、入力欄に多言語対応のヒントを追加 |
-| 5 | `remove-help-button.patch` | ヘルプリンク削除 | サイドバー上の外部Discordサーバーへ遷移するヘルプボタンを削除 |
-| 6 | `remove-share.patch` | 共有機能の削除 | セッションのクラウド共有機能（共有ボタン・メニュー・コマンド）を完全に削除 |
-| 7 | `remove-upsell.patch` | 広告・宣伝の排除 | Goサブスクリプションの宣伝バナーや利用制限メッセージを排除 |
-| 8 | `trash.patch` | ゴミ箱（アーカイブ） | ホーム画面にゴミ箱（アーカイブリスト・復元・削除）を追加し、nullableな `archived` タイムスタンプによる復元に対応（ゴミ箱アイコン・多言語ラベルを含む） |
-| 9 | `anti-key-stick.patch` | キー切り替えの整合性 | APIキーを切り替えた次のリクエストから再起動なしで即座に反映（下記参照） |
-| 10 | `shell-background.patch` | ノンブロッキングシェル | 静かな長時間コマンド（サーバ等）の待機をエージェントが間違えて実行して延々と待ち始めたとき、進行中のコマンドを切断せずバックグラウンドに追いやってエージェントに警告しつつ続行 |
-| 11 | `wait-commit.patch` | waitツール / コミット権限 | `wait`ツールを追加（ツールレジストリに登録）、エージェントに `"wait"` 権限を付与し、`shell-background.patch`の影響で長時間コマンドが出来なくなる代わりに、長時間待機は明示的`wait`ツールを使わせる。 |
+| 1 | `webapp-storage-proxy.patch` | 設定のローカル永続化 | localStorageの操作をサーバーへ転送し、レイアウト設定をPC上に保存 |
+| 2 | `auth-pool.patch` | 複数アカウントプール | APIキーのローカルプール管理機能（バックエンドAPI、CLI/WebUI管理画面、Connectedバッジ）、クォータ・長時間待機時の自動ローテーション、およびリトライポリシー、関連言語ラベルを実装 |
+| 3 | `ctrl-enter-send.patch` | キーボード入力 | Enterを改行、Ctrl+Enterを送信にマッピング変更し、入力欄に多言語対応のヒントを追加 |
+| 4 | `remove-help-button.patch` | ヘルプリンク削除 | サイドバー上の外部Discordサーバーへ遷移するヘルプボタンを削除 |
+| 5 | `remove-share.patch` | 共有機能の削除 | セッションのクラウド共有機能（共有ボタン・メニュー・コマンド）を完全に削除 |
+| 6 | `remove-upsell.patch` | 広告・宣伝の排除 | Goサブスクリプションの宣伝バナーや利用制限メッセージを排除 |
+| 7 | `trash.patch` | ゴミ箱（アーカイブ） | ホーム画面にゴミ箱（アーカイブリスト・復元・削除）を追加し、nullableな `archived` タイムスタンプによる復元に対応（ゴミ箱アイコン・多言語ラベルを含む） |
+| 8 | `anti-key-stick.patch` | キー切り替えの整合性 | APIキーを切り替えた次のリクエストから再起動なしで即座に反映（下記参照） |
+| 9 | `shell-background.patch` | ノンブロッキングシェル | 静かな長時間コマンド（サーバ等）の待機をエージェントが間違えて実行して延々と待ち始めたとき、進行中のコマンドを切断せずバックグラウンドに追いやってエージェントに警告しつつ続行 |
+| 10 | `wait-commit.patch` | waitツール / コミット権限 | `wait`ツールを追加（ツールレジストリに登録）、エージェントに `"wait"` 権限を付与し、`shell-background.patch`の影響で長時間コマンドが出来なくなる代わりに、長時間待機は明示的`wait`ツールを使わせる。 |
+| 11 | `version.patch` | バージョン表記 | `VERSION` から取得した tatepatch ラベルを UIに表示しつつ、対外的なUser-Agentは `InstallationClientVersion` によりクリーンなセマンティクスとして識別（表示と送信は分離） |
+| 12 | `key-suffix.patch` | 使用中キーの可視化 | WebUIのステータス表示（"Thinking" / "Edit" / "Write"）の隣に、そのセッションでリクエストに使われているAPIキーの末尾4桁を表示。さらに `resolveSDK` において設定凍結済みの `options.apiKey` がローテーション後のキーを覆い隠す問題を修正 |
 
 #### `anti-key-stick.patch` について
 
